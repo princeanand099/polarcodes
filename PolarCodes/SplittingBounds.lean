@@ -267,6 +267,7 @@ theorem theta0_gt : (5673 : ℝ) / 100000 < theta0 := by
       linarith
     have hu_lo := log_one_add_ge_poly4 (x := (1715728 : ℝ) / 21715728) (by norm_num)
     have hu_hi := log_one_sub_le_poly3 (x := (1715728 : ℝ) / 21715728) (by norm_num) (by norm_num)
+    norm_num at hu_lo hu_hi
     have hlogq0_lb : (-122795 : ℝ) / 100000 < Real.log q0 := by linarith
     have hlogp2_ge : (-122795 : ℝ) / 100000 < Real.log p2 :=
       lt_of_lt_of_le hlogq0_lb (Real.log_le_log (by simp only [q0]; norm_num) (le_of_lt hp2_lo))
@@ -282,24 +283,32 @@ theorem theta0_gt : (5673 : ℝ) / 100000 < theta0 := by
 
 lemma theta0_pos : 0 < theta0 := lt_trans (by norm_num) theta0_gt
 
-lemma theta0_lt_nine_hundredths : theta0 < 9 / 100 := by
+lemma theta0_lt_101 : theta0 < 101 / 1000 := by
   unfold theta0
-  have h1 : h2Inv (1 / 4) ≤ 1 / 16 := by
+  have h1 : h2Inv (1 / 4) ≤ 1 / 20 := by
     rw [h2Inv_le_iff ⟨by norm_num, by norm_num⟩ ⟨by norm_num, by norm_num⟩]
     rw [h2_eq_negMulLog, le_div_iff₀ (Real.log_pos (by norm_num))]
     unfold Real.negMulLog
-    have h16 : Real.log ((1 : ℝ) / 16) = -4 * Real.log 2 := by
-      have : ((1 : ℝ) / 16) = (2 : ℝ) ^ (-4 : ℤ) := by norm_num
-      rw [this, Real.log_zpow]; ring
-    have h1516 : Real.log (1 - (1 : ℝ) / 16) ≤ 0 := Real.log_nonpos (by norm_num) (by norm_num)
-    rw [h16]; nlinarith [Real.log_pos (by norm_num : (1 : ℝ) < 2)]
-  -- `h2 (1 - 2^(-1/2)) ≥ h2 (1/4) > 0.8` (since `h2(1/4) = 1/2 - (3/4) log2(3/4) > 0.81`)
-  have hh2_ge : (8 : ℝ) / 10 < h2 (1 - (2 : ℝ) ^ (-(1 : ℝ) / 2)) := by
+    -- `h2(1/20) = -(1/20) log(1/20) - (19/20) log(19/20) > 1/4 * log 2`
+    -- Since `log(20) > log(16) = 4 log 2` and `-(19/20) log(1 - 1/20) ≥ (19/20) * (1/20)`
+    have hlog20 : 4 * Real.log 2 ≤ Real.log 20 := by
+      have h16 : (4 : ℝ) * Real.log 2 = Real.log 16 := by
+        have : (16 : ℝ) = (2 : ℝ) ^ (4 : ℕ) := by norm_num
+        rw [this, Real.log_pow]; ring
+      rw [h16]; exact Real.log_le_log (by norm_num) (by norm_num)
+    have hlog120 : Real.log ((1 : ℝ) / 20) = -Real.log 20 := by
+      rw [one_div, Real.log_inv]
+    have hlog1920 : Real.log (1 - (1 : ℝ) / 20) ≤ -(1 : ℝ) / 20 := by
+      have := Real.log_le_sub_one_of_pos (show (0 : ℝ) < 1 - 1 / 20 by norm_num)
+      linarith
+    have hl2_hi := Real.log_two_lt_d9
+    rw [hlog120]; nlinarith
+  have hh2_ge : (811 : ℝ) / 1000 < h2 (1 - (2 : ℝ) ^ (-(1 : ℝ) / 2)) := by
     have hmono : h2 (1 / 4) ≤ h2 (1 - (2 : ℝ) ^ (-(1 : ℝ) / 2)) :=
       strictMonoOn_h2.monotoneOn ⟨by norm_num, by norm_num⟩
         ⟨by linarith [two_rpow_neg_half_bounds.2], by linarith [two_rpow_neg_half_bounds.1]⟩
         (by linarith [two_rpow_neg_half_bounds.2])
-    have hq : (8 : ℝ) / 10 < h2 (1 / 4) := by
+    have hq : (811 : ℝ) / 1000 < h2 (1 / 4) := by
       rw [h2_eq_negMulLog, lt_div_iff₀ (Real.log_pos (by norm_num))]
       unfold Real.negMulLog
       have h4 : Real.log ((1 : ℝ) / 4) = -2 * Real.log 2 := by
@@ -315,11 +324,12 @@ lemma theta0_lt_nine_hundredths : theta0 < 9 / 100 := by
     linarith
   have hp1_nn : 0 ≤ h2Inv (1 / 4) := (h2Inv_mem_Icc ⟨by norm_num, by norm_num⟩).1
   have h1mh2_nn : 0 ≤ 1 - h2 (1 - (2 : ℝ) ^ (-(1 : ℝ) / 2)) := by
-    have := h2_le_one ⟨by linarith [two_rpow_neg_half_bounds.2], by linarith [two_rpow_neg_half_bounds.1]⟩
-    linarith
+    have hmem : 1 - (2 : ℝ) ^ (-(1 : ℝ) / 2) ∈ Icc (0 : ℝ) 1 :=
+      ⟨by linarith [two_rpow_neg_half_bounds.2], by linarith [two_rpow_neg_half_bounds.1]⟩
+    linarith [h2_le_one hmem]
   nlinarith
 
-lemma theta0_lt_one : theta0 < 1 := lt_trans theta0_lt_nine_hundredths (by norm_num)
+lemma theta0_lt_one : theta0 < 1 := lt_trans theta0_lt_101 (by norm_num)
 
 lemma theta2_gt_theta0 : theta0 < theta2 := by
   have h2_34 : (168 : ℝ) / 100 < (2 : ℝ) ^ ((3 : ℝ) / 4) := by
@@ -334,14 +344,15 @@ lemma theta2_gt_theta0 : theta0 < theta2 := by
     rw [hpow] at h4; norm_num at h4
   have hlog_12_7 : Real.logb 2 (12 / 7) < 4 / 5 := by
     rw [Real.logb, div_lt_iff₀ (Real.log_pos (by norm_num))]
-    have hpow : 5 * Real.log (12 / 7 : ℝ) < 4 * Real.log 2 := by
+    have hpow : ((5 : ℕ) : ℝ) * Real.log (12 / 7 : ℝ) < ((4 : ℕ) : ℝ) * Real.log 2 := by
       rw [← Real.log_pow, ← Real.log_pow]
       exact Real.log_lt_log (by norm_num) (by norm_num)
+    norm_num at hpow
     linarith
   have hth2 : (102 : ℝ) / 1000 < theta2 := by
     unfold theta2
     nlinarith
-  linarith [theta0_lt_nine_hundredths]
+  linarith [theta0_lt_101]
 
 /-- Numerical bound `Λ₀ < 0.99960` (Eq. 1.9). -/
 theorem Lambda0_lt : Lambda0 < 99960 / 100000 := by
@@ -481,7 +492,6 @@ lemma prop_4_3_region2 {H : ℝ} (hH1 : 3 / 4 ≤ H) (hH2 : H < 1) :
   set p2 : ℝ := 1 - (2 : ℝ) ^ (-δ)
   have hp2_eq : 1 - (2 : ℝ) ^ (H - 1) = p2 := by simp only [p2, δ]; congr 2; ring
   rw [hp2_eq]
-  -- Step 1: `δ / (4 * L) ≤ p1`
   have hp1_lb : δ / (4 * L) ≤ p1 := by
     set t : ℝ := δ / (4 * L)
     have ht0 : 0 < t := by simp only [t]; positivity
@@ -490,11 +500,10 @@ lemma prop_4_3_region2 {H : ℝ} (hH1 : 3 / 4 ≤ H) (hH2 : H < 1) :
     rw [le_h2Inv_iff hδ_mem ⟨le_of_lt ht0, by linarith⟩]
     have hh2t := h2_le_mul_logb_exp_div ht0 (by linarith)
     have hlog_eq : Real.logb 2 (Real.exp 1 / t) = L + Real.logb 2 (4 * Real.exp 1 * L) := by
-      simp only [t, L, Real.logb]
-      have harg : Real.exp 1 / (δ / (4 * L)) = (1 / δ) * (4 * Real.exp 1 * L) := by
-        field_simp [ne_of_gt hδ0, ne_of_gt hL_pos]; ring
-      rw [harg, Real.log_mul (by positivity) (by positivity), add_div]
-    -- Show `log (4 * e * L) / L ≤ log (8 * e) / 2` via antitonicity on `[2, ∞)`
+      have harg : Real.exp 1 / t = (1 / δ) * (4 * Real.exp 1 * L) := by
+        simp only [t]; field_simp [ne_of_gt hδ0, ne_of_gt hL_pos]
+      rw [harg, Real.logb, Real.log_mul (by positivity) (by positivity), add_div]
+      rfl
     have hanti_L : Real.log (4 * Real.exp 1 * L) / L ≤ Real.log (8 * Real.exp 1) / 2 := by
       let g : ℝ → ℝ := fun s ↦ Real.log (4 * Real.exp 1 * s) / s
       have hganti : AntitoneOn g (Ici 2) := by
@@ -540,16 +549,15 @@ lemma prop_4_3_region2 {H : ℝ} (hH1 : 3 / 4 ≤ H) (hH2 : H < 1) :
       have h1 : Real.log (4 * Real.exp 1 * L) / (Real.log 2 * (4 * L)) =
           (Real.log (4 * Real.exp 1 * L) / L) / (4 * Real.log 2) := by ring
       rw [h1, div_lt_iff₀ (by positivity : 0 < 4 * Real.log 2)]
-      linarith
+      linarith [Real.log_pos (by norm_num : (1 : ℝ) < 2)]
     have hmul_le : t * Real.logb 2 (Real.exp 1 / t) ≤ δ := by
       rw [hlog_eq]
       have hcalc : t * (L + Real.logb 2 (4 * Real.exp 1 * L)) =
           δ * (1 / 4 + Real.logb 2 (4 * Real.exp 1 * L) / (4 * L)) := by
-        simp only [t]; field_simp [ne_of_gt hL_pos]; ring
+        simp only [t]; field_simp [ne_of_gt hL_pos]
       rw [hcalc]
       nlinarith
     linarith
-  -- Step 2: `p1 ≤ δ / 2` via concavity of `h2` on `[0, 1/8]`
   have hp1_ub : p1 ≤ δ / 2 := by
     rw [h2Inv_le_iff hδ_mem ⟨by linarith, by linarith⟩]
     have hconc := strictConcaveOn_h2.concaveOn.2
@@ -563,7 +571,6 @@ lemma prop_4_3_region2 {H : ℝ} (hH1 : 3 / 4 ≤ H) (hH2 : H < 1) :
     rw [harg] at hconc
     have hq := h2_one_eighth_gt_quarter
     nlinarith
-  -- Step 3: `q = binConv p1 p2 < (6 / 5) * δ ≤ 3 / 10`
   set q : ℝ := binConv p1 p2
   have hp2_pos : 0 < p2 := by
     simp only [p2]
@@ -574,14 +581,13 @@ lemma prop_4_3_region2 {H : ℝ} (hH1 : 3 / 4 ≤ H) (hH2 : H < 1) :
   have hp1_pos : 0 < p1 := lt_of_lt_of_le (by positivity) hp1_lb
   have hq_gt_p2 : p2 < q := by
     simp only [q, binConv]
-    have : 2 * p2 < 1 := by linarith [Real.log_two_lt_d9]
+    have : 2 * p2 < 1 := by nlinarith [Real.log_two_lt_d9, hp2_le, hδ_hi]
     nlinarith
   have hq_le : q ≤ (6 / 5) * δ := by
     simp only [q, binConv]
     have hl2 := Real.log_two_lt_d9
     nlinarith
   have hq_le_310 : q ≤ 3 / 10 := by linarith
-  -- Step 4: `logb 2 ((1 - q) / q) ≥ (1 - (1/2) logb 2 (12/7)) * L`
   have hlogq_lb : (1 - (1 / 2) * Real.logb 2 (12 / 7)) * L ≤ Real.logb 2 ((1 - q) / q) := by
     have hq_pos : 0 < q := lt_trans hp2_pos hq_gt_p2
     have hrat : 7 / (12 * δ) ≤ (1 - q) / q := by
@@ -599,33 +605,32 @@ lemma prop_4_3_region2 {H : ℝ} (hH1 : 3 / 4 ≤ H) (hH2 : H < 1) :
       rw [Real.logb]
       exact div_nonneg (Real.log_nonneg (by norm_num)) (le_of_lt (Real.log_pos (by norm_num)))
     nlinarith
-  -- Step 5: Concavity of `h2` gives `h2 q - h2 p2 ≥ (q - p2) * h2'(q)`
   have hconc_slope : (q - p2) * Real.logb 2 ((1 - q) / q) ≤ deltaGap δ p2 := by
     unfold deltaGap
     change (q - p2) * Real.logb 2 ((1 - q) / q) ≤ h2 q - h2 p2
-    -- By MVT on `[p2, q]`, `∃ c ∈ (p2, q), h2 q - h2 p2 = h2'(c) * (q - p2)`, and `h2'(c) ≥ h2'(q)`
     have hmvt := exists_hasDerivAt_eq_slope h2 (fun x ↦ Real.logb 2 ((1 - x) / x)) hq_gt_p2
       (continuousOn_h2.mono (fun x hx ↦ ⟨by linarith [hx.1], by linarith [hx.2]⟩))
       (fun x hx ↦ hasDerivAt_h2 (by linarith [hx.1]) (by linarith [hx.2]))
     rcases hmvt with ⟨c, ⟨hc1, hc2⟩, hslope⟩
     have hc_pos : 0 < c := lt_trans hp2_pos hc1
     have hq_pos : 0 < q := lt_trans hc_pos hc2
+    have h1mq_pos : 0 < 1 - q := by linarith
     have hderiv_ge : Real.logb 2 ((1 - q) / q) ≤ Real.logb 2 ((1 - c) / c) := by
       rw [Real.logb, Real.logb]
       apply div_le_div_of_nonneg_right _ (le_of_lt (Real.log_pos (by norm_num)))
-      apply Real.log_le_log (by positivity)
+      apply Real.log_le_log (div_pos h1mq_pos hq_pos)
       rw [div_le_div_iff₀ hq_pos hc_pos]; nlinarith
     have hmul := mul_le_mul_of_nonneg_left hderiv_ge (show 0 ≤ q - p2 by linarith)
     have heq : (q - p2) * Real.logb 2 ((1 - c) / c) = h2 q - h2 p2 := by
       rw [hslope]; field_simp [ne_of_gt (show 0 < q - p2 by linarith)]
     linarith
-  -- Combine `q - p2 = p1 * (1 - 2 p2)`, `1 - 2 p2 = 2^H - 1 ≥ 2^(3/4) - 1`, `p1 ≥ δ / (4L)`
   have hq_sub : q - p2 = p1 * (1 - 2 * p2) := by simp only [q, binConv]; ring
   have h1m2p2 : 1 - 2 * p2 = (2 : ℝ) ^ H - 1 := by
     simp only [p2, δ]
     have h2H : (2 : ℝ) ^ H = 2 * (2 : ℝ) ^ (-(1 - H)) := by
-      rw [show (2 : ℝ) = (2 : ℝ) ^ (1 : ℝ) by norm_num, ← Real.rpow_add (by norm_num : (0 : ℝ) < 2)]
-      congr 1; ring
+      calc (2 : ℝ) ^ H = (2 : ℝ) ^ ((1 : ℝ) + -(1 - H)) := by congr 1; ring
+        _ = (2 : ℝ) ^ (1 : ℝ) * (2 : ℝ) ^ (-(1 - H)) := Real.rpow_add (by norm_num) _ _
+        _ = 2 * (2 : ℝ) ^ (-(1 - H)) := by rw [Real.rpow_one]
     linarith
   have h2H_ge : (2 : ℝ) ^ ((3 : ℝ) / 4) - 1 ≤ 1 - 2 * p2 := by
     rw [h1m2p2]
@@ -648,10 +653,11 @@ lemma prop_4_3_region2 {H : ℝ} (hH1 : 3 / 4 ≤ H) (hH2 : H < 1) :
     rw [hq_sub]
     have hstep1 : (δ / (4 * L)) * ((2 : ℝ) ^ ((3 : ℝ) / 4) - 1) ≤ p1 * (1 - 2 * p2) :=
       mul_le_mul hp1_lb h2H_ge (le_of_lt h2_34_gt1) (le_of_lt hp1_pos)
+    have h1m2p2_nn : 0 ≤ 1 - 2 * p2 := by linarith
     have hstep2 : ((δ / (4 * L)) * ((2 : ℝ) ^ ((3 : ℝ) / 4) - 1)) *
         ((1 - (1 / 2) * Real.logb 2 (12 / 7)) * L) ≤
         (p1 * (1 - 2 * p2)) * Real.logb 2 ((1 - q) / q) :=
-      mul_le_mul hstep1 hlogq_lb (by positivity) (by positivity)
+      mul_le_mul hstep1 hlogq_lb (by positivity) (mul_nonneg (le_of_lt hp1_pos) h1m2p2_nn)
     have hcancel : ((δ / (4 * L)) * ((2 : ℝ) ^ ((3 : ℝ) / 4) - 1)) *
         ((1 - (1 / 2) * Real.logb 2 (12 / 7)) * L) = theta2 * δ := by
       unfold theta2; field_simp [ne_of_gt hL_pos]
