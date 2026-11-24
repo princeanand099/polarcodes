@@ -322,17 +322,16 @@ lemma partialTrace₂Mat_posSemidef {X : Matrix (d₁ × d₂) (d₁ × d₂) �
       · simp only [partialTrace₂Mat, LinearMap.coe_mk, AddHom.coe_mk, dotProduct, Matrix.mulVec,
           Matrix.of_apply, Pi.star_apply]
         simp_rw [Finset.sum_mul, Finset.mul_sum]
+        conv_lhs => arg 2; ext i; rw [Finset.sum_comm]
         rw [Finset.sum_comm]
         apply Finset.sum_congr rfl; intro k _
-        rw [Finset.sum_comm]
         apply Finset.sum_congr rfl; intro i _
-        rw [Finset.sum_comm]
         apply Finset.sum_congr rfl; intro j _
         ring
       · apply Finset.sum_congr rfl; intro k _
         simp only [dotProduct, Matrix.mulVec, Pi.star_apply, Fintype.sum_prod_type]
         apply Finset.sum_congr rfl; intro i _
-        simp only [star_ite, star_zero, ite_mul, zero_mul, Finset.sum_ite_eq', Finset.mem_univ,
+        simp only [apply_ite star, star_zero, ite_mul, zero_mul, Finset.sum_ite_eq', Finset.mem_univ,
           ↓reduceIte]
         congr 1
         apply Finset.sum_congr rfl; intro j _
@@ -395,13 +394,11 @@ lemma finrank_le_negEigCount {A : Matrix d d ℂ} (hA : A.IsHermitian)
     Module.finrank ℂ W ≤ negEigCount hA := by
   set U : Matrix d d ℂ := (hA.eigenvectorUnitary : Matrix d d ℂ)
   let S_pos : Finset d := Finset.univ.filter fun i : d ↦ 0 ≤ hA.eigenvalues i
-  -- Subspace `V_pos` of vectors whose coordinates along `U` vanish outside `S_pos`
   let V_pos : Submodule ℂ (d → ℂ) :=
     { carrier := {x : d → ℂ | ∀ i : d, hA.eigenvalues i < 0 → ((star U).mulVec x) i = 0}
       add_mem' := fun hx hy i hi ↦ by rw [Matrix.mulVec_add, Pi.add_apply, hx i hi, hy i hi, add_zero]
       zero_mem' := fun i _ ↦ by simp
       smul_mem' := fun c x hx i hi ↦ by rw [Matrix.mulVec_smul, Pi.smul_apply, hx i hi, smul_zero] }
-  -- On `V_pos`, `Re ⟨x, A x⟩ ≥ 0`
   have hV_nonneg : ∀ x ∈ V_pos, 0 ≤ (star x ⬝ᵥ A.mulVec x).re := by
     intro x hx
     rw [re_quadForm_spectral hA x]
@@ -409,13 +406,11 @@ lemma finrank_le_negEigCount {A : Matrix d d ℂ} (hA : A.IsHermitian)
     by_cases hlt : hA.eigenvalues i < 0
     · rw [hx i hlt]; simp
     · exact mul_nonneg (le_of_not_gt hlt) (sq_nonneg _)
-  -- Hence `W ⊓ V_pos = ⊥`
   have hinf : W ⊓ V_pos = ⊥ := by
     rw [Submodule.eq_bot_iff]
     intro x ⟨hxW, hxV⟩
     by_contra hne
     linarith [hneg x hxW hne, hV_nonneg x hxV]
-  -- Compute `finrank V_pos = S_pos.card` via the linear equiv `star U`
   let eU : (d → ℂ) ≃ₗ[ℂ] (d → ℂ) :=
     LinearEquiv.ofLinear (Matrix.toLin' (star U)) (Matrix.toLin' U)
       (by ext x i; simp [Matrix.toLin'_apply, Matrix.mulVec_mulVec, Unitary.coe_star_mul_self hA.eigenvectorUnitary])
@@ -455,8 +450,9 @@ lemma finrank_le_negEigCount {A : Matrix d d ℂ} (hA : A.IsHermitian)
     simpa [Module.finrank_pi] using Submodule.finrank_le (W ⊔ V_pos)
   have htot : S_pos.card + negEigCount hA = Fintype.card d := by
     unfold negEigCount
-    have h := Finset.filter_card_add_filter_neg_card_eq_card (s := Finset.univ)
-      (fun i : d ↦ 0 ≤ hA.eigenvalues i)
+    have h : S_pos.card + (Finset.univ.filter fun i : d ↦ ¬ 0 ≤ hA.eigenvalues i).card = Fintype.card d := by
+      rw [← Finset.card_union_of_disjoint (Finset.disjoint_filter.mpr fun _ _ h1 h2 ↦ h2 h1)]
+      congr 1; ext i; simp [em]
     have hneg_eq : (Finset.univ.filter fun i : d ↦ ¬ 0 ≤ hA.eigenvalues i) =
         Finset.univ.filter fun i : d ↦ hA.eigenvalues i < 0 := by
       ext i; simp [not_le]
