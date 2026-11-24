@@ -68,27 +68,22 @@ lemma sqrtMat_isHermitian (ρ : DensityOp d) : ρ.sqrtMat.IsHermitian := by
 
 lemma sqrtMat_mul_self (ρ : DensityOp d) : ρ.sqrtMat * ρ.sqrtMat = ρ.mat := by
   unfold sqrtMat
-  have hU : star (ρ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ) = 1 :=
-    Unitary.coe_star_mul_self ρ.eigUnitary
-  calc (ρ.eigUnitary : Matrix d d ℂ) * Matrix.diagonal (fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ)) *
-        star (ρ.eigUnitary : Matrix d d ℂ) *
-        ((ρ.eigUnitary : Matrix d d ℂ) * Matrix.diagonal (fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ)) *
-        star (ρ.eigUnitary : Matrix d d ℂ))
-      = (ρ.eigUnitary : Matrix d d ℂ) *
-        (Matrix.diagonal (fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ)) *
-          (star (ρ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ)) *
-          Matrix.diagonal (fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ))) *
-        star (ρ.eigUnitary : Matrix d d ℂ) := by simp [Matrix.mul_assoc]
-    _ = (ρ.eigUnitary : Matrix d d ℂ) *
-        Matrix.diagonal (fun i ↦ (ρ.eigvals i : ℂ)) *
-        star (ρ.eigUnitary : Matrix d d ℂ) := by
-          rw [hU, Matrix.mul_one, Matrix.diagonal_mul_diagonal]
-          congr 2; ext i
-          rw [← Complex.ofReal_mul, Real.mul_self_sqrt (ρ.eigvals_nonneg i)]
-    _ = ρ.mat := by
-          have hspec := ρ.isHermitian.spectral_theorem
-          simpa [eigUnitary, eigvals, Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply]
-            using hspec.symm
+  set U : Matrix d d ℂ := (ρ.eigUnitary : Matrix d d ℂ)
+  set D : Matrix d d ℂ := Matrix.diagonal (fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ))
+  have hU : star U * U = 1 := Unitary.coe_star_mul_self ρ.eigUnitary
+  have hD : D * D = Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) := by
+    simp only [D, Matrix.diagonal_mul_diagonal]
+    congr 1; ext i
+    simp only [Function.comp_apply, ← Complex.ofReal_mul, Real.mul_self_sqrt (ρ.eigvals_nonneg i)]
+  have hspec : U * Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) * star U = ρ.mat := by
+    have h := ρ.isHermitian.spectral_theorem
+    simpa [U, eigUnitary, eigvals, Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply]
+      using h.symm
+  calc (U * D * star U) * (U * D * star U)
+      = U * (D * ((star U * U) * D)) * star U := by simp only [Matrix.mul_assoc]
+    _ = U * (D * D) * star U := by rw [hU, Matrix.one_mul]
+    _ = U * Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) * star U := by rw [hD]
+    _ = ρ.mat := hspec
 
 /-- Convex mixture `(1 - p) ρ + p σ` of two density operators for `p ∈ [0, 1]`. -/
 noncomputable def mix (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1) (ρ σ : DensityOp d) : DensityOp d where
@@ -107,12 +102,15 @@ noncomputable def tensor {d₁ d₂ : Type*} [Fintype d₁] [DecidableEq d₁]
     DensityOp (d₁ × d₂) where
   mat := Matrix.kroneckerMap (· * ·) ρ.mat σ.mat
   posSemidef := by
+    have hct : (Matrix.kroneckerMap (· * ·) ρ.sqrtMat σ.sqrtMat)ᴴ =
+        Matrix.kroneckerMap (· * ·) ρ.sqrtMatᴴ σ.sqrtMatᴴ := by
+      ext ⟨i₁, i₂⟩ ⟨j₁, j₂⟩
+      simp [Matrix.conjTranspose_apply, Matrix.kroneckerMap_apply, star_mul, mul_comm]
     have hK : Matrix.kroneckerMap (· * ·) ρ.mat σ.mat =
         (Matrix.kroneckerMap (· * ·) ρ.sqrtMat σ.sqrtMat)ᴴ *
           Matrix.kroneckerMap (· * ·) ρ.sqrtMat σ.sqrtMat := by
-      rw [← Matrix.kroneckerMap_conjTranspose, ρ.sqrtMat_isHermitian.eq,
-        σ.sqrtMat_isHermitian.eq, ← Matrix.mul_kronecker_mul,
-        ρ.sqrtMat_mul_self, σ.sqrtMat_mul_self]
+      rw [hct, ρ.sqrtMat_isHermitian.eq, σ.sqrtMat_isHermitian.eq,
+        ← Matrix.mul_kronecker_mul, ρ.sqrtMat_mul_self, σ.sqrtMat_mul_self]
     rw [hK]
     exact Matrix.posSemidef_conjTranspose_mul_self _
   trace_one := by
