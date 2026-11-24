@@ -42,14 +42,13 @@ theorem relEntropy_partialTrace₂_le {ρ σ : DensityOp (d₁ × d₂)}
           ρ.mat.mulVec (fun p : d₁ × d₂ ↦ if p.2 = k then x p.1 else 0) := by
       trans ∑ k : d₂, ∑ i : d₁, star (x i) * ∑ j : d₁, ρ.mat (i, k) (j, k) * x j
       · simp only [partialTrace₂, dotProduct, Matrix.mulVec, Matrix.of_apply, Pi.star_apply]
-        simp_rw [Finset.sum_mul, Finset.mul_sum]; rw [Finset.sum_comm]
-        apply Finset.sum_congr rfl; intro k _; rw [Finset.sum_comm]
-        apply Finset.sum_congr rfl; intro i _; rw [Finset.sum_comm]
-        apply Finset.sum_congr rfl; intro j _; ring
+        simp_rw [Finset.sum_mul, Finset.mul_sum]
+        conv_lhs => arg 2; ext i; rw [Finset.sum_comm]
+        rw [Finset.sum_comm]
       · apply Finset.sum_congr rfl; intro k _
         simp only [dotProduct, Matrix.mulVec, Pi.star_apply, Fintype.sum_prod_type]
         apply Finset.sum_congr rfl; intro i _
-        simp only [star_ite, star_zero, ite_mul, zero_mul, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
+        simp only [apply_ite star, star_zero, ite_mul, zero_mul, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
         congr 1; apply Finset.sum_congr rfl; intro j _
         simp only [mul_ite, mul_zero, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
     rw [hsum']
@@ -85,14 +84,13 @@ theorem relEntropy_partialTrace₂_le {ρ σ : DensityOp (d₁ × d₂)}
           σ.mat.mulVec (fun p : d₁ × d₂ ↦ if p.2 = k then x p.1 else 0) := by
       trans ∑ k : d₂, ∑ i : d₁, star (x i) * ∑ j : d₁, σ.mat (i, k) (j, k) * x j
       · simp only [partialTrace₂, dotProduct, Matrix.mulVec, Matrix.of_apply, Pi.star_apply]
-        simp_rw [Finset.sum_mul, Finset.mul_sum]; rw [Finset.sum_comm]
-        apply Finset.sum_congr rfl; intro k _; rw [Finset.sum_comm]
-        apply Finset.sum_congr rfl; intro i _; rw [Finset.sum_comm]
-        apply Finset.sum_congr rfl; intro j _; ring
+        simp_rw [Finset.sum_mul, Finset.mul_sum]
+        conv_lhs => arg 2; ext i; rw [Finset.sum_comm]
+        rw [Finset.sum_comm]
       · apply Finset.sum_congr rfl; intro k _
         simp only [dotProduct, Matrix.mulVec, Pi.star_apply, Fintype.sum_prod_type]
         apply Finset.sum_congr rfl; intro i _
-        simp only [star_ite, star_zero, ite_mul, zero_mul, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
+        simp only [apply_ite star, star_zero, ite_mul, zero_mul, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
         congr 1; apply Finset.sum_congr rfl; intro j _
         simp only [mul_ite, mul_zero, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
     rw [hsum']
@@ -152,6 +150,7 @@ lemma qjs_eq_half_relEntropy_midpoint {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef
   have hm_pos : ∀ j : d, 0 < m.eigvals j := hm.eigenvalues_pos
   have hsupp₁ : suppSubset ρ m := fun _ j _ hmj ↦ absurd hmj (ne_of_gt (hm_pos j))
   have hsupp₂ : suppSubset σ m := fun _ j _ hmj ↦ absurd hmj (ne_of_gt (hm_pos j))
+  -- Helper: `∑ i, ∑ j, ‖(U_m† U_τ)_{ji}‖² τ_i log m_j = ∑ j, (U_m† τ U_m)_{jj}.re * log m_j`
   have hcross : ∀ (τ : DensityOp d),
       (∑ i : d, ∑ j : d, ‖(star (m.eigUnitary : Matrix d d ℂ) * (τ.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 *
           (τ.eigvals i * (Real.log (τ.eigvals i) - Real.log (m.eigvals j)))) =
@@ -193,10 +192,12 @@ lemma qjs_eq_half_relEntropy_midpoint {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef
       apply Finset.sum_congr rfl; intro j _
       rw [hdiag j, Finset.sum_mul]
       apply Finset.sum_congr rfl; intro i _; ring
+  -- Nonnegativity of `relEntropy` real parts (from `relEntropy_frenkel_integral` or directly!)
   have hD_nn : ∀ (τ : DensityOp d), τ.mat.PosDef →
       0 ≤ (∑ i : d, ∑ j : d, ‖(star (m.eigUnitary : Matrix d d ℂ) * (τ.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 *
           (τ.eigvals i * (Real.log (τ.eigvals i) - Real.log (m.eigvals j)))) / Real.log 2 := by
     intro τ hτ
+    -- Directly: `x * (log x - log y) ≥ x - y` for `x, y > 0` (Klein's inequality)!
     apply div_nonneg _ (le_of_lt (Real.log_pos (by norm_num)))
     have hklein : ∀ i j : d,
         τ.eigvals i - m.eigvals j ≤ τ.eigvals i * (Real.log (τ.eigvals i) - Real.log (m.eigvals j)) := by
@@ -342,7 +343,9 @@ lemma tendsto_vonNeumannEntropy_mix_maxMixed [Nonempty d] (ρ : DensityOp d) :
       simp only [Matrix.add_apply, Matrix.smul_apply, Matrix.diagonal_apply, Matrix.one_apply,
         Function.comp_apply, lam, smul_eq_mul]
       split_ifs
+
       · push_cast; ring
+
       · simp
     have hcp : τ.mat.charpoly = (Matrix.diagonal (Complex.ofReal ∘ lam)).charpoly := by
       rw [hτ_eq, Matrix.charpoly_mul_comm, ← Matrix.mul_assoc,
@@ -409,6 +412,7 @@ theorem qjs_partialTrace₂_le (ρ σ : DensityOp (d₁ × d₂)) :
   haveI : Nonempty (d₁ × d₂) := hne
   haveI : Nonempty d₁ := ⟨(Classical.arbitrary (d₁ × d₂)).1⟩
   haveI : Nonempty d₂ := ⟨(Classical.arbitrary (d₁ × d₂)).2⟩
+  -- For `ε ∈ (0, 1)`, `ρ_ε = (1-ε)ρ + ε I/(d₁ d₂)` is `PosDef` and `Tr₂(ρ_ε) = (1-ε) Tr₂ ρ + ε I/d₁`!
   have hpt_mix : ∀ (τ : DensityOp (d₁ × d₂)) (ε : ℝ) (h0 : 0 ≤ ε) (h1 : ε ≤ 1),
       (partialTrace₂ (DensityOp.mix ε h0 h1 τ (maxMixedState (d₁ × d₂)))).mat =
         (DensityOp.mix ε h0 h1 (partialTrace₂ τ) (maxMixedState d₁)).mat := by
@@ -512,7 +516,19 @@ lemma qjs_pureState (ψ₀ ψ₁ : d → ℂ)
     (hψ₀ : ∑ k : d, ‖ψ₀ k‖ ^ 2 = 1) (hψ₁ : ∑ k : d, ‖ψ₁ k‖ ^ 2 = 1) :
     qjs (pureState ψ₀ hψ₀) (pureState ψ₁ hψ₁) =
       h2 ((1 - ‖∑ k : d, star (ψ₀ k) * ψ₁ k‖) / 2) := by
+  -- Use `lemma_4_1_gram_dephasing` with trivial 1-dimensional `d₁ = Unit`!
+  let oneOp : DensityOp Unit :=
+    ⟨1, Matrix.PosSemidef.one, by simp [Matrix.trace]⟩
+  have h41 := lemma_4_1_gram_dephasing oneOp oneOp ψ₀ ψ₁ hψ₀ hψ₁
+  -- Actually simpler: direct 2×2 Gram matrix `M = [[1/2, z/2], [z̄/2, 1/2]]` has eigenvalues `(1±f)/2`!
   set f : ℝ := ‖∑ k : d, star (ψ₀ k) * ψ₁ k‖
+  have hf_le : f ≤ 1 := by
+    have h1 : ‖∑ k : d, star (ψ₀ k) * ψ₁ k‖ ≤ ∑ k : d, ‖ψ₀ k‖ * ‖ψ₁ k‖ :=
+      le_trans (norm_sum_le _ _) (by simp [norm_mul])
+    have h2 := Real.sum_mul_le_sqrt_mul_sqrt Finset.univ (fun k ↦ ‖ψ₀ k‖) (fun k ↦ ‖ψ₁ k‖)
+    rw [hψ₀, hψ₁, Real.sqrt_one, mul_one] at h2
+    exact le_trans h1 h2
+  -- First show `S(pureState ψ) = 0` via `M : Matrix d Unit ℂ`
   have hS_pure : ∀ (ψ : d → ℂ) (hψ : ∑ k : d, ‖ψ k‖ ^ 2 = 1), vonNeumannEntropy (pureState ψ hψ) = 0 := by
     intro ψ hψ
     let M : Matrix d Unit ℂ := Matrix.of fun k _ ↦ ψ k
@@ -538,6 +554,8 @@ lemma qjs_pureState (ψ₀ ψ₁ : d → ℂ)
     rw [hsum, h1, zero_div]
   unfold qjs
   rw [hS_pure ψ₀ hψ₀, hS_pure ψ₁ hψ₁, add_zero, zero_div, sub_zero]
+  -- Now `S(midpoint |ψ₀⟩⟨ψ₀| |ψ₁⟩⟨ψ₁|) = S(dephaseState ((1-f)/2) (gramState oneOp oneOp))`
+  -- Compute directly via `A : Matrix d Bool ℂ` with columns `ψ₀ / √2` and `ψ₁ / √2`!
   let A : Matrix d Bool ℂ := Matrix.of fun k b ↦ ((Real.sqrt 2 : ℂ)⁻¹) * if b = false then ψ₀ k else ψ₁ k
   have hsq2' : ((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹) = (1 / 2 : ℂ) := by
     rw [← Complex.ofReal_inv, Complex.star_def, Complex.conj_ofReal, ← Complex.ofReal_mul,
@@ -550,14 +568,11 @@ lemma qjs_pureState (ψ₀ ψ₁ : d → ℂ)
     have hrew : ∀ a b : ℂ,
         (Real.sqrt 2 : ℂ)⁻¹ * a * (star b * star ((Real.sqrt 2 : ℂ)⁻¹)) = (1 / 2 : ℂ) * (a * star b) := by
       intro a b
-      calc _ = ((Real.sqrt 2 : ℂ)⁻¹ * star ((Real.sqrt 2 : ℂ)⁻¹)) * (a * star b) := by ring
+      calc _
+          = ((Real.sqrt 2 : ℂ)⁻¹ * star ((Real.sqrt 2 : ℂ)⁻¹)) * (a * star b) := by ring
         _ = (1 / 2 : ℂ) * (a * star b) := by rw [hsq2']
-    have hrew' : ∀ a b : ℂ,
-        (Real.sqrt 2 : ℂ)⁻¹ * a * (star ((Real.sqrt 2 : ℂ)⁻¹) * star b) = (1 / 2 : ℂ) * (a * star b) := by
-      intro a b
-      calc _ = ((Real.sqrt 2 : ℂ)⁻¹ * star ((Real.sqrt 2 : ℂ)⁻¹)) * (a * star b) := by ring
-        _ = (1 / 2 : ℂ) * (a * star b) := by rw [hsq2']
-    try rw [hrew, hrew]; push_cast; ring
+    rw [hrew, hrew]; push_cast; ring
+  -- `Aᴴ * A` is the 2×2 matrix `[[1/2, z/2], [z̄/2, 1/2]]`, whose charpoly is `(X - (1+f)/2)(X - (1-f)/2)`!
   set z : ℂ := ∑ k : d, star (ψ₀ k) * ψ₁ k
   have hAHA : Aᴴ * A = Matrix.of fun a b : Bool ↦
       if a = b then (1 / 2 : ℂ) else if a = false then (1 / 2 : ℂ) * z else (1 / 2 : ℂ) * star z := by
@@ -571,23 +586,29 @@ lemma qjs_pureState (ψ₀ ψ₁ : d → ℂ)
     simp only [A, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply, star_mul']
     cases a <;> cases b
     · simp only [↓reduceIte]
-      calc _ = (1 / 2 : ℂ) * ∑ k : d, star (ψ₀ k) * ψ₀ k := by
+      calc _
+          = (1 / 2 : ℂ) * ∑ k : d, star (ψ₀ k) * ψ₀ k := by
             rw [Finset.mul_sum]; apply Finset.sum_congr rfl; intro k _
-            calc _ = (star ((Real.sqrt 2 : ℂ)⁻¹) * (Real.sqrt 2 : ℂ)⁻¹) * (star (ψ₀ k) * ψ₀ k) := by ring
+            calc _
+                = (star ((Real.sqrt 2 : ℂ)⁻¹) * (Real.sqrt 2 : ℂ)⁻¹) * (star (ψ₀ k) * ψ₀ k) := by ring
               _ = (1 / 2 : ℂ) * (star (ψ₀ k) * ψ₀ k) := by rw [hsq2]
         _ = 1 / 2 := by rw [hφ ψ₀ hψ₀, mul_one]
     · simp only [Bool.false_eq_true, ↓reduceIte, z]
       rw [Finset.mul_sum]; apply Finset.sum_congr rfl; intro k _
-      calc _ = (star ((Real.sqrt 2 : ℂ)⁻¹) * (Real.sqrt 2 : ℂ)⁻¹) * (star (ψ₀ k) * ψ₁ k) := by ring
+      calc _
+          = (star ((Real.sqrt 2 : ℂ)⁻¹) * (Real.sqrt 2 : ℂ)⁻¹) * (star (ψ₀ k) * ψ₁ k) := by ring
         _ = (1 / 2 : ℂ) * (star (ψ₀ k) * ψ₁ k) := by rw [hsq2]
     · simp only [Bool.true_eq_false, ↓reduceIte, z, star_sum, star_mul', star_star]
       rw [Finset.mul_sum]; apply Finset.sum_congr rfl; intro k _
-      calc _ = (star ((Real.sqrt 2 : ℂ)⁻¹) * (Real.sqrt 2 : ℂ)⁻¹) * (star (ψ₁ k) * ψ₀ k) := by ring
+      calc _
+          = (star ((Real.sqrt 2 : ℂ)⁻¹) * (Real.sqrt 2 : ℂ)⁻¹) * (star (ψ₁ k) * ψ₀ k) := by ring
         _ = (1 / 2 : ℂ) * (ψ₀ k * star (ψ₁ k)) := by rw [hsq2]; ring
     · simp only [↓reduceIte]
-      calc _ = (1 / 2 : ℂ) * ∑ k : d, star (ψ₁ k) * ψ₁ k := by
+      calc _
+          = (1 / 2 : ℂ) * ∑ k : d, star (ψ₁ k) * ψ₁ k := by
             rw [Finset.mul_sum]; apply Finset.sum_congr rfl; intro k _
-            calc _ = (star ((Real.sqrt 2 : ℂ)⁻¹) * (Real.sqrt 2 : ℂ)⁻¹) * (star (ψ₁ k) * ψ₁ k) := by ring
+            calc _
+                = (star ((Real.sqrt 2 : ℂ)⁻¹) * (Real.sqrt 2 : ℂ)⁻¹) * (star (ψ₁ k) * ψ₁ k) := by ring
               _ = (1 / 2 : ℂ) * (star (ψ₁ k) * ψ₁ k) := by rw [hsq2]
         _ = 1 / 2 := by rw [hφ ψ₁ hψ₁, mul_one]
   let lam : Bool → ℝ := fun b ↦ if b = false then (1 - f) / 2 else (1 + f) / 2
@@ -596,7 +617,10 @@ lemma qjs_pureState (ψ₀ ψ₁ : d → ℂ)
   have hcp_AHA : (Aᴴ * A).charpoly = (Matrix.diagonal (Complex.ofReal ∘ lam)).charpoly := by
     rw [charpoly_diagonal_complex, Fintype.prod_bool]
     simp only [lam, Function.comp_apply, ↓reduceIte, Bool.true_eq_false]
-    rw [hAHA, Matrix.charpoly, Matrix.charmatrix, Matrix.det_apply]
+    rw [hAHA, Matrix.charpoly, Matrix.charmatrix]
+    -- 2×2 determinant over `Bool`
+    rw [Matrix.det_apply]
+    -- Simpler: compute directly on `Equiv.Perm Bool` (only 2 elements: `1` and `Equiv.swap false true`)
     have hperm : (Finset.univ : Finset (Equiv.Perm Bool)) = {1, Equiv.swap false true} := by
       ext σ; simp only [Finset.mem_univ, Finset.mem_insert, Finset.mem_singleton, true_iff]
       by_cases h : σ false = false
@@ -698,6 +722,7 @@ lemma sq_div_two_log_two_le_one_sub_h2 {z : ℝ} (hz0 : 0 ≤ z) (hz1 : z ≤ 1)
       rw [sub_nonneg, show (1 / 2 : ℝ) * (Real.log ((1 + x) / (1 - x)) / Real.log 2) =
         (Real.log ((1 + x) / (1 - x)) / 2) / Real.log 2 by ring,
         div_le_div_iff_of_pos_right hlog2]
+      -- `2 x ≤ log ((1 + x) / (1 - x))`
       have h2x : 2 * x ≤ Real.log ((1 + x) / (1 - x)) := by
         let g : ℝ → ℝ := fun s ↦ Real.log ((1 + s) / (1 - s)) - 2 * s
         have hg0 : g 0 = 0 := by simp [g]
