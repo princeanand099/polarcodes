@@ -6,8 +6,6 @@ Authors: Prince Anand
 import Mathlib.Analysis.SpecialFunctions.Log.Base
 import Mathlib.Analysis.SpecialFunctions.Log.Deriv
 import Mathlib.Analysis.SpecialFunctions.Log.NegMulLog
-import Mathlib.Analysis.SpecialFunctions.Trigonometric.Basic
-import Mathlib.Analysis.SpecialFunctions.Trigonometric.Deriv
 import Mathlib.Analysis.Convex.Deriv
 import Mathlib.Topology.Order.IntermediateValue
 
@@ -15,12 +13,13 @@ import Mathlib.Topology.Order.IntermediateValue
 # Binary Entropy, Binary Convolution, and Scalar Convexity
 
 This module defines the scalar information-theoretic functions from Sections 1.2 and 3.1 of the
-manuscript and proves their analytic properties, including **Lemma 3.1** (Perspective-Symmetric
-Scalar Inequality):
+manuscript and proves their analytic properties, including:
 - Binary entropy `h2` and its inverse `h2Inv` on `[0, 1] → [0, 1/2]`
 - Binary convolution `binConv` (`a * b := a(1-b) + (1-a)b`)
 - Classical and conjectured quantum Mrs. Gerber functions `gc`, `gq`, and `deltaGap` (`Δ(u, p)`)
-- The parametric function `φ(c)` from (3.1) and Lemma 3.1 (`lemma_3_1_gx_nonneg`)
+- Wyner–Ziv convexity of `v ↦ gc u v` on `[0, 1]` (`convexOn_gc`)
+- Antitonicity of `p ↦ deltaGap u p` on `[0, 1/2]` (`antitoneOn_deltaGap`)
+- The parametric function `φ(c)` from (3.1) and **Lemma 3.1** (`lemma_3_1_gx_nonneg`)
 -/
 
 open Real Set Filter
@@ -155,7 +154,8 @@ lemma h2_nonneg {p : ℝ} (hp : p ∈ Icc (0 : ℝ) 1) : 0 ≤ h2 p := by
   rw [h2_eq_negMulLog]
   apply div_nonneg _ (le_of_lt (Real.log_pos (by norm_num)))
   have h1 : 0 ≤ Real.negMulLog p := Real.negMulLog_nonneg hp.1 hp.2
-  have h2' : 0 ≤ Real.negMulLog (1 - p) := Real.negMulLog_nonneg (by linarith [hp.2]) (by linarith [hp.1])
+  have h2' : 0 ≤ Real.negMulLog (1 - p) :=
+    Real.negMulLog_nonneg (by linarith [hp.2]) (by linarith [hp.1])
   linarith
 
 lemma continuous_h2 : Continuous h2 := by
@@ -211,9 +211,6 @@ lemma h2_le_one {p : ℝ} (hp : p ∈ Icc (0 : ℝ) 1) : h2 p ≤ 1 := by
       _ = 1 := h2_half
 
 lemma strictConcaveOn_h2 : StrictConcaveOn ℝ (Icc (0 : ℝ) 1) h2 := by
-  have hfun : h2 = fun p : ℝ ↦ (Real.log 2)⁻¹ * (Real.negMulLog p + Real.negMulLog (1 - p)) := by
-    ext p; rw [h2_eq_negMulLog, div_eq_inv_mul]
-  rw [hfun]
   have h1 : StrictConcaveOn ℝ (Icc (0 : ℝ) 1) Real.negMulLog :=
     Real.strictConcaveOn_negMulLog.subset (fun x hx ↦ hx.1) (convex_Icc 0 1)
   have h2' : StrictConcaveOn ℝ (Icc (0 : ℝ) 1) (fun p : ℝ ↦ Real.negMulLog (1 - p)) := by
@@ -224,7 +221,21 @@ lemma strictConcaveOn_h2 : StrictConcaveOn ℝ (Icc (0 : ℝ) 1) h2 := by
     have hneq : 1 - x ≠ 1 - y := by intro h; exact hxy (by linarith)
     have hcomb : 1 - (a * x + b * y) = a * (1 - x) + b * (1 - y) := by nlinarith
     simpa [smul_eq_mul, hcomb] using h1.2 hx' hy' hneq ha hb hab
-  exact (h1.add h2').smul (inv_pos.mpr (Real.log_pos (by norm_num)))
+  have hsum := h1.add h2'
+  refine ⟨convex_Icc 0 1, ?_⟩
+  intro x hx y hy hxy a b ha hb hab
+  simp only [smul_eq_mul, h2_eq_negMulLog]
+  have hpos : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  have hlt := hsum.2 hx hy hxy ha hb hab
+  simp only [Pi.add_apply, smul_eq_mul] at hlt
+  rw [← add_div]
+  have hmul : a * ((Real.negMulLog x + Real.negMulLog (1 - x)) / Real.log 2) +
+      b * ((Real.negMulLog y + Real.negMulLog (1 - y)) / Real.log 2) =
+      (a * (Real.negMulLog x + Real.negMulLog (1 - x)) +
+        b * (Real.negMulLog y + Real.negMulLog (1 - y))) / Real.log 2 := by
+    ring
+  rw [hmul]
+  exact div_lt_div_of_pos_right hlt hpos
 
 /-! ### Properties of `h2Inv` -/
 
@@ -243,8 +254,8 @@ lemma h2Inv_eq_of_h2_eq {p u : ℝ} (hp : p ∈ Icc (0 : ℝ) (1 / 2)) (hpu : h2
     · exact ⟨p, hp, le_of_eq hpu⟩
     · rintro q ⟨hq, hqu⟩
       by_contra hlt
-      push_neg at hlt
-      have := strictMonoOn_h2 hp hq hlt
+      have hlt' : p < q := not_le.mp hlt
+      have := strictMonoOn_h2 hp hq hlt'
       linarith
   · apply le_csSup
     · exact ⟨1 / 2, fun q hq ↦ hq.1.2⟩
@@ -271,8 +282,8 @@ lemma h2Inv_one : h2Inv 1 = 1 / 2 :=
 lemma strictMonoOn_h2Inv : StrictMonoOn h2Inv (Icc 0 1) := by
   intro u hu v hv huv
   by_contra hle
-  push_neg at hle
-  have h1 := strictMonoOn_h2.monotoneOn (h2Inv_mem_Icc hv) (h2Inv_mem_Icc hu) hle
+  have hle' : h2Inv v ≤ h2Inv u := not_lt.mp hle
+  have h1 := strictMonoOn_h2.monotoneOn (h2Inv_mem_Icc hv) (h2Inv_mem_Icc hu) hle'
   rw [h2_h2Inv hv, h2_h2Inv hu] at h1
   linarith
 
@@ -303,12 +314,13 @@ lemma h2Inv_le_iff {u t : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) (ht : t ∈ Icc (0 :
 lemma convexOn_h2Inv : ConvexOn ℝ (Icc (0 : ℝ) 1) h2Inv := by
   refine ⟨convex_Icc 0 1, ?_⟩
   intro u hu v hv a b ha hb hab
+  simp only [smul_eq_mul]
   have hu' := h2Inv_mem_Icc hu
   have hv' := h2Inv_mem_Icc hv
-  have hcomb_uv : a * u + b * v ∈ Icc (0 : ℝ) 1 :=
-    (convex_Icc 0 1) hu hv ha hb hab
-  have hcomb_p : a * h2Inv u + b * h2Inv v ∈ Icc (0 : ℝ) (1 / 2) :=
-    (convex_Icc 0 (1 / 2)) hu' hv' ha hb hab
+  have hcomb_uv : a * u + b * v ∈ Icc (0 : ℝ) 1 := by
+    simpa [smul_eq_mul] using (convex_Icc (0 : ℝ) 1) hu hv ha hb hab
+  have hcomb_p : a * h2Inv u + b * h2Inv v ∈ Icc (0 : ℝ) (1 / 2) := by
+    simpa [smul_eq_mul] using (convex_Icc (0 : ℝ) (1 / 2)) hu' hv' ha hb hab
   rw [h2Inv_le_iff hcomb_uv hcomb_p]
   have hconc := strictConcaveOn_h2.concaveOn.2
     ⟨hu'.1, by linarith [hu'.2]⟩ ⟨hv'.1, by linarith [hv'.2]⟩ ha hb hab
@@ -454,6 +466,8 @@ lemma hasDerivAt_phiParam {x : ℝ} (hx0 : 0 < x) (hx1 : x < 1) :
       ((((1 * (1 - x) - (1 + x) * (-1)) / (1 - x) ^ 2) / ((1 + x) / (1 - x))) / Real.log 2) x :=
     hd_log.div_const (Real.log 2)
   have hprod := hd_half.fun_mul hd_logb
+  have hfun : (fun i : ℝ ↦ i / 2 * Real.logb 2 ((1 + i) / (1 - i))) = phiParam := rfl
+  rw [hfun] at hprod
   convert hprod using 1
   have hsq : 1 - x ^ 2 = (1 - x) * (1 + x) := by ring
   rw [hsq]
@@ -472,32 +486,53 @@ lemma phiParam_deriv_eq_mul {x : ℝ} (hx0 : 0 < x) (hx1 : x < 1) :
     linarith
   have hlog_ne : Real.log ((1 + x) / (1 - x)) ≠ 0 := ne_of_gt hlog_pos
   field_simp [hlog2, h1mx2, hlog_ne]
-  ring
 
-private lemma strictMonoOn_sinh_div : StrictMonoOn (fun v : ℝ ↦ Real.sinh v / v) (Ioi 0) := by
-  have hnum_pos : ∀ v > (0 : ℝ), 0 < v * Real.cosh v - Real.sinh v := by
+private lemma strictMonoOn_sinh_div :
+    StrictMonoOn (fun v : ℝ ↦ ((Real.exp v - Real.exp (-v)) / 2) / v) (Ioi 0) := by
+  let S : ℝ → ℝ := fun t ↦ (Real.exp t - Real.exp (-t)) / 2
+  let C : ℝ → ℝ := fun t ↦ (Real.exp t + Real.exp (-t)) / 2
+  have hdS : ∀ t : ℝ, HasDerivAt S (C t) t := by
+    intro t
+    have h1 := Real.hasDerivAt_exp t
+    have h2 : HasDerivAt (fun s : ℝ ↦ Real.exp (-s)) (Real.exp (-t) * (-1)) t :=
+      (Real.hasDerivAt_exp (-t)).comp t (hasDerivAt_id t).neg
+    convert (h1.fun_sub h2).div_const 2 using 1
+    simp only [C]; ring
+  have hdC : ∀ t : ℝ, HasDerivAt C (S t) t := by
+    intro t
+    have h1 := Real.hasDerivAt_exp t
+    have h2 : HasDerivAt (fun s : ℝ ↦ Real.exp (-s)) (Real.exp (-t) * (-1)) t :=
+      (Real.hasDerivAt_exp (-t)).comp t (hasDerivAt_id t).neg
+    convert (h1.fun_add h2).div_const 2 using 1
+    simp only [S]; ring
+  have hSpos : ∀ t > (0 : ℝ), 0 < S t := by
+    intro t ht
+    simp only [S]
+    have h1 : Real.exp (-t) < Real.exp t := Real.exp_lt_exp.mpr (by linarith)
+    linarith
+  have hnum_pos : ∀ v > (0 : ℝ), 0 < v * C v - S v := by
     intro v hv
-    have hmono : StrictMonoOn (fun t : ℝ ↦ t * Real.cosh t - Real.sinh t) (Ici 0) := by
+    have hmono : StrictMonoOn (fun t : ℝ ↦ t * C t - S t) (Ici 0) := by
       apply strictMonoOn_of_deriv_pos (convex_Ici 0)
-      · exact ((continuous_id.mul Real.continuous_cosh).sub Real.continuous_sinh).continuousOn
+      · exact ((continuous_id.mul (by simp only [C]; fun_prop)).sub
+          (by simp only [S]; fun_prop)).continuousOn
       · intro t ht
         rw [interior_Ici] at ht
-        have hd : HasDerivAt (fun s : ℝ ↦ s * Real.cosh s - Real.sinh s) (t * Real.sinh t) t := by
-          have h1 := (hasDerivAt_id t).fun_mul (Real.hasDerivAt_cosh t)
-          have h2 := Real.hasDerivAt_sinh t
-          convert h1.fun_sub h2 using 1
+        have hd : HasDerivAt (fun s : ℝ ↦ s * C s - S s) (t * S t) t := by
+          have h1 := (hasDerivAt_id t).fun_mul (hdC t)
+          convert h1.fun_sub (hdS t) using 1
           ring
         rw [hd.deriv]
-        exact mul_pos ht (Real.sinh_pos_iff.mpr ht)
-    have h0 := hmono (left_mem_Ici) (le_of_lt hv) hv
-    simpa using h0
+        exact mul_pos ht (hSpos t ht)
+    have h0 := hmono (show (0 : ℝ) ∈ Ici 0 from le_rfl) (le_of_lt hv) hv
+    simpa [S, C] using h0
   apply strictMonoOn_of_deriv_pos (convex_Ioi 0)
-  · exact (Real.continuous_sinh.continuousOn).div continuousOn_id (fun t ht ↦ ne_of_gt ht)
+  · exact ((by simp only [S]; fun_prop : Continuous S).continuousOn).div
+      continuousOn_id (fun t ht ↦ ne_of_gt ht)
   · intro v hv
     rw [interior_Ioi] at hv
-    have hd : HasDerivAt (fun t : ℝ ↦ Real.sinh t / t)
-        ((Real.cosh v * v - Real.sinh v * 1) / v ^ 2) v :=
-      (Real.hasDerivAt_sinh v).fun_div (hasDerivAt_id v) (ne_of_gt hv)
+    have hd : HasDerivAt (fun t : ℝ ↦ S t / t) ((C v * v - S v * 1) / v ^ 2) v :=
+      (hdS v).fun_div (hasDerivAt_id v) (ne_of_gt hv)
     rw [hd.deriv]
     apply div_pos _ (sq_pos_of_pos hv)
     linarith [hnum_pos v hv]
@@ -505,24 +540,24 @@ private lemma strictMonoOn_sinh_div : StrictMonoOn (fun v : ℝ ↦ Real.sinh v 
 lemma strictMonoOn_phiDerivParam : StrictMonoOn phiDerivParam (Ioo 0 1) := by
   intro x hx y hy hxy
   have hrewrite : ∀ z ∈ Ioo (0 : ℝ) 1,
-      phiDerivParam z = 1 + Real.sinh (Real.log ((1 + z) / (1 - z))) /
+      phiDerivParam z = 1 +
+        ((Real.exp (Real.log ((1 + z) / (1 - z))) - Real.exp (-Real.log ((1 + z) / (1 - z)))) / 2) /
         Real.log ((1 + z) / (1 - z)) := by
     intro z hz
     unfold phiDerivParam
     congr 1
     have hpos : 0 < (1 + z) / (1 - z) := div_pos (by linarith [hz.1]) (by linarith [hz.2])
-    have hsinh : Real.sinh (Real.log ((1 + z) / (1 - z))) = 2 * z / (1 - z ^ 2) := by
-      rw [Real.sinh_eq, Real.exp_log hpos, Real.exp_neg, Real.exp_log hpos]
+    have hsinh : (Real.exp (Real.log ((1 + z) / (1 - z))) -
+        Real.exp (-Real.log ((1 + z) / (1 - z)))) / 2 = 2 * z / (1 - z ^ 2) := by
+      rw [Real.exp_log hpos, Real.exp_neg, Real.exp_log hpos]
       have h1mz : 1 - z ≠ 0 := by linarith [hz.2]
       have h1pz : 1 + z ≠ 0 := by linarith [hz.1]
       have hsq : 1 - z ^ 2 = (1 - z) * (1 + z) := by ring
       rw [hsq]
       field_simp [h1mz, h1pz]
       ring
-    rw [hsinh]
-    ring
+    rw [hsinh, div_div]
   rw [hrewrite x hx, hrewrite y hy]
-  apply add_lt_add_left
   have hlog_x : 0 < Real.log ((1 + x) / (1 - x)) := by
     apply Real.log_pos; rw [one_lt_div (by linarith [hx.2])]; linarith [hx.1]
   have hlog_y : 0 < Real.log ((1 + y) / (1 - y)) := by
@@ -530,8 +565,9 @@ lemma strictMonoOn_phiDerivParam : StrictMonoOn phiDerivParam (Ioo 0 1) := by
   have hrat : (1 + x) / (1 - x) < (1 + y) / (1 - y) := by
     rw [div_lt_div_iff₀ (by linarith [hx.2]) (by linarith [hy.2])]
     nlinarith
-  exact strictMonoOn_sinh_div hlog_x hlog_y
+  have hlt := strictMonoOn_sinh_div hlog_x hlog_y
     (Real.log_lt_log (div_pos (by linarith [hx.1]) (by linarith [hx.2])) hrat)
+  linarith
 
 /-- **Lemma 3.1 (Tangent Inequality in Parametric Form)**:
 For every `x ∈ (0, 1)` and `y ∈ [0, 1)`,
@@ -636,8 +672,6 @@ theorem lemma_3_1_gx_nonneg {x t : ℝ} (hx : x ∈ Ioo (0 : ℝ) 1) (ht : 0 < t
     rw [hphi_abs, hc_abs, cParam_eq_logb hy_gt hy_lt]
     unfold gx betaParam phiParam
     rw [htrat, h1py, h1my]
-    have h1 : t / (1 + t) = (2 * t / (1 + t)) / 2 := by ring
-    have h2 : 1 / (1 + t) = (2 / (1 + t)) / 2 := by ring
     have hy_def : y = (t - 1) / (1 + t) := by simp only [y]; ring
     rw [hy_def]
     field_simp [ne_of_gt ht1]
