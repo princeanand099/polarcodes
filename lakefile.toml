@@ -1,0 +1,44 @@
+name = "PolarCodes"
+version = "0.1.0"
+keywords = ["math"]
+defaultTargets = ["PolarCodes"]
+
+[leanOptions]
+pp.unicode.fun = true # pretty-prints `fun a ↦ b`
+relaxedAutoImplicit = false
+maxSynthPendingDepth = 3
+linter.deprecated = false
+linter.unusedVariables = false
+linter.unusedTactic = false
+linter.unusedSimpArgs = false
+linter.style.haveILetI = false
+linter.tacticAnalysis.introMerge = false
+linter.unusedSectionVars = false
+linter.unreachableTactic = false
+linter.unnecessarySeqFocus = false
+linter.unnecessarySimpa = false
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "v4.35.0"
+
+[[require]]
+name = "comparator"
+git = "https://github.com/leanprover/comparator.git"
+rev = "v4.35.0"
+
+[[lean_lib]]
+name = "PolarCodes"
+
+[[lean_lib]]
+name = "ChallengeDefs"
+srcDir = "comparator"
+
+[[lean_lib]]
+name = "Challenge"
+srcDir = "comparator"
+
+[[lean_lib]]
+name = "Solution"
+srcDir = "comparator"
