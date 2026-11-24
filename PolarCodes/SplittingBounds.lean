@@ -36,7 +36,188 @@ noncomputable def Lambda0 : ℝ :=
 noncomputable def theta2 : ℝ :=
   ((2 : ℝ) ^ ((3 : ℝ) / 4) - 1) / 4 * (1 - (1 / 2) * Real.logb 2 (12 / 7))
 
-/-! ### Elementary `log` and `rpow` helper inequalities -/
+/-! ### Elementary `log` Taylor bounds and `rpow` helper inequalities -/
+
+lemma log_one_add_ge_poly4 {x : ℝ} (hx0 : 0 ≤ x) :
+    x - x ^ 2 / 2 + x ^ 3 / 3 - x ^ 4 / 4 ≤ Real.log (1 + x) := by
+  let f : ℝ → ℝ := fun t ↦ Real.log (1 + t) - (t - t ^ 2 / 2 + t ^ 3 / 3 - t ^ 4 / 4)
+  have hf0 : f 0 = 0 := by simp [f]
+  have hmono : MonotoneOn f (Ici 0) := by
+    apply monotoneOn_of_deriv_nonneg (convex_Ici 0)
+    · have hc : ContinuousOn (fun t : ℝ ↦ Real.log (1 + t)) (Ici 0) :=
+        (continuous_const.add continuous_id).continuousOn.log (fun t ht ↦ by linarith [Set.mem_Ici.mp ht])
+      exact hc.sub (by fun_prop : Continuous (fun t : ℝ ↦ t - t ^ 2 / 2 + t ^ 3 / 3 - t ^ 4 / 4)).continuousOn
+    · intro t ht
+      have hpos : 0 < 1 + t := by linarith [Set.mem_Ici.mp (interior_subset ht)]
+      have hd1 : HasDerivAt (fun s : ℝ ↦ Real.log (1 + s)) (1 / (1 + t)) t := by
+        simpa using ((hasDerivAt_const t (1 : ℝ)).fun_add (hasDerivAt_id t)).log (ne_of_gt hpos)
+      have hd2 : HasDerivAt (fun s : ℝ ↦ s - s ^ 2 / 2 + s ^ 3 / 3 - s ^ 4 / 4)
+          (1 - t + t ^ 2 - t ^ 3) t := by
+        have h1 := hasDerivAt_id t
+        have h2 : HasDerivAt (fun s : ℝ ↦ s ^ 2 / 2) t t := by
+          convert (hasDerivAt_pow 2 t).div_const 2 using 1; ring
+        have h3 : HasDerivAt (fun s : ℝ ↦ s ^ 3 / 3) (t ^ 2) t := by
+          convert (hasDerivAt_pow 3 t).div_const 3 using 1; ring
+        have h4 : HasDerivAt (fun s : ℝ ↦ s ^ 4 / 4) (t ^ 3) t := by
+          convert (hasDerivAt_pow 4 t).div_const 4 using 1; ring
+        convert ((h1.fun_sub h2).fun_add h3).fun_sub h4 using 1; ring
+      exact (hd1.fun_sub hd2).differentiableAt.differentiableWithinAt
+    · intro t ht
+      rw [interior_Ici, Set.mem_Ioi] at ht
+      have hpos : 0 < 1 + t := by linarith
+      have hd1 : HasDerivAt (fun s : ℝ ↦ Real.log (1 + s)) (1 / (1 + t)) t := by
+        simpa using ((hasDerivAt_const t (1 : ℝ)).fun_add (hasDerivAt_id t)).log (ne_of_gt hpos)
+      have hd2 : HasDerivAt (fun s : ℝ ↦ s - s ^ 2 / 2 + s ^ 3 / 3 - s ^ 4 / 4)
+          (1 - t + t ^ 2 - t ^ 3) t := by
+        have h1 := hasDerivAt_id t
+        have h2 : HasDerivAt (fun s : ℝ ↦ s ^ 2 / 2) t t := by
+          convert (hasDerivAt_pow 2 t).div_const 2 using 1; ring
+        have h3 : HasDerivAt (fun s : ℝ ↦ s ^ 3 / 3) (t ^ 2) t := by
+          convert (hasDerivAt_pow 3 t).div_const 3 using 1; ring
+        have h4 : HasDerivAt (fun s : ℝ ↦ s ^ 4 / 4) (t ^ 3) t := by
+          convert (hasDerivAt_pow 4 t).div_const 4 using 1; ring
+        convert ((h1.fun_sub h2).fun_add h3).fun_sub h4 using 1; ring
+      rw [(hd1.fun_sub hd2).deriv]
+      have hid : 1 / (1 + t) - (1 - t + t ^ 2 - t ^ 3) = t ^ 4 / (1 + t) := by
+        field_simp [ne_of_gt hpos]; ring
+      rw [hid]; positivity
+  have h := hmono (Set.mem_Ici.mpr le_rfl) (Set.mem_Ici.mpr hx0) hx0
+  simp only [f] at h hf0; linarith
+
+lemma log_one_add_le_poly3 {x : ℝ} (hx0 : 0 ≤ x) :
+    Real.log (1 + x) ≤ x - x ^ 2 / 2 + x ^ 3 / 3 := by
+  let f : ℝ → ℝ := fun t ↦ Real.log (1 + t) - (t - t ^ 2 / 2 + t ^ 3 / 3)
+  have hf0 : f 0 = 0 := by simp [f]
+  have hanti : AntitoneOn f (Ici 0) := by
+    apply antitoneOn_of_deriv_nonpos (convex_Ici 0)
+    · have hc : ContinuousOn (fun t : ℝ ↦ Real.log (1 + t)) (Ici 0) :=
+        (continuous_const.add continuous_id).continuousOn.log (fun t ht ↦ by linarith [Set.mem_Ici.mp ht])
+      exact hc.sub (by fun_prop : Continuous (fun t : ℝ ↦ t - t ^ 2 / 2 + t ^ 3 / 3)).continuousOn
+    · intro t ht
+      have hpos : 0 < 1 + t := by linarith [Set.mem_Ici.mp (interior_subset ht)]
+      have hd1 : HasDerivAt (fun s : ℝ ↦ Real.log (1 + s)) (1 / (1 + t)) t := by
+        simpa using ((hasDerivAt_const t (1 : ℝ)).fun_add (hasDerivAt_id t)).log (ne_of_gt hpos)
+      have hd2 : HasDerivAt (fun s : ℝ ↦ s - s ^ 2 / 2 + s ^ 3 / 3) (1 - t + t ^ 2) t := by
+        have h1 := hasDerivAt_id t
+        have h2 : HasDerivAt (fun s : ℝ ↦ s ^ 2 / 2) t t := by
+          convert (hasDerivAt_pow 2 t).div_const 2 using 1; ring
+        have h3 : HasDerivAt (fun s : ℝ ↦ s ^ 3 / 3) (t ^ 2) t := by
+          convert (hasDerivAt_pow 3 t).div_const 3 using 1; ring
+        convert (h1.fun_sub h2).fun_add h3 using 1; ring
+      exact (hd1.fun_sub hd2).differentiableAt.differentiableWithinAt
+    · intro t ht
+      rw [interior_Ici, Set.mem_Ioi] at ht
+      have hpos : 0 < 1 + t := by linarith
+      have hd1 : HasDerivAt (fun s : ℝ ↦ Real.log (1 + s)) (1 / (1 + t)) t := by
+        simpa using ((hasDerivAt_const t (1 : ℝ)).fun_add (hasDerivAt_id t)).log (ne_of_gt hpos)
+      have hd2 : HasDerivAt (fun s : ℝ ↦ s - s ^ 2 / 2 + s ^ 3 / 3) (1 - t + t ^ 2) t := by
+        have h1 := hasDerivAt_id t
+        have h2 : HasDerivAt (fun s : ℝ ↦ s ^ 2 / 2) t t := by
+          convert (hasDerivAt_pow 2 t).div_const 2 using 1; ring
+        have h3 : HasDerivAt (fun s : ℝ ↦ s ^ 3 / 3) (t ^ 2) t := by
+          convert (hasDerivAt_pow 3 t).div_const 3 using 1; ring
+        convert (h1.fun_sub h2).fun_add h3 using 1; ring
+      rw [(hd1.fun_sub hd2).deriv]
+      have hid : 1 / (1 + t) - (1 - t + t ^ 2) = -(t ^ 3 / (1 + t)) := by
+        field_simp [ne_of_gt hpos]; ring
+      rw [hid]; linarith [show 0 ≤ t ^ 3 / (1 + t) by positivity]
+  have h := hanti (Set.mem_Ici.mpr le_rfl) (Set.mem_Ici.mpr hx0) hx0
+  simp only [f] at h hf0; linarith
+
+lemma log_one_sub_le_poly3 {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x < 1) :
+    Real.log (1 - x) ≤ -x - x ^ 2 / 2 - x ^ 3 / 3 := by
+  let f : ℝ → ℝ := fun t ↦ Real.log (1 - t) - (-t - t ^ 2 / 2 - t ^ 3 / 3)
+  have hf0 : f 0 = 0 := by simp [f]
+  have hanti : AntitoneOn f (Ico 0 1) := by
+    apply antitoneOn_of_deriv_nonpos (convex_Ico 0 1)
+    · have hc : ContinuousOn (fun t : ℝ ↦ Real.log (1 - t)) (Ico 0 1) :=
+        (continuous_const.sub continuous_id).continuousOn.log (fun t ht ↦ by linarith [ht.2])
+      exact hc.sub (by fun_prop : Continuous (fun t : ℝ ↦ -t - t ^ 2 / 2 - t ^ 3 / 3)).continuousOn
+    · intro t ht
+      rw [interior_Ico] at ht
+      have hpos : 0 < 1 - t := by linarith [ht.2]
+      have hd1 : HasDerivAt (fun s : ℝ ↦ Real.log (1 - s)) (-1 / (1 - t)) t := by
+        simpa using ((hasDerivAt_const t (1 : ℝ)).fun_sub (hasDerivAt_id t)).log (ne_of_gt hpos)
+      have hd2 : HasDerivAt (fun s : ℝ ↦ -s - s ^ 2 / 2 - s ^ 3 / 3) (-1 - t - t ^ 2) t := by
+        have h1 := (hasDerivAt_id t).neg
+        have h2 : HasDerivAt (fun s : ℝ ↦ s ^ 2 / 2) t t := by
+          convert (hasDerivAt_pow 2 t).div_const 2 using 1; ring
+        have h3 : HasDerivAt (fun s : ℝ ↦ s ^ 3 / 3) (t ^ 2) t := by
+          convert (hasDerivAt_pow 3 t).div_const 3 using 1; ring
+        convert (h1.fun_sub h2).fun_sub h3 using 1; ring
+      exact (hd1.fun_sub hd2).differentiableAt.differentiableWithinAt
+    · intro t ht
+      rw [interior_Ico] at ht
+      have hpos : 0 < 1 - t := by linarith [ht.2]
+      have hd1 : HasDerivAt (fun s : ℝ ↦ Real.log (1 - s)) (-1 / (1 - t)) t := by
+        simpa using ((hasDerivAt_const t (1 : ℝ)).fun_sub (hasDerivAt_id t)).log (ne_of_gt hpos)
+      have hd2 : HasDerivAt (fun s : ℝ ↦ -s - s ^ 2 / 2 - s ^ 3 / 3) (-1 - t - t ^ 2) t := by
+        have h1 := (hasDerivAt_id t).neg
+        have h2 : HasDerivAt (fun s : ℝ ↦ s ^ 2 / 2) t t := by
+          convert (hasDerivAt_pow 2 t).div_const 2 using 1; ring
+        have h3 : HasDerivAt (fun s : ℝ ↦ s ^ 3 / 3) (t ^ 2) t := by
+          convert (hasDerivAt_pow 3 t).div_const 3 using 1; ring
+        convert (h1.fun_sub h2).fun_sub h3 using 1; ring
+      rw [(hd1.fun_sub hd2).deriv]
+      have hid : -1 / (1 - t) - (-1 - t - t ^ 2) = -(t ^ 3 / (1 - t)) := by
+        field_simp [ne_of_gt hpos]; ring
+      rw [hid]; linarith [show 0 ≤ t ^ 3 / (1 - t) by positivity]
+  have h := hanti ⟨le_rfl, by norm_num⟩ ⟨hx0, hx1⟩ hx0
+  simp only [f] at h hf0; linarith
+
+lemma log_one_sub_ge_poly4 {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x < 1) :
+    -x - x ^ 2 / 2 - x ^ 3 / 3 - x ^ 4 / (4 * (1 - x)) ≤ Real.log (1 - x) := by
+  let f : ℝ → ℝ := fun t ↦ Real.log (1 - t) - (-t - t ^ 2 / 2 - t ^ 3 / 3 - t ^ 4 / (4 * (1 - x)))
+  have hf0 : f 0 = 0 := by simp [f]
+  have hmono : MonotoneOn f (Icc 0 x) := by
+    apply monotoneOn_of_deriv_nonneg (convex_Icc 0 x)
+    · have hc : ContinuousOn (fun t : ℝ ↦ Real.log (1 - t)) (Icc 0 x) :=
+        (continuous_const.sub continuous_id).continuousOn.log (fun t ht ↦ by linarith [ht.2])
+      exact hc.sub (by fun_prop : Continuous (fun t : ℝ ↦ -t - t ^ 2 / 2 - t ^ 3 / 3 - t ^ 4 / (4 * (1 - x)))).continuousOn
+    · intro t ht
+      rw [interior_Icc] at ht
+      have hpos : 0 < 1 - t := by linarith [ht.2]
+      have hd1 : HasDerivAt (fun s : ℝ ↦ Real.log (1 - s)) (-1 / (1 - t)) t := by
+        simpa using ((hasDerivAt_const t (1 : ℝ)).fun_sub (hasDerivAt_id t)).log (ne_of_gt hpos)
+      have hd2 : HasDerivAt (fun s : ℝ ↦ -s - s ^ 2 / 2 - s ^ 3 / 3 - s ^ 4 / (4 * (1 - x)))
+          (-1 - t - t ^ 2 - t ^ 3 / (1 - x)) t := by
+        have h1 := (hasDerivAt_id t).neg
+        have h2 : HasDerivAt (fun s : ℝ ↦ s ^ 2 / 2) t t := by
+          convert (hasDerivAt_pow 2 t).div_const 2 using 1; ring
+        have h3 : HasDerivAt (fun s : ℝ ↦ s ^ 3 / 3) (t ^ 2) t := by
+          convert (hasDerivAt_pow 3 t).div_const 3 using 1; ring
+        have h4 : HasDerivAt (fun s : ℝ ↦ s ^ 4 / (4 * (1 - x))) (t ^ 3 / (1 - x)) t := by
+          convert (hasDerivAt_pow 4 t).div_const (4 * (1 - x)) using 1
+          field_simp [ne_of_gt (by linarith : 0 < 1 - x)]; ring
+        convert ((h1.fun_sub h2).fun_sub h3).fun_sub h4 using 1; ring
+      exact (hd1.fun_sub hd2).differentiableAt.differentiableWithinAt
+    · intro t ht
+      rw [interior_Icc] at ht
+      have hpos : 0 < 1 - t := by linarith [ht.2]
+      have hposx : 0 < 1 - x := by linarith
+      have hd1 : HasDerivAt (fun s : ℝ ↦ Real.log (1 - s)) (-1 / (1 - t)) t := by
+        simpa using ((hasDerivAt_const t (1 : ℝ)).fun_sub (hasDerivAt_id t)).log (ne_of_gt hpos)
+      have hd2 : HasDerivAt (fun s : ℝ ↦ -s - s ^ 2 / 2 - s ^ 3 / 3 - s ^ 4 / (4 * (1 - x)))
+          (-1 - t - t ^ 2 - t ^ 3 / (1 - x)) t := by
+        have h1 := (hasDerivAt_id t).neg
+        have h2 : HasDerivAt (fun s : ℝ ↦ s ^ 2 / 2) t t := by
+          convert (hasDerivAt_pow 2 t).div_const 2 using 1; ring
+        have h3 : HasDerivAt (fun s : ℝ ↦ s ^ 3 / 3) (t ^ 2) t := by
+          convert (hasDerivAt_pow 3 t).div_const 3 using 1; ring
+        have h4 : HasDerivAt (fun s : ℝ ↦ s ^ 4 / (4 * (1 - x))) (t ^ 3 / (1 - x)) t := by
+          convert (hasDerivAt_pow 4 t).div_const (4 * (1 - x)) using 1
+          field_simp [ne_of_gt hposx]; ring
+        convert ((h1.fun_sub h2).fun_sub h3).fun_sub h4 using 1; ring
+      rw [(hd1.fun_sub hd2).deriv]
+      have hid : -1 / (1 - t) - (-1 - t - t ^ 2 - t ^ 3 / (1 - x)) =
+          t ^ 3 * (x - t) / ((1 - t) * (1 - x)) := by
+        field_simp [ne_of_gt hpos, ne_of_gt hposx]; ring
+      rw [hid]
+      have hxt : 0 ≤ x - t := by linarith [ht.2]
+      have ht3 : 0 ≤ t ^ 3 := by positivity
+      positivity
+  have h := hmono ⟨le_rfl, hx0⟩ ⟨hx0, le_rfl⟩ hx0
+  simp only [f] at h hf0; linarith
 
 lemma neg_one_sub_mul_log_one_sub_le {t : ℝ} (ht0 : 0 ≤ t) (ht1 : t < 1) :
     -(1 - t) * Real.log (1 - t) ≤ t := by
@@ -68,27 +249,123 @@ lemma one_sub_two_rpow_neg_le {δ : ℝ} :
   linarith
 
 lemma two_rpow_neg_half_bounds :
-    (7071 : ℝ) / 10000 < (2 : ℝ) ^ (-(1 : ℝ) / 2) ∧ (2 : ℝ) ^ (-(1 : ℝ) / 2) < 7072 / 10000 := by
+    (7071067 : ℝ) / 10000000 < (2 : ℝ) ^ (-(1 : ℝ) / 2) ∧
+      (2 : ℝ) ^ (-(1 : ℝ) / 2) < 7071068 / 10000000 := by
   have hsq : ((2 : ℝ) ^ (-(1 : ℝ) / 2)) ^ 2 = 1 / 2 := by
     rw [← Real.rpow_natCast, ← Real.rpow_mul (by norm_num : (0 : ℝ) ≤ 2)]
     norm_num
   have hpos : 0 < (2 : ℝ) ^ (-(1 : ℝ) / 2) := Real.rpow_pos_of_pos (by norm_num) _
   constructor <;> nlinarith
 
-lemma theta0_pos : 0 < theta0 := by
+lemma log_three_bounds :
+    (1098610 : ℝ) / 1000000 < Real.log 3 ∧ Real.log 3 < 1098614 / 1000000 := by
+  have h98 : Real.log ((9 : ℝ) / 8) = Real.log (1 + 1 / 17) - Real.log (1 - 1 / 17) := by
+    rw [← Real.log_div (by norm_num) (by norm_num)]
+    congr 1; norm_num
+  have hrel : 2 * Real.log 3 = 3 * Real.log 2 + Real.log ((9 : ℝ) / 8) := by
+    rw [Real.log_div (by norm_num) (by norm_num)]
+    have h9 : Real.log (9 : ℝ) = 2 * Real.log 3 := by
+      have : (9 : ℝ) = (3 : ℝ) ^ (2 : ℕ) := by norm_num
+      rw [this, Real.log_pow]; ring
+    have h8 : Real.log (8 : ℝ) = 3 * Real.log 2 := by
+      have : (8 : ℝ) = (2 : ℝ) ^ (3 : ℕ) := by norm_num
+      rw [this, Real.log_pow]; ring
+    linarith
+  have h1 := log_one_add_ge_poly4 (x := (1 : ℝ) / 17) (by norm_num)
+  have h2 := log_one_add_le_poly3 (x := (1 : ℝ) / 17) (by norm_num)
+  have h3 := log_one_sub_le_poly3 (x := (1 : ℝ) / 17) (by norm_num) (by norm_num)
+  have h4 := log_one_sub_ge_poly4 (x := (1 : ℝ) / 17) (by norm_num) (by norm_num)
+  have hl2_lo := Real.log_two_gt_d9
+  have hl2_hi := Real.log_two_lt_d9
+  constructor <;> linarith
+
+/-- Numerical bound `θ₀ > 0.05673` (Eq. 1.7). -/
+theorem theta0_gt : (5673 : ℝ) / 100000 < theta0 := by
+  have hl2_lo := Real.log_two_gt_d9
+  have hl2_hi := Real.log_two_lt_d9
+  have ⟨hl3_lo, hl3_hi⟩ := log_three_bounds
+  -- Step 1: `41692 / 1000000 ≤ h2Inv (1/4)` via `h2 (41692 / 1000000) < 1/4`
+  have hp1 : (41692 : ℝ) / 1000000 ≤ h2Inv (1 / 4) := by
+    rw [le_h2Inv_iff ⟨by norm_num, by norm_num⟩ ⟨by norm_num, by norm_num⟩]
+    set p : ℝ := 41692 / 1000000
+    have hp_eq : p = (1 + 608 / 1000000) / (2 ^ 3 * 3) := by simp only [p]; norm_num
+    have hlogp : Real.log p = Real.log (1 + 608 / 1000000) - 3 * Real.log 2 - Real.log 3 := by
+      rw [hp_eq, Real.log_div (by norm_num) (by norm_num), Real.log_mul (by norm_num) (by norm_num),
+        Real.log_pow]; ring
+    have hlogp_lb := log_one_add_ge_poly4 (x := (608 : ℝ) / 1000000) (by norm_num)
+    have hlog1mp_lb := log_one_sub_ge_poly4 (x := p) (by simp only [p]; norm_num) (by simp only [p]; norm_num)
+    rw [h2_eq_negMulLog, div_le_iff₀ (by linarith : 0 < Real.log 2)]
+    unfold Real.negMulLog
+    have hp_val : p = 41692 / 1000000 := rfl
+    nlinarith [hlogp, hlogp_lb, hlog1mp_lb, hl2_lo, hl2_hi, hl3_hi, hp_val]
+  -- Step 2: `h2 (1 - 2^(-1/2)) < 872435 / 1000000`
+  have hh2p2 : h2 (1 - (2 : ℝ) ^ (-(1 : ℝ) / 2)) < 872435 / 1000000 := by
+    set p2 : ℝ := 1 - (2 : ℝ) ^ (-(1 : ℝ) / 2)
+    have ⟨hlo, hhi⟩ := two_rpow_neg_half_bounds
+    have hp2_lo : (2928932 : ℝ) / 10000000 < p2 := by simp only [p2]; linarith
+    have hp2_hi : p2 < 2928933 / 10000000 := by simp only [p2]; linarith
+    have h1mp2 : 1 - p2 = (2 : ℝ) ^ (-(1 : ℝ) / 2) := by simp only [p2]; ring
+    have hlog1mp2 : Real.log (1 - p2) = -(1 / 2) * Real.log 2 := by
+      rw [h1mp2, Real.log_rpow (by norm_num : (0 : ℝ) < 2)]; ring
+    -- Bound `Real.log p2 ≥ Real.log (2928932 / 10000000)` via `4 * (2928932/10000000) = (1+u)/(1-u)`
+    set q0 : ℝ := 2928932 / 10000000
+    set u : ℝ := (4 * q0 - 1) / (4 * q0 + 1)
+    have h4q0 : 4 * q0 = (1 + u) / (1 - u) := by simp only [q0, u]; norm_num
+    have hlog4q0 : Real.log (4 * q0) = Real.log (1 + u) - Real.log (1 - u) := by
+      rw [h4q0, Real.log_div (by simp only [u, q0]; norm_num) (by simp only [u, q0]; norm_num)]
+    have hlogq0 : Real.log q0 = Real.log (4 * q0) - 2 * Real.log 2 := by
+      rw [Real.log_mul (by norm_num) (by simp only [q0]; norm_num)]
+      have h4 : Real.log (4 : ℝ) = 2 * Real.log 2 := by
+        have : (4 : ℝ) = (2 : ℝ) ^ (2 : ℕ) := by norm_num
+        rw [this, Real.log_pow]; ring
+      linarith
+    have hu_lo := log_one_add_ge_poly4 (x := u) (by simp only [u, q0]; norm_num)
+    have hu_hi := log_one_sub_le_poly3 (x := u) (by simp only [u, q0]; norm_num) (by simp only [u, q0]; norm_num)
+    have hlogp2_ge : Real.log q0 ≤ Real.log p2 :=
+      Real.log_le_log (by simp only [q0]; norm_num) (le_of_lt hp2_lo)
+    rw [h2_eq_negMulLog, div_lt_iff₀ (by linarith : 0 < Real.log 2)]
+    unfold Real.negMulLog
+    have hq0_val : q0 = 2928932 / 10000000 := rfl
+    have hu_val : u = (4 * q0 - 1) / (4 * q0 + 1) := rfl
+    have hlogq0_lb : (-122795 : ℝ) / 100000 < Real.log q0 := by
+      have hu_num : u = 1715728 / 21715728 := by simp only [u, q0]; norm_num
+      rw [hu_num] at hu_lo hu_hi
+      linarith
+    nlinarith [hlog1mp2, hlogp2_ge, hlogq0_lb, hp2_lo, hp2_hi, hl2_lo, hl2_hi]
   unfold theta0
-  have h1 : 0 < h2Inv (1 / 4) := by
-    rw [← h2Inv_zero]
-    exact strictMonoOn_h2Inv ⟨le_rfl, by norm_num⟩ ⟨by norm_num, by norm_num⟩ (by norm_num)
-  have hp2 : 1 - (2 : ℝ) ^ (-(1 : ℝ) / 2) ∈ Ico (0 : ℝ) (1 / 2) := by
-    have ⟨hl, hu⟩ := two_rpow_neg_half_bounds
-    exact ⟨by linarith, by linarith⟩
-  have h2lt : h2 (1 - (2 : ℝ) ^ (-(1 : ℝ) / 2)) < 1 := by
-    calc h2 (1 - (2 : ℝ) ^ (-(1 : ℝ) / 2))
-        < h2 (1 / 2) := strictMonoOn_h2 ⟨hp2.1, le_of_lt hp2.2⟩ ⟨by norm_num, le_rfl⟩ hp2.2
-      _ = 1 := h2_half
-  have h2pos : 0 < 1 - h2 (1 - (2 : ℝ) ^ (-(1 : ℝ) / 2)) := by linarith
-  positivity
+  nlinarith
+
+lemma theta0_pos : 0 < theta0 := lt_trans (by norm_num) theta0_gt
+
+lemma theta0_lt_one : theta0 < 1 := by
+  unfold theta0
+  have h1 : h2Inv (1 / 4) ≤ 1 / 16 := by
+    rw [h2Inv_le_iff ⟨by norm_num, by norm_num⟩ ⟨by norm_num, by norm_num⟩]
+    rw [h2_eq_negMulLog, le_div_iff₀ (Real.log_pos (by norm_num))]
+    unfold Real.negMulLog
+    have h16 : Real.log ((1 : ℝ) / 16) = -4 * Real.log 2 := by
+      have : ((1 : ℝ) / 16) = (2 : ℝ) ^ (-4 : ℤ) := by norm_num
+      rw [this, Real.log_zpow]; ring
+    have h1516 : Real.log (1 - (1 : ℝ) / 16) ≤ 0 := Real.log_nonpos (by norm_num) (by norm_num)
+    rw [h16]; nlinarith [Real.log_pos (by norm_num : (1 : ℝ) < 2)]
+  have h2_ge : 0 ≤ h2 (1 - (2 : ℝ) ^ (-(1 : ℝ) / 2)) :=
+    h2_nonneg ⟨by linarith [two_rpow_neg_half_bounds.2], by linarith [two_rpow_neg_half_bounds.1]⟩
+  have hp1_nn : 0 ≤ h2Inv (1 / 4) := (h2Inv_mem_Icc ⟨by norm_num, by norm_num⟩).1
+  nlinarith
+
+/-- Numerical bound `Λ₀ < 0.99960` (Eq. 1.9). -/
+theorem Lambda0_lt : Lambda0 < 99960 / 100000 := by
+  unfold Lambda0
+  rw [Real.sqrt_lt' (by norm_num)]
+  have h := theta0_gt
+  nlinarith
+
+lemma Lambda0_pos : 0 < Lambda0 := by
+  unfold Lambda0
+  apply Real.sqrt_pos.mpr
+  have h := theta0_lt_one
+  have h0 := theta0_pos
+  nlinarith
 
 lemma h2_one_eighth_gt_quarter : (1 / 4 : ℝ) < h2 (1 / 8) := by
   have hlog2_gt : (0 : ℝ) < Real.log 2 := Real.log_pos (by norm_num)
@@ -137,7 +414,6 @@ lemma prop_4_3_region1 {H : ℝ} (hH1 : 1 / 2 ≤ H) (hH2 : H ≤ 3 / 4) :
   have hp2_lt_half : p2 < 1 / 2 := by
     have ⟨hl, _⟩ := two_rpow_neg_half_bounds
     linarith
-  -- Write `q = (1 - 2p1) p2 + (2p1) * (1/2)` and apply concavity of `h2`
   have hconc := strictConcaveOn_h2.concaveOn.2
     (show p2 ∈ Icc (0 : ℝ) 1 from ⟨hp2_nonneg, by linarith⟩)
     (show (1 / 2 : ℝ) ∈ Icc (0 : ℝ) 1 from ⟨by norm_num, by norm_num⟩)
@@ -151,7 +427,6 @@ lemma prop_4_3_region1 {H : ℝ} (hH1 : 1 / 2 ≤ H) (hH2 : H ≤ 3 / 4) :
     simp only [smul_eq_mul, h2_half] at hconc
     rw [← hq_comb] at hconc
     linarith
-  -- Convexity of `h2Inv` with `h2Inv 0 = 0` gives `h2Inv (1/4) ≤ (1 / (4 δ)) * h2Inv δ`
   have hp1_lb : 4 * h2Inv (1 / 4) * δ ≤ p1 := by
     have ht_mem : (1 / (4 * δ)) ∈ Icc (0 : ℝ) 1 := by
       constructor
@@ -173,7 +448,6 @@ lemma prop_4_3_region1 {H : ℝ} (hH1 : 1 / 2 ≤ H) (hH2 : H ≤ 3 / 4) :
       have hδne : δ ≠ 0 := by linarith
       simp only [p1]; field_simp [hδne]
     linarith
-  -- `1 - h2 p2 ≥ 1 - h2 (1 - 2^(-1/2))`
   have hh2_le : h2 p2 ≤ h2 (1 - (2 : ℝ) ^ (-(1 : ℝ) / 2)) :=
     strictMonoOn_h2.monotoneOn ⟨hp2_nonneg, le_of_lt hp2_lt_half⟩
       ⟨by linarith [two_rpow_neg_half_bounds.2], by linarith [two_rpow_neg_half_bounds.1]⟩
@@ -182,7 +456,6 @@ lemma prop_4_3_region1 {H : ℝ} (hH1 : 1 / 2 ≤ H) (hH2 : H ≤ 3 / 4) :
     have := h2_le_one (show 1 - (2 : ℝ) ^ (-(1 : ℝ) / 2) ∈ Icc (0 : ℝ) 1 from
       ⟨by linarith [two_rpow_neg_half_bounds.2], by linarith [two_rpow_neg_half_bounds.1]⟩)
     linarith
-  -- `δ = 1 - H ≥ (4/3) H (1 - H)` since `H ≤ 3/4`
   have hδ_ge : (4 / 3) * H * (1 - H) ≤ δ := by
     simp only [δ]; nlinarith
   have hcomb : theta0 * H * (1 - H) ≤ 2 * p1 * (1 - h2 p2) := by
