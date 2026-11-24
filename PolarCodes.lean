@@ -7,6 +7,7 @@ import PolarCodes.BinaryEntropy
 import PolarCodes.QuantumStates
 import PolarCodes.Channels
 import PolarCodes.SplittingBounds
+import PolarCodes.Polarization
 
 /-!
 # Polynomial-Blocklength Quantum Polar Codes via Nonlinear Dephasing Contraction

@@ -57,17 +57,45 @@ noncomputable def sqrtMat (ρ : DensityOp d) : Matrix d d ℂ :=
     Matrix.diagonal (fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ)) *
     star (ρ.eigUnitary : Matrix d d ℂ)
 
+lemma sqrtMat_isHermitian (ρ : DensityOp d) : ρ.sqrtMat.IsHermitian := by
+  unfold sqrtMat
+  rw [Matrix.IsHermitian, Matrix.conjTranspose_mul, Matrix.conjTranspose_mul,
+    ← Matrix.star_eq_conjTranspose, star_star, Matrix.diagonal_conjTranspose]
+  have hdiag : star (fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ)) =
+      fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ) := by
+    ext i; simp
+  simp [hdiag, Matrix.mul_assoc, Matrix.star_eq_conjTranspose]
+
+lemma sqrtMat_mul_self (ρ : DensityOp d) : ρ.sqrtMat * ρ.sqrtMat = ρ.mat := by
+  unfold sqrtMat
+  have hU : star (ρ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ) = 1 :=
+    Unitary.coe_star_mul_self ρ.eigUnitary
+  calc (ρ.eigUnitary : Matrix d d ℂ) * Matrix.diagonal (fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ)) *
+        star (ρ.eigUnitary : Matrix d d ℂ) *
+        ((ρ.eigUnitary : Matrix d d ℂ) * Matrix.diagonal (fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ)) *
+        star (ρ.eigUnitary : Matrix d d ℂ))
+      = (ρ.eigUnitary : Matrix d d ℂ) *
+        (Matrix.diagonal (fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ)) *
+          (star (ρ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ)) *
+          Matrix.diagonal (fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ))) *
+        star (ρ.eigUnitary : Matrix d d ℂ) := by simp [Matrix.mul_assoc]
+    _ = (ρ.eigUnitary : Matrix d d ℂ) *
+        Matrix.diagonal (fun i ↦ (ρ.eigvals i : ℂ)) *
+        star (ρ.eigUnitary : Matrix d d ℂ) := by
+          rw [hU, Matrix.mul_one, Matrix.diagonal_mul_diagonal]
+          congr 2; ext i
+          rw [← Complex.ofReal_mul, Real.mul_self_sqrt (ρ.eigvals_nonneg i)]
+    _ = ρ.mat := by
+          have hspec := ρ.isHermitian.spectral_theorem
+          simpa [eigUnitary, eigvals, Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply]
+            using hspec.symm
+
 /-- Convex mixture `(1 - p) ρ + p σ` of two density operators for `p ∈ [0, 1]`. -/
 noncomputable def mix (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1) (ρ σ : DensityOp d) : DensityOp d where
-  mat := ((1 - p : ℝ) : ℂ) • ρ.mat + (p : ℂ) • σ.mat
-  posSemidef := by
-    have h1 : (((1 - p : ℝ) : ℂ) • ρ.mat).PosSemidef := by
-      simpa [Complex.real_smul] using ρ.posSemidef.smul (by linarith : (0 : ℝ) ≤ 1 - p)
-    have h2 : ((p : ℂ) • σ.mat).PosSemidef := by
-      simpa [Complex.real_smul] using σ.posSemidef.smul hp0
-    exact h1.add h2
+  mat := (1 - p) • ρ.mat + p • σ.mat
+  posSemidef := (ρ.posSemidef.smul (by linarith : (0 : ℝ) ≤ 1 - p)).add (σ.posSemidef.smul hp0)
   trace_one := by
-    simp [Matrix.trace_add, Matrix.trace_smul, ρ.trace_one, σ.trace_one]
+    simp [Matrix.trace_add, Matrix.trace_smul, Complex.real_smul, ρ.trace_one, σ.trace_one]
 
 /-- Uniform midpoint `(ρ + σ) / 2` of two density operators. -/
 noncomputable def midpoint (ρ σ : DensityOp d) : DensityOp d :=
@@ -78,7 +106,15 @@ noncomputable def tensor {d₁ d₂ : Type*} [Fintype d₁] [DecidableEq d₁]
     [Fintype d₂] [DecidableEq d₂] (ρ : DensityOp d₁) (σ : DensityOp d₂) :
     DensityOp (d₁ × d₂) where
   mat := Matrix.kroneckerMap (· * ·) ρ.mat σ.mat
-  posSemidef := ρ.posSemidef.kronecker σ.posSemidef
+  posSemidef := by
+    have hK : Matrix.kroneckerMap (· * ·) ρ.mat σ.mat =
+        (Matrix.kroneckerMap (· * ·) ρ.sqrtMat σ.sqrtMat)ᴴ *
+          Matrix.kroneckerMap (· * ·) ρ.sqrtMat σ.sqrtMat := by
+      rw [← Matrix.kroneckerMap_conjTranspose, ρ.sqrtMat_isHermitian.eq,
+        σ.sqrtMat_isHermitian.eq, ← Matrix.mul_kronecker_mul,
+        ρ.sqrtMat_mul_self, σ.sqrtMat_mul_self]
+    rw [hK]
+    exact Matrix.posSemidef_conjTranspose_mul_self _
   trace_one := by
     rw [Matrix.trace_kronecker, ρ.trace_one, σ.trace_one, mul_one]
 
@@ -86,7 +122,7 @@ noncomputable def tensor {d₁ d₂ : Type*} [Fintype d₁] [DecidableEq d₁]
 noncomputable def conjUnitary (U : Matrix.unitaryGroup d ℂ) (ρ : DensityOp d) : DensityOp d where
   mat := (U : Matrix d d ℂ) * ρ.mat * star (U : Matrix d d ℂ)
   posSemidef := by
-    simpa [← Matrix.star_eq_conjTranspose] using
+    simpa [Matrix.star_eq_conjTranspose] using
       ρ.posSemidef.mul_mul_conjTranspose_same (U : Matrix d d ℂ)
   trace_one := by
     rw [Matrix.trace_mul_cycle, show star (U : Matrix d d ℂ) * (U : Matrix d d ℂ) = 1 from
@@ -107,9 +143,9 @@ def suppSubset (ρ σ : DensityOp d) : Prop :=
     (star (σ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ)) j i = 0
 
 /-- Umegaki quantum relative entropy `D(ρ ‖ σ) ∈ [0, ∞]` in bits. -/
-open Classical in
-noncomputable def relEntropy (ρ σ : DensityOp d) : ENNReal :=
-  if suppSubset ρ σ then
+noncomputable def relEntropy (ρ σ : DensityOp d) : ENNReal := by
+  classical
+  exact if suppSubset ρ σ then
     ENNReal.ofReal
       ((∑ i : d, ∑ j : d,
         ‖(star (σ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 *
@@ -142,15 +178,7 @@ noncomputable def traceDist (ρ σ : DensityOp d) : ℝ :=
 /-- Helper: `√ρ σ √ρ` is positive semidefinite. -/
 lemma posSemidef_sqrt_mul_sqrt (ρ σ : DensityOp d) :
     (ρ.sqrtMat * σ.mat * ρ.sqrtMat).PosSemidef := by
-  have hsqrtH : ρ.sqrtMat.IsHermitian := by
-    unfold DensityOp.sqrtMat
-    rw [Matrix.IsHermitian, Matrix.conjTranspose_mul, Matrix.conjTranspose_mul,
-      ← Matrix.star_eq_conjTranspose, star_star, Matrix.diagonal_conjTranspose]
-    have hdiag : (fun i ↦ star ((Real.sqrt (ρ.eigvals i) : ℂ))) =
-        fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ) := by
-      ext i; simp
-    simp [hdiag, Matrix.mul_assoc]
-  simpa [hsqrtH.eq] using σ.posSemidef.mul_mul_conjTranspose_same ρ.sqrtMat
+  simpa [ρ.sqrtMat_isHermitian.eq] using σ.posSemidef.mul_mul_conjTranspose_same ρ.sqrtMat
 
 /-- Uhlmann root fidelity `F(ρ, σ) := Tr √(√ρ σ √ρ)`. -/
 noncomputable def rootFidelity (ρ σ : DensityOp d) : ℝ :=
