@@ -17,7 +17,6 @@ manuscript and proves their analytic properties, including:
 - Binary entropy `h2` and its inverse `h2Inv` on `[0, 1] → [0, 1/2]`
 - Binary convolution `binConv` (`a * b := a(1-b) + (1-a)b`)
 - Classical and conjectured quantum Mrs. Gerber functions `gc`, `gq`, and `deltaGap` (`Δ(u, p)`)
-- Wyner–Ziv convexity of `v ↦ gc u v` on `[0, 1]` (`convexOn_gc`)
 - Antitonicity of `p ↦ deltaGap u p` on `[0, 1/2]` (`antitoneOn_deltaGap`)
 - The parametric function `φ(c)` from (3.1) and **Lemma 3.1** (`lemma_3_1_gx_nonneg`)
 -/
@@ -228,7 +227,6 @@ lemma strictConcaveOn_h2 : StrictConcaveOn ℝ (Icc (0 : ℝ) 1) h2 := by
   have hpos : 0 < Real.log 2 := Real.log_pos (by norm_num)
   have hlt := hsum.2 hx hy hxy ha hb hab
   simp only [Pi.add_apply, smul_eq_mul] at hlt
-  rw [← add_div]
   have hmul : a * ((Real.negMulLog x + Real.negMulLog (1 - x)) / Real.log 2) +
       b * ((Real.negMulLog y + Real.negMulLog (1 - y)) / Real.log 2) =
       (a * (Real.negMulLog x + Real.negMulLog (1 - x)) +
@@ -519,12 +517,12 @@ private lemma strictMonoOn_sinh_div :
       · intro t ht
         rw [interior_Ici] at ht
         have hd : HasDerivAt (fun s : ℝ ↦ s * C s - S s) (t * S t) t := by
-          have h1 := (hasDerivAt_id t).fun_mul (hdC t)
+          have h1 := (hasDerivAt_id' t).fun_mul (hdC t)
           convert h1.fun_sub (hdS t) using 1
           ring
         rw [hd.deriv]
         exact mul_pos ht (hSpos t ht)
-    have h0 := hmono (show (0 : ℝ) ∈ Ici 0 from le_rfl) (le_of_lt hv) hv
+    have h0 := hmono (Set.mem_Ici.mpr le_rfl) (Set.mem_Ici.mpr (le_of_lt hv)) hv
     simpa [S, C] using h0
   apply strictMonoOn_of_deriv_pos (convex_Ioi 0)
   · exact ((by simp only [S]; fun_prop : Continuous S).continuousOn).div

@@ -5,6 +5,7 @@ Authors: Prince Anand
 -/
 import PolarCodes.BinaryEntropy
 import PolarCodes.QuantumStates
+import PolarCodes.Channels
 
 /-!
 # Polynomial-Blocklength Quantum Polar Codes via Nonlinear Dephasing Contraction
