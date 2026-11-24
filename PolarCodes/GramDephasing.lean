@@ -316,7 +316,8 @@ theorem lemma_4_1_gram_dephasing
   obtain ⟨u, hu_norm, hu_eq⟩ : ∃ u : ℂ, ‖u‖ = 1 ∧ u * z = (f₂ : ℂ) := by
     by_cases hz : z = 0
     · refine ⟨1, by simp, ?_⟩
-      simp [f₂, hz]
+      have hf0 : f₂ = 0 := by show ‖z‖ = 0; rw [hz, norm_zero]
+      rw [hz, hf0]; simp
     · refine ⟨star z / (‖z‖ : ℂ), ?_, ?_⟩
       · rw [norm_div, norm_star, Complex.norm_real, Real.norm_of_nonneg (norm_nonneg z),
           div_self (norm_ne_zero_iff.mpr hz)]
@@ -331,7 +332,7 @@ theorem lemma_4_1_gram_dephasing
     have hu_sq : u * star u = 1 := by
       rw [Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, hu_norm]; norm_num
     simp only [ψ₁, star_mul']
-    calc u * φ₁ k₁ * (star (φ₁ k₂) * star u) = (u * star u) * (φ₁ k₁ * star (φ₁ k₂)) := by ring
+    calc _ = (u * star u) * (φ₁ k₁ * star (φ₁ k₂)) := by ring
       _ = φ₁ k₁ * star (φ₁ k₂) := by rw [hu_sq, one_mul]
   have hoverlap : ∑ k : d₂, star (φ₀ k) * ψ₁ k = (f₂ : ℂ) := by
     have h1 : ∑ k : d₂, star (φ₀ k) * ψ₁ k = u * z := by
@@ -340,9 +341,10 @@ theorem lemma_4_1_gram_dephasing
     rw [h1, hu_eq]
   have hoverlap_conj : ∑ k : d₂, star (ψ₁ k) * φ₀ k = (f₂ : ℂ) := by
     have h := congr_arg star hoverlap
-    simp only [star_sum, star_mul', star_star, Complex.star_def, Complex.conj_ofReal] at h
-    convert h using 1
-    apply Finset.sum_congr rfl; intro k _; ring
+    rw [star_sum, Complex.star_def, Complex.conj_ofReal] at h
+    rw [← h]
+    apply Finset.sum_congr rfl; intro k _
+    rw [star_mul', star_star]
   have hφ₀_inner : ∑ k : d₂, star (φ₀ k) * φ₀ k = 1 := by
     have h : ∀ k : d₂, star (φ₀ k) * φ₀ k = ((‖φ₀ k‖ ^ 2 : ℝ) : ℂ) := by
       intro k; rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
@@ -394,7 +396,7 @@ theorem lemma_4_1_gram_dephasing
               apply Finset.sum_congr rfl; intro x _
               rw [Finset.mul_sum]; apply Finset.sum_congr rfl; intro y _
               simp only [star_mul', star_star]; ring
-        _ = _ := by rw [hoverlap_conj]; apply Finset.sum_congr rfl; intro x _; simp only [↓reduceIte]; ring
+        _ = _ := by rw [hoverlap_conj]; apply Finset.sum_congr rfl; intro x _; ring
     · simp only [↓reduceIte, one_mul]
       calc ∑ x : d₁, ∑ y : d₂,
               ((Real.sqrt 2 : ℂ)⁻¹) * (ρ₁.sqrtMat i x * star (ψ₁ y)) *
