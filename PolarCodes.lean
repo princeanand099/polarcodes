@@ -12,3 +12,4 @@ import PolarCodes.PolarizationFine
 import PolarCodes.ScalarSupplements
 import PolarCodes.QuantumProps
 import PolarCodes.GramDephasing
+import PolarCodes.Bhattacharyya

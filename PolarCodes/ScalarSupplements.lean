@@ -250,7 +250,7 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
         have hd3 : HasDerivAt h2 (Real.log ((1 - r) / r) / Real.log 2) r :=
           hasDerivAt_h2 hr_mem.1 (by linarith [hr_mem.2])
         have hcomp := (hd3.comp q hd2).comp v hd1
-        have hfun : (fun w ↦ gc u w) = h2 ∘ (fun s ↦ binConv p s) ∘ h2Inv := rfl
+        have hfun : (fun w ↦ gc u w) = (h2 ∘ fun s ↦ binConv p s) ∘ h2Inv := rfl
         rw [hfun]
         convert hcomp using 1
         have hlog2 : Real.log 2 ≠ 0 := ne_of_gt (Real.log_pos (by norm_num))
@@ -363,8 +363,11 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
               Real.log ((1 + α * x) / (1 - α * x)) * (2 / (1 - x ^ 2)) := by
             have hne_a : 1 - (α * x) ^ 2 ≠ 0 := ne_of_gt h1
             have hne_x : 1 - x ^ 2 ≠ 0 := ne_of_gt h2
-            have hne_3 : α * x ≠ 0 := ne_of_gt h3
-            field_simp [hne_a, hne_x, hne_3]
+            have hne_α : α ≠ 0 := ne_of_gt hα0
+            have hne_x0 : x ≠ 0 := ne_of_gt hx.1
+            have hne_ax : 1 - α ^ 2 * x ^ 2 ≠ 0 := by convert hne_a using 1; ring
+            field_simp [hne_a, hne_x, hne_α, hne_x0]
+            rw [mul_div_cancel_left₀ _ (mul_ne_zero hne_x0 hne_ax)]
           linarith
       let f' : ℝ → ℝ := fun v ↦
         α * Real.log ((1 - binConv p (h2Inv v)) / binConv p (h2Inv v)) /
@@ -493,9 +496,9 @@ lemma h2Inv_mul_logb_le {δ : ℝ} (hδ0 : 0 < δ) (hδ1 : δ ≤ 1 / 4) :
       ≤ p1 * Real.logb 2 (1 / p1) := mul_le_mul_of_nonneg_left hlog_le (le_of_lt hp1_pos)
     _ ≤ δ := hh2_ge
 
+set_option maxHeartbeats 800000 in
 /-- **Proposition 4.3 (Endpoint Asymptotic, Eq. 1.8)**:
 `lim_{δ → 0+} Δ(δ, 1 - 2^(-δ)) / δ = 1`. -/
-set_option maxHeartbeats 800000 in
 theorem prop_4_3_asymptotic :
     Tendsto (fun δ : ℝ ↦ deltaGap δ (1 - (2 : ℝ) ^ (-δ)) / δ) (𝓝[>] 0) (𝓝 1) := by
   rw [Metric.tendsto_nhdsWithin_nhds]
@@ -633,7 +636,7 @@ theorem prop_4_3_asymptotic :
       rw [div_le_div_iff₀ (by linarith) (by linarith [hc.1])]
       nlinarith [hc.2]
     unfold deltaGap
-    rw [Real.logb]
+    rw [Real.logb, mul_comm]
     exact (le_div_iff₀ (by linarith)).mp hsec
   have hgap_ub : deltaGap δ p2 ≤ (q - p2) * (Real.logb 2 ((1 - p2) / p2)) := by
     have hderiv_ge := exists_hasDerivAt_eq_slope h2
@@ -648,7 +651,7 @@ theorem prop_4_3_asymptotic :
       rw [div_le_div_iff₀ (by linarith [hc.1]) (by linarith)]
       nlinarith [hc.1]
     unfold deltaGap
-    rw [Real.logb]
+    rw [Real.logb, mul_comm]
     exact (div_le_iff₀ (by linarith)).mp hsec
   have hq_sub_p2 : q - p2 = p1 * (1 - 2 * p2) := by simp only [q, binConv]; ring
   have hlogq_lb : L - 2 ≤ Real.logb 2 ((1 - q) / q) := by
@@ -661,8 +664,8 @@ theorem prop_4_3_asymptotic :
       linarith
     have h := Real.logb_le_logb_of_le (by norm_num : (1 : ℝ) < 2) (by positivity) hrat
     rw [Real.logb_mul (by norm_num) (by positivity),
-      show (1 / 4 : ℝ) = (2 : ℝ) ^ (-2 : ℤ) by norm_num,
-      Real.logb_zpow (by norm_num) (by norm_num)] at h
+      show (1 / 4 : ℝ) = (2 : ℝ) ^ (-2 : ℝ) by norm_num,
+      Real.logb_rpow (by norm_num) (by norm_num)] at h
     push_cast at h
     linarith
   have hlogp2_ub : Real.logb 2 ((1 - p2) / p2) ≤ L + 2 := by
