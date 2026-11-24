@@ -127,7 +127,7 @@ def pureState (φ : d → ℂ) (hφ : ∑ i : d, ‖φ i‖ ^ 2 = 1) : DensityOp
     simp only [Matrix.trace, Matrix.diag, Matrix.of_apply]
     have hnorm : ∀ i : d, φ i * star (φ i) = ((‖φ i‖ ^ 2 : ℝ) : ℂ) := by
       intro i
-      rw [Complex.mul_conj, Complex.normSq_eq_norm_sq]
+      rw [Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
     simp_rw [hnorm, ← Complex.ofReal_sum, hφ, Complex.ofReal_one]
 
 /-- Block column operator `A₀ : (Bool × d) × d` with blocks `√ρ₀ / √2` and `√ρ₁ / √2`. -/
@@ -321,7 +321,7 @@ theorem lemma_4_1_gram_dephasing
       · rw [norm_div, norm_star, Complex.norm_real, Real.norm_of_nonneg (norm_nonneg z),
           div_self (norm_ne_zero_iff.mpr hz)]
       · have hne : (‖z‖ : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr (norm_ne_zero_iff.mpr hz)
-        rw [div_mul_eq_mul_div, mul_comm (star z), Complex.mul_conj, Complex.normSq_eq_norm_sq,
+        rw [div_mul_eq_mul_div, mul_comm (star z), Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq,
           sq, Complex.ofReal_mul, mul_div_cancel_right₀ _ hne]
   let ψ₁ : d₂ → ℂ := fun k ↦ u * φ₁ k
   have hψ₁_norm : ∑ k : d₂, ‖ψ₁ k‖ ^ 2 = 1 := by
@@ -329,7 +329,7 @@ theorem lemma_4_1_gram_dephasing
   have hψ₁_ketbra : ∀ k₁ k₂ : d₂, ψ₁ k₁ * star (ψ₁ k₂) = φ₁ k₁ * star (φ₁ k₂) := by
     intro k₁ k₂
     have hu_sq : u * star u = 1 := by
-      rw [Complex.mul_conj, Complex.normSq_eq_norm_sq, hu_norm]; norm_num
+      rw [Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, hu_norm]; norm_num
     simp only [ψ₁, star_mul']
     calc u * φ₁ k₁ * (star (φ₁ k₂) * star u) = (u * star u) * (φ₁ k₁ * star (φ₁ k₂)) := by ring
       _ = φ₁ k₁ * star (φ₁ k₂) := by rw [hu_sq, one_mul]
@@ -345,11 +345,11 @@ theorem lemma_4_1_gram_dephasing
     apply Finset.sum_congr rfl; intro k _; ring
   have hφ₀_inner : ∑ k : d₂, star (φ₀ k) * φ₀ k = 1 := by
     have h : ∀ k : d₂, star (φ₀ k) * φ₀ k = ((‖φ₀ k‖ ^ 2 : ℝ) : ℂ) := by
-      intro k; rw [mul_comm, Complex.mul_conj, Complex.normSq_eq_norm_sq]
+      intro k; rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
     simp_rw [h, ← Complex.ofReal_sum, hφ₀, Complex.ofReal_one]
   have hψ₁_inner : ∑ k : d₂, star (ψ₁ k) * ψ₁ k = 1 := by
     have h : ∀ k : d₂, star (ψ₁ k) * ψ₁ k = ((‖ψ₁ k‖ ^ 2 : ℝ) : ℂ) := by
-      intro k; rw [mul_comm, Complex.mul_conj, Complex.normSq_eq_norm_sq]
+      intro k; rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
     simp_rw [h, ← Complex.ofReal_sum, hψ₁_norm, Complex.ofReal_one]
   -- Define `A : Matrix (Bool × d₁) (d₁ × d₂) ℂ`
   let A : Matrix (Bool × d₁) (d₁ × d₂) ℂ := Matrix.of fun p q ↦
@@ -394,7 +394,7 @@ theorem lemma_4_1_gram_dephasing
               apply Finset.sum_congr rfl; intro x _
               rw [Finset.mul_sum]; apply Finset.sum_congr rfl; intro y _
               simp only [star_mul', star_star]; ring
-        _ = _ := by rw [hoverlap_conj]; apply Finset.sum_congr rfl; intro x _; simp only [Bool.true_eq_false, ↓reduceIte]; ring
+        _ = _ := by rw [hoverlap_conj]; apply Finset.sum_congr rfl; intro x _; simp only [↓reduceIte]; ring
     · simp only [↓reduceIte, one_mul]
       calc ∑ x : d₁, ∑ y : d₂,
               ((Real.sqrt 2 : ℂ)⁻¹) * (ρ₁.sqrtMat i x * star (ψ₁ y)) *

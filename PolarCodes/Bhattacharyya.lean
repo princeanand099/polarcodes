@@ -257,7 +257,7 @@ theorem re_trace_unitary_mul_le_traceNorm (U' : Matrix.unitaryGroup d ℂ) (M : 
       have hre_col := congr_arg Complex.re hcol
       have hterm : ∀ i : d, (star (Q i j) * Q i j).re = ‖Q i j‖ ^ 2 := by
         intro i
-        rw [mul_comm, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
+        rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
       simpa [Complex.re_sum, hterm] using hre_col
     have hdiag_sq : ‖Q j j‖ ^ 2 ≤ 1 := by
       rw [← hsum_sq]
@@ -338,7 +338,7 @@ theorem exists_uhlmann_purification (ρ σ : DensityOp d) :
       Matrix.conjTranspose_apply]
     apply Finset.sum_congr rfl; intro i _
     apply Finset.sum_congr rfl; intro j _
-    rw [Complex.mul_conj, Complex.normSq_eq_norm_sq]
+    rw [Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
   have hψ₀ : ∑ p : d × d, ‖ψ₀ p‖ ^ 2 = 1 := by
     have h := htr_pure ρ.sqrtMat
     rw [ρ.sqrtMat_isHermitian.eq, ρ.sqrtMat_mul_self, ρ.trace_one, ← Complex.ofReal_sum] at h
