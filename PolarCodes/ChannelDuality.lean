@@ -196,8 +196,7 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
     ext ⟨⟨a₁, i₁⟩, ⟨a₂, i₂⟩⟩ ⟨⟨b₁, j₁⟩, ⟨b₂, j₂⟩⟩
     have hZ1I2_apply : ∀ (M : Matrix ((Bool × d₁) × (Bool × d₂)) ((Bool × d₁) × (Bool × d₂)) ℂ)
         (p q : (Bool × d₁) × (Bool × d₂)),
-        ((Z1I2 : Matrix ((Bool × d₁) × (Bool × d₂)) ((Bool × d₁) × (Bool × d₂)) ℂ) * M *
-          star (Z1I2 : Matrix ((Bool × d₁) × (Bool × d₂)) ((Bool × d₁) × (Bool × d₂)) ℂ)) p q =
+        ((Z1I2 : Matrix ((Bool × d₁) × (Bool × d₂)) ((Bool × d₁) × (Bool × d₂)) ℂ) * M * star (Z1I2 : Matrix ((Bool × d₁) × (Bool × d₂)) ((Bool × d₁) × (Bool × d₂)) ℂ)) p q =
           (if p.1.1 = false then (1 : ℂ) else -1) * M p q * (if q.1.1 = false then (1 : ℂ) else -1) := by
       intro M p q
       simp only [Z1I2, Matrix.mul_apply, Matrix.diagonal_apply, Matrix.star_apply]
@@ -208,8 +207,7 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
         · intro h; exact absurd (Finset.mem_univ _) h
       · intro x _ hx; simp [hx, Ne.symm hx]
       · intro h; exact absurd (Finset.mem_univ _) h
-    change ((Z1I2 : Matrix ((Bool × d₁) × (Bool × d₂)) ((Bool × d₁) × (Bool × d₂)) ℂ) *
-        ((CQChannel.checkCombine W₁.dual W₂.dual).out false).mat *
+    change ((Z1I2 : Matrix ((Bool × d₁) × (Bool × d₂)) ((Bool × d₁) × (Bool × d₂)) ℂ) * ((CQChannel.checkCombine W₁.dual W₂.dual).out false).mat *
         star (Z1I2 : Matrix ((Bool × d₁) × (Bool × d₂)) ((Bool × d₁) × (Bool × d₂)) ℂ)) _ _ = _
     rw [hZ1I2_apply]
     simp only [CQChannel.checkCombine, Bool.not_false, Bool.not_true, CQChannel.dual,
@@ -222,6 +220,7 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
       vonNeumannEntropy ((CQChannel.checkCombine W₁.dual W₂.dual).out false) := by
     rw [← vonNeumannEntropy_eq_of_mat_eq hconj_out, vonNeumannEntropy_conjUnitary]
   -- Step 2: Compute `S((W₁⊥ ⊠ W₂⊥)(0)) = 1 + ½ (S((W₁ ⊠ W₂)(0)) + S((W₁ ⊠ W₂)(1)))`
+  -- Factor `(W₁⊥ ⊠ W₂⊥)(0) = M * Mᴴ` with `M : ((Bool × d₁) × (Bool × d₂)) × (Bool × (d₁ × d₂))`
   let A₁ := gramFactor ρ₀ ρ₁
   let A₂ := gramFactor σ₀ σ₁
   let Z1A1 : Matrix (Bool × d₁) d₁ ℂ := Matrix.of fun p k ↦
@@ -285,6 +284,7 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
                   (if q₂.1 = false then (1 : ℂ) else -1))) := by ring
         _ = _ := by rw [hsq2']
     rw [hprod_f, hprod_t]; push_cast; ring
+  -- Now show `(H ⊗ I) (Mᴴ M) (H ⊗ I) = ½ |0⟩⟨0| ⊗ (W₁⊠W₂)(0) + ½ |1⟩⟨1| ⊗ (W₁⊠W₂)(1)`
   let B_blk : DensityOp (Bool × (d₁ × d₂)) :=
     DensityOp.midpoint
       (DensityOp.tensor (CQChannel.ketBraBool false) ((CQChannel.checkCombine W₁ W₂).out false))
@@ -381,20 +381,31 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
                 _ = _ := by rw [hsq2, hs1, hs2, mul_one, mul_one]
         _ = _ := by rw [gramFactor_inner_same ρ₀ ρ₁, gramFactor_inner_same σ₀ σ₁]
   set H_u := hadamardTensorI (d₁ × d₂)
+  set K : Matrix (Bool × (d₁ × d₂)) (Bool × (d₁ × d₂)) ℂ := Mᴴ * M
+  have hK_entries : ∀ (a b : Bool) (i₁ j₁ : d₁) (i₂ j₂ : d₂),
+      K (a, (i₁, i₂)) (b, (j₁, j₂)) =
+        if a = b then (1 / 2 : ℂ) * ((ρ₀.midpoint ρ₁).mat i₁ j₁ * (σ₀.midpoint σ₁).mat i₂ j₂)
+        else (1 / 2 : ℂ) * (((1 / 2 : ℂ) * (ρ₀.mat i₁ j₁ - ρ₁.mat i₁ j₁)) *
+          ((1 / 2 : ℂ) * (σ₀.mat i₂ j₂ - σ₁.mat i₂ j₂))) := hMHM_entries
   have hHMHMH : (H_u : Matrix (Bool × (d₁ × d₂)) (Bool × (d₁ × d₂)) ℂ) * (Mᴴ * M) *
       star (H_u : Matrix (Bool × (d₁ × d₂)) (Bool × (d₁ × d₂)) ℂ) = B_blk.mat := by
+    change (H_u : Matrix (Bool × (d₁ × d₂)) (Bool × (d₁ × d₂)) ℂ) * K *
+        star (H_u : Matrix (Bool × (d₁ × d₂)) (Bool × (d₁ × d₂)) ℂ) = B_blk.mat
     ext ⟨a, i₁, i₂⟩ ⟨b, j₁, j₂⟩
-    simp only [H_u, hadamardTensorI, Matrix.mul_apply, Matrix.star_apply, Matrix.of_apply,
-      Fintype.sum_prod_type, Fintype.sum_bool, ite_mul, zero_mul, mul_ite, mul_zero,
-      apply_ite star, star_zero, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
-    simp only [hMHM_entries, B_blk, CQChannel.checkCombine, CQChannel.ketBraBool,
+    simp only [H_u, hadamardTensorI, Matrix.mul_apply, Matrix.star_apply, Matrix.of_apply]
+    simp only [Fintype.sum_prod_type, Fintype.sum_bool, Prod.mk.injEq, ite_and,
+      ite_mul, zero_mul, mul_ite, mul_zero, apply_ite star, star_zero,
+      Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
+    simp only [hK_entries, B_blk, CQChannel.checkCombine, CQChannel.ketBraBool,
       DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, Bool.not_false, Bool.not_true,
       Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Matrix.of_apply,
       Complex.real_smul]
     have hstar_s : star ((Real.sqrt 2 : ℂ)⁻¹) = (Real.sqrt 2 : ℂ)⁻¹ := by
       rw [← Complex.ofReal_inv, Complex.star_def, Complex.conj_ofReal]
-    have hsq2_mul : ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) = (1 / 2 : ℂ) := by
-      rw [← hstar_s]; exact hsq2
+    have hsq2_mul : ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) = (1 / 2 : ℂ) :=
+      calc ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)
+          = star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) := by rw [hstar_s]
+        _ = (1 / 2 : ℂ) := hsq2
     set r0 := ρ₀.mat i₁ j₁
     set r1 := ρ₁.mat i₁ j₁
     set s0 := σ₀.mat i₂ j₂
@@ -405,7 +416,7 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
       (simp only [↓reduceIte, Bool.true_eq_false, Bool.false_eq_true, and_self, and_true, and_false,
         true_and, false_and, mul_one, mul_neg, neg_mul, star_mul', star_neg, star_one, hstar_s,
         one_mul, zero_mul, mul_zero, add_zero, zero_add];
-       push_cast; ring_nf; try rw [hu2]; ring)
+       push_cast; ring_nf; rw [hu2]; ring)
   have hS_dual0 : vonNeumannEntropy ((CQChannel.checkCombine W₁.dual W₂.dual).out false) =
       1 + (vonNeumannEntropy ((CQChannel.checkCombine W₁ W₂).out false) +
         vonNeumannEntropy ((CQChannel.checkCombine W₁ W₂).out true)) / 2 := by
@@ -422,6 +433,7 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
     exact spectral_sum_eq_of_charpoly_mul_X_pow
       ((CQChannel.checkCombine W₁.dual W₂.dual).out false).isHermitian
       B_blk.isHermitian hcp (by simp [Real.negMulLog])
+  -- Step 3: Compute `S(midpoint((W₁⊥⊠W₂⊥)(0), (W₁⊥⊠W₂⊥)(1))) = 2 + ½(S(ρ₀)+S(ρ₁)+S(σ₀)+S(σ₁))`
   have hmid_dual : (DensityOp.midpoint
       ((CQChannel.checkCombine W₁.dual W₂.dual).out false)
       ((CQChannel.checkCombine W₁.dual W₂.dual).out true)).mat =
@@ -444,6 +456,7 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
     have h3_2 := (lemma_4_1_gram_dephasing σ₀ σ₁ (fun _ : Unit ↦ (1 : ℂ)) (fun _ : Unit ↦ (1 : ℂ))
       (by simp) (by simp)).2.2.1
     linarith
+  -- Step 4: Combine everything!
   have hmid_orig : (DensityOp.midpoint
       ((CQChannel.checkCombine W₁ W₂).out false)
       ((CQChannel.checkCombine W₁ W₂).out true)).mat =
