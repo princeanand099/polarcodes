@@ -1,0 +1,151 @@
+name: Lean Action CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      full_verify:
+        description: "Run static hygiene, AuditAxioms, and lake comparator"
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      LOG_BRANCH: ${{ github.event_name == 'pull_request' && format('ci-logs-pr-{0}', github.event.pull_request.number) || 'ci-logs' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Republish previous ci-logs without cache spam
+        if: ${{ github.event_name != 'pull_request' }}
+        continue-on-error: true
+        run: |
+          git fetch origin ci-logs || true
+          git show origin/ci-logs:last_build.log | grep -v -E "(Decompressing|Downloaded| unpacking |\[[0-9]+/[0-9]+\] Downloading)" > /tmp/prev_clean.log || true
+          if [ -s /tmp/prev_clean.log ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git checkout --orphan ci-logs-temp
+            git rm -rf . >/dev/null 2>&1 || true
+            cp /tmp/prev_clean.log last_build.log
+            split -l 150 -d --additional-suffix=.log /tmp/prev_clean.log part_
+            git add -f last_build.log part_*.log
+            {
+              echo "Filtered CI log for previous run"
+              echo ""
+              tail -n 400 /tmp/prev_clean.log
+            } > /tmp/commit_msg.txt
+            git commit -F /tmp/commit_msg.txt
+            git push -f origin HEAD:refs/heads/ci-logs
+            git checkout -f ${{ github.sha }}
+          fi
+
+      - name: Cache .lake build and packages
+        uses: actions/cache@v4
+        with:
+          path: .lake
+          key: ${{ runner.os }}-lake-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json') }}-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-lake-${{ hashFiles('lean-toolchain', 'lakefile.toml', 'lake-manifest.json') }}-
+            ${{ runner.os }}-lake-
+
+      - name: Install elan and bubblewrap
+        run: |
+          curl https://elan.lean-lang.org/elan-init.sh -sSf | sh -s -- -y --default-toolchain none
+          echo "$HOME/.elan/bin" >> $GITHUB_PATH
+          if [ "${{ (github.event_name == 'workflow_dispatch' && inputs.full_verify) || startsWith(github.ref, 'refs/tags/v') }}" = "true" ]; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq bubblewrap >/dev/null 2>&1 || true
+          fi
+
+      - name: Cache, build, and optional final verification
+        id: build
+        env:
+          FULL_VERIFY: ${{ (github.event_name == 'workflow_dispatch' && inputs.full_verify) || startsWith(github.ref, 'refs/tags/v') }}
+        run: |
+          lake exe cache get >/dev/null 2>&1 || true
+          set +e
+          {
+            echo "COMMIT=${{ github.sha }}"
+            echo "TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+            echo "=== 1. LAKE BUILD ==="
+            if [ "$FULL_VERIFY" = "true" ]; then
+              lake build PolarCodes Solution 2>&1
+            else
+              lake build PolarCodes 2>&1
+            fi
+            build_rc=$?
+            echo "LAKE_BUILD_EXIT=$build_rc"
+
+            hygiene_rc=0
+            comp_rc=0
+            if [ "$FULL_VERIFY" = "true" ]; then
+              echo "=== 2. STATIC HYGIENE CHECK ==="
+              hygiene_hits=$(grep -rnE '\b(sorry|sorryAx|admit|axiom|native_decide|unsafe|unsafeCast|implemented_by|extern|partial|skipKernelTC|local instance)\b' PolarCodes.lean PolarCodes/ comparator/ChallengeDefs.lean comparator/Solution.lean | grep -vE '^[^:]+:[0-9]+:[[:space:]]*(--|/[-!]|/-)' | grep -vE 'AuditAxioms\.lean' || true)
+              if [ -n "$hygiene_hits" ]; then
+                echo "HYGIENE_CHECK_FAILED:"
+                echo "$hygiene_hits"
+                hygiene_rc=1
+              else
+                echo "HYGIENE_CHECK_PASSED (0 forbidden constructs)"
+                hygiene_rc=0
+              fi
+
+              echo "=== 3. AXIOM AUDIT ==="
+              if [ "$build_rc" -eq 0 ] && [ -f PolarCodes/AuditAxioms.lean ]; then
+                lake env lean PolarCodes/AuditAxioms.lean 2>&1
+                audit_rc=$?
+              else
+                audit_rc=$build_rc
+              fi
+
+              echo "=== 4. LAKE COMPARATOR ==="
+              if [ "$build_rc" -eq 0 ] && [ "$audit_rc" -eq 0 ]; then
+                timeout 1800 lake comparator 2>&1
+                comp_rc=$?
+                if [ "$comp_rc" -ne 0 ] && [ "$comp_rc" -ne 124 ] && ! bwrap --ro-bind / / true >/dev/null 2>&1; then
+                  echo "NOTE: bwrap user namespaces restricted on runner; retrying with --inadvisably-no-sandbox"
+                  timeout 1800 lake comparator --inadvisably-no-sandbox 2>&1
+                  comp_rc=$?
+                fi
+              else
+                comp_rc=1
+              fi
+              echo "LAKE_COMPARATOR_EXIT=$comp_rc"
+            fi
+
+            if [ "$build_rc" -ne 0 ] || [ "$hygiene_rc" -ne 0 ] || [ "$comp_rc" -ne 0 ]; then
+              exit 1
+            fi
+          } | tee /tmp/last_build.log
+          build_status=${PIPESTATUS[0]}
+          set -e
+          exit "$build_status"
+
+      - name: Publish full build log to ci-logs branch
+        if: always()
+        continue-on-error: true
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout --orphan ci-logs-out
+          git rm -rf . >/dev/null 2>&1 || true
+          cp /tmp/last_build.log last_build.log
+          split -l 150 -d --additional-suffix=.log /tmp/last_build.log part_
+          git add -f last_build.log part_*.log
+          {
+            echo "CI log for ${{ github.sha }} (build ${{ steps.build.outcome }})"
+            echo ""
+            tail -n 400 /tmp/last_build.log
+          } > /tmp/commit_msg.txt
+          git commit -F /tmp/commit_msg.txt
+          git push -f origin HEAD:refs/heads/${{ env.LOG_BRANCH }}
