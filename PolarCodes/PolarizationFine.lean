@@ -141,7 +141,6 @@ theorem lemma_5_4_stage3 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
         simp [phiPot, hz0, hzm]
       · have hzpos : 0 < Z' t b := lt_of_le_of_ne (hZ'_nn t b) (Ne.symm hz0)
         have hφ : 0 < phiGold := by linarith [phiGold_gt_one]
-        -- `phiPot (Z' (t+1) false) ≤ phiGold * phiPot (Z' t b)`
         have hminus_le : phiPot (Z' (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b false)) ≤
             phiGold * phiPot (Z' t b) := by
           calc phiPot (Z' (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b false))
@@ -151,7 +150,6 @@ theorem lemma_5_4_stage3 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
                 rw [if_neg (not_le.mpr (by positivity)), if_neg (not_le.mpr hzpos),
                   Real.mul_rpow (by norm_num) (le_of_lt hzpos), two_rpow_alphaGold]
                 ring
-        -- `phiPot ((Z' t b)^2) ≤ phiGold^(-2 : ℤ) * phiPot (Z' t b)` since `Z' t b ≤ 2^(-200) ≤ 1/4`
         have hthr_le : thr ≤ 1 / 4 := by
           simp only [thr]
           calc (2 : ℝ) ^ (-(200 : ℝ)) ≤ (2 : ℝ) ^ (-(2 : ℝ)) :=
@@ -176,7 +174,6 @@ theorem lemma_5_4_stage3 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
         have hsum_id := phiGold_add_inv_sq
         have hpot_nn := phiPot_nonneg (Z' t b)
         nlinarith
-  -- Step 1: Doob maximal inequality gives `P(hitAbove Z' thr m₃) ≤ ε / 16`
   have hY0_ge : (200 : ℝ) ≤ (Y₀ : ℝ) := by
     simp only [Y₀, stage2Y0]; exact_mod_cast Nat.le_add_right 200 _
   have hZ0_le_thr : Z' 0 Fin.elim0 ≤ thr := by
@@ -223,7 +220,6 @@ theorem lemma_5_4_stage3 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
             linarith
     rw [div_one] at hdoob
     exact le_trans hsub (le_trans hdoob hN0_le)
-  -- Step 2: Hoeffding gives `P(S < 0.499 m₃) ≤ ε / 16`
   have hm₃_hoeff : (500000 : ℝ) * Real.log (16 / ε) ≤ (m₃ : ℝ) := by
     have h1 : Nat.ceil (500000 * Real.log (16 / ε)) ≤ m₃ := le_trans (le_max_right _ _) hm₃
     exact le_trans (Nat.le_ceil _) (by exact_mod_cast h1)
@@ -239,7 +235,6 @@ theorem lemma_5_4_stage3 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
       apply Real.exp_le_exp.mpr
       linarith
     linarith only [hhoeff, hexp_le]
-  -- Step 3: Deterministic path bound on `{¬ hitAbove Z' thr m₃} ∩ {S ≥ 0.499 m₃}`
   have hgood_imp : ∀ b : Fin m₃ → Bool,
       ¬ hitAbove Z' thr m₃ b →
       (499 / 1000 : ℝ) * m₃ ≤ (∑ i : Fin m₃, if b i then (1 : ℝ) else 0) →
@@ -247,13 +242,11 @@ theorem lemma_5_4_stage3 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
     intro b hnot hS
     by_cases hz0 : Z' m₃ b = 0
     · rw [hz0]; exact Real.rpow_nonneg (by norm_num) _
-    · -- All prefixes have `0 < Z' t (pathPrefix _ b) ≤ 2^(-200)`
-      have hpos_all : ∀ (t : ℕ) (ht : t ≤ m₃), 0 < Z' t (pathPrefix ht b) := by
+    · have hpos_all : ∀ (t : ℕ) (ht : t ≤ m₃), 0 < Z' t (pathPrefix ht b) := by
         intro t ht
         by_contra hle
         have hz_t : Z' t (pathPrefix ht b) = 0 :=
           le_antisymm (not_lt.mp hle) (hZ'_nn t _)
-        -- Propagate zero forward from `t` to `m₃`
         have hzero_fwd : ∀ s (hts : t ≤ s) (hsm : s ≤ m₃), Z' s (pathPrefix hsm b) = 0 := by
           intro s
           induction s with
@@ -287,7 +280,6 @@ theorem lemma_5_4_stage3 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
         intro t ht
         by_contra hgt
         exact hnot ⟨⟨t, Nat.lt_succ_of_le ht⟩, lt_of_not_ge hgt⟩
-      -- Inductively lower-bound `Y_t := -log₂(Z'_t) ≥ 200 · 2^(S_t) · (199/200)^(t - S_t)`
       have hY_ind : ∀ (t : ℕ) (ht : t ≤ m₃),
           200 * (2 : ℝ) ^ (∑ i : Fin t, if b ⟨i.val, lt_of_lt_of_le i.isLt ht⟩ then (1 : ℝ) else 0) *
             (199 / 200 : ℝ) ^ ((t : ℝ) -
@@ -331,8 +323,7 @@ theorem lemma_5_4_stage3 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
             rfl
           rw [hsum_succ, hsnoc_eq]
           cases hb : b ⟨t, ht⟩
-          · -- `false` step: `Y_{t+1} ≥ Y_t - 1 ≥ (199/200) Y_t`
-            simp only [Bool.false_eq_true, ↓reduceIte, add_zero, Nat.cast_add, Nat.cast_one]
+          · simp only [Bool.false_eq_true, ↓reduceIte, add_zero, Nat.cast_add, Nat.cast_one]
             have hlog_step : -Real.logb 2 (Z' t (pathPrefix ht' b)) - 1 ≤
                 -Real.logb 2 (Z' (t + 1) (Fin.snoc (α := fun _ ↦ Bool) (pathPrefix ht' b) false)) := by
               have hpos_next := hpos_all (t + 1) ht
@@ -347,14 +338,12 @@ theorem lemma_5_4_stage3 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
             have hexp : ((t : ℝ) + 1 - St) = ((t : ℝ) - St) + 1 := by ring
             rw [hexp, Real.rpow_add (by norm_num : (0 : ℝ) < 199 / 200), Real.rpow_one]
             nlinarith
-          · -- `true` step: `Y_{t+1} = 2 Y_t`
-            simp only [↓reduceIte, Nat.cast_add, Nat.cast_one]
+          · simp only [↓reduceIte, Nat.cast_add, Nat.cast_one]
             have hsub_eq : (t : ℝ) + 1 - (St + 1) = (t : ℝ) - St := by ring
             rw [hsub_eq, Real.rpow_add (by norm_num : (0 : ℝ) < 2), Real.rpow_one, hZ'_plus]
             rw [Real.logb_pow]
             push_cast
             linarith
-      -- Specialize to `t = m₃` and apply `stage3_exponent_ineq`
       have hYm3 := hY_ind m₃ le_rfl
       have hpre_id : pathPrefix (le_refl m₃) b = b := by ext i; rfl
       rw [hpre_id] at hYm3
@@ -406,7 +395,6 @@ theorem lemma_5_4_stage3 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
         Real.log_rpow (by norm_num)]
       rw [Real.logb, div_le_iff₀ hlog2_pos] at hlog_final
       exact hlog_final
-  -- Step 4: Union bound and complement
   have hbad : treeProb m₃ (fun b ↦
       (2 : ℝ) ^ (-(200 : ℝ) * ((2 : ℝ) ^ (m₁₂ + m₃)) ^ (49047 / 100000 : ℝ)) < Z' m₃ b) ≤ ε / 8 := by
     have hsub : treeProb m₃ (fun b ↦
@@ -452,7 +440,7 @@ theorem polar_error_exponent_bound {n : ℕ} (hn : 1 ≤ n) :
     have h1 := Real.log_le_sub_one_of_pos (Real.rpow_pos_of_pos hN_pos (49 / 100 : ℝ))
     rw [Real.log_rpow hN_pos] at h1
     linarith
-  have hn_le : (n : ℝ) ≤ 4 * N ^ (49 / 100 : ℝ) := by
+  have hn_le : (n : ℝ) ≤ 5 * N ^ (49 / 100 : ℝ) := by
     have hlogN_eq : Real.log N = (n : ℝ) * Real.log 2 := by
       simp only [N, Real.log_pow]
     have hlog2_gt : (1 / 2 : ℝ) < Real.log 2 := lt_trans (by norm_num) Real.log_two_gt_d9

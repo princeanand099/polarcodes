@@ -6,6 +6,7 @@ Authors: Prince Anand
 import PolarCodes.BinaryEntropy
 import PolarCodes.QuantumStates
 import PolarCodes.Channels
+import PolarCodes.QuantumProps
 import PolarCodes.SplittingBounds
 import PolarCodes.ScalarSupplements
 import PolarCodes.Polarization

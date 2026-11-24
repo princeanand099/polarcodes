@@ -28,7 +28,7 @@ lemma continuousOn_h2Inv : ContinuousOn h2Inv (Icc (0 : ℝ) 1) := by
   intro v hv ε hε
   set q := h2Inv v
   have hq : q ∈ Icc (0 : ℝ) (1 / 2) := h2Inv_mem_Icc hv
-  have hlt_lo : q = 0 ∨ 0 < q := eq_or_lt_of_le hq.1
+  have hlt_lo : q = 0 ∨ 0 < q := (eq_or_lt_of_le hq.1).imp Eq.symm id
   have hlt_hi : q = 1 / 2 ∨ q < 1 / 2 := eq_or_lt_of_le hq.2
   obtain ⟨δ_lo, hδ_lo_pos, hδ_lo⟩ : ∃ δ > 0, ∀ w ∈ Icc (0 : ℝ) 1, v - δ < w → q - ε < h2Inv w := by
     rcases hlt_lo with hq0 | hq0
@@ -96,8 +96,10 @@ lemma hasDerivAt_h2Inv {v : ℝ} (hv : v ∈ Ioo (0 : ℝ) 1) :
     filter_upwards [Icc_mem_nhds hv.1 hv.2] with w hw
     exact h2_h2Inv hw
   have hfv : h2 q = v := h2_h2Inv ⟨le_of_lt hv.1, le_of_lt hv.2⟩
+  have hd_h2' : HasDerivAt h2 (Real.log ((1 - q) / q) / Real.log 2) (h2Inv (h2 q)) := by
+    rw [h2Inv_h2 ⟨le_of_lt hq.1, le_of_lt hq.2⟩]; exact hd_h2
   rw [← hfv] at hcont hinv ⊢
-  exact HasDerivAt.of_local_left_inverse hcont hd_h2 (ne_of_gt hderiv_pos) hinv
+  exact HasDerivAt.of_local_left_inverse hcont hd_h2' (ne_of_gt hderiv_pos) hinv
 
 /-! ### Wyner–Ziv Convexity of `v ↦ gc u v` on `[0, 1]` -/
 
@@ -165,7 +167,7 @@ private lemma antitoneOn_wyner_ziv_aux :
     have h1 : HasDerivAt (fun s : ℝ ↦ (1 - s ^ 2) / s) (-(1 + t ^ 2) / t ^ 2) t := by
       have ha : HasDerivAt (fun s : ℝ ↦ 1 - s ^ 2) (-(2 * t)) t := by
         convert (hasDerivAt_pow 2 t).const_sub 1 using 1; ring
-      convert ha.fun_div (hasDerivAt_id t) (ne_of_gt ht.1) using 1
+      convert ha.fun_div (hasDerivAt_id' t) (ne_of_gt ht.1) using 1
       field_simp [ne_of_gt ht.1]; ring
     have h2 : HasDerivAt (fun s : ℝ ↦ Real.log ((1 + s) / (1 - s))) (2 / (1 - t ^ 2)) t := by
       have hq : HasDerivAt (fun s : ℝ ↦ (1 + s) / (1 - s)) (2 / (1 - t) ^ 2) t := by
@@ -184,7 +186,7 @@ private lemma antitoneOn_wyner_ziv_aux :
     have h1 : HasDerivAt (fun s : ℝ ↦ (1 - s ^ 2) / s) (-(1 + t ^ 2) / t ^ 2) t := by
       have ha : HasDerivAt (fun s : ℝ ↦ 1 - s ^ 2) (-(2 * t)) t := by
         convert (hasDerivAt_pow 2 t).const_sub 1 using 1; ring
-      convert ha.fun_div (hasDerivAt_id t) (ne_of_gt ht.1) using 1
+      convert ha.fun_div (hasDerivAt_id' t) (ne_of_gt ht.1) using 1
       field_simp [ne_of_gt ht.1]; ring
     have h2 : HasDerivAt (fun s : ℝ ↦ Real.log ((1 + s) / (1 - s))) (2 / (1 - t ^ 2)) t := by
       have hq : HasDerivAt (fun s : ℝ ↦ (1 + s) / (1 - s)) (2 / (1 - t) ^ 2) t := by
@@ -241,12 +243,15 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
         have hd1 : HasDerivAt h2Inv ((Real.log ((1 - q) / q) / Real.log 2)⁻¹) v :=
           hasDerivAt_h2Inv hv
         have hd2 : HasDerivAt (fun s : ℝ ↦ binConv p s) α q := by
-          unfold binConv
-          have h := (hasDerivAt_id q).const_mul (1 - 2 * p)
-          convert h.const_add p using 1; ext s; ring
+          have hfun : (fun s : ℝ ↦ binConv p s) = fun s ↦ p + (1 - 2 * p) * s := by
+            ext s; unfold binConv; ring
+          rw [hfun]
+          simpa [α] using ((hasDerivAt_id' q).const_mul (1 - 2 * p)).const_add p
         have hd3 : HasDerivAt h2 (Real.log ((1 - r) / r) / Real.log 2) r :=
           hasDerivAt_h2 hr_mem.1 (by linarith [hr_mem.2])
         have hcomp := (hd3.comp q hd2).comp v hd1
+        have hfun : (fun w ↦ gc u w) = h2 ∘ (fun s ↦ binConv p s) ∘ h2Inv := rfl
+        rw [hfun]
         convert hcomp using 1
         have hlog2 : Real.log 2 ≠ 0 := ne_of_gt (Real.log_pos (by norm_num))
         have hlogq : Real.log ((1 - q) / q) ≠ 0 :=
@@ -281,10 +286,14 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
               convert ha.fun_div hb (by nlinarith [hx.2]) using 1; ring
             have h := hq.log (ne_of_gt (div_pos (by nlinarith [hx.1]) (by nlinarith [hx.2])))
             convert h using 1
-            have hne1 : 1 - α * x ≠ 0 := by nlinarith [hx.2]
-            have hne2 : 1 + α * x ≠ 0 := by nlinarith [hx.1]
-            have hne3 : 1 - (α * x) ^ 2 ≠ 0 := by nlinarith [hx.1, hx.2]
-            field_simp [hne1, hne2, hne3]; ring
+            have hax_lt : α * x < 1 := by nlinarith [hα1, hx.2]
+            have hax_pos : 0 < α * x := mul_pos hα0 hx.1
+            have hne1 : 1 - α * x ≠ 0 := by linarith
+            have hne2 : 1 + α * x ≠ 0 := by linarith
+            have hne3 : 1 - (α * x) ^ 2 ≠ 0 := by nlinarith
+            have hfac : 1 - (α * x) ^ 2 = (1 - α * x) * (1 + α * x) := by ring
+            rw [hfac]
+            field_simp [hne1, hne2]
           have hden : HasDerivAt (fun s : ℝ ↦ Real.log ((1 + s) / (1 - s)))
               (2 / (1 - x ^ 2)) x := by
             have hq : HasDerivAt (fun s : ℝ ↦ (1 + s) / (1 - s)) (2 / (1 - x) ^ 2) x := by
@@ -313,10 +322,14 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
               convert ha.fun_div hb (by nlinarith [hx.2]) using 1; ring
             have h := hq.log (ne_of_gt (div_pos (by nlinarith [hx.1]) (by nlinarith [hx.2])))
             convert h using 1
-            have hne1 : 1 - α * x ≠ 0 := by nlinarith [hx.2]
-            have hne2 : 1 + α * x ≠ 0 := by nlinarith [hx.1]
-            have hne3 : 1 - (α * x) ^ 2 ≠ 0 := by nlinarith [hx.1, hx.2]
-            field_simp [hne1, hne2, hne3]; ring
+            have hax_lt : α * x < 1 := by nlinarith [hα1, hx.2]
+            have hax_pos : 0 < α * x := mul_pos hα0 hx.1
+            have hne1 : 1 - α * x ≠ 0 := by linarith
+            have hne2 : 1 + α * x ≠ 0 := by linarith
+            have hne3 : 1 - (α * x) ^ 2 ≠ 0 := by nlinarith
+            have hfac : 1 - (α * x) ^ 2 = (1 - α * x) * (1 + α * x) := by ring
+            rw [hfac]
+            field_simp [hne1, hne2]
           have hden : HasDerivAt (fun s : ℝ ↦ Real.log ((1 + s) / (1 - s)))
               (2 / (1 - x ^ 2)) x := by
             have hq : HasDerivAt (fun s : ℝ ↦ (1 + s) / (1 - s)) (2 / (1 - x) ^ 2) x := by
@@ -347,17 +360,23 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
           have hR : 2 * (α * x) / ((1 - (α * x) ^ 2) * (1 - x ^ 2)) *
               ((1 - (α * x) ^ 2) / (α * x) * Real.log ((1 + α * x) / (1 - α * x))) =
               Real.log ((1 + α * x) / (1 - α * x)) * (2 / (1 - x ^ 2)) := by
-            field_simp [ne_of_gt h3, ne_of_gt h1, ne_of_gt h2]
+            have hne_a : 1 - (α * x) ^ 2 ≠ 0 := ne_of_gt h1
+            have hne_x : 1 - x ^ 2 ≠ 0 := ne_of_gt h2
+            have hne_3 : α * x ≠ 0 := ne_of_gt h3
+            calc 2 * (α * x) / ((1 - (α * x) ^ 2) * (1 - x ^ 2)) *
+                  ((1 - (α * x) ^ 2) / (α * x) * Real.log ((1 + α * x) / (1 - α * x)))
+                = (2 / (1 - x ^ 2)) * ((α * x) / (α * x)) *
+                    ((1 - (α * x) ^ 2) / (1 - (α * x) ^ 2)) *
+                    Real.log ((1 + α * x) / (1 - α * x)) := by ring
+              _ = Real.log ((1 + α * x) / (1 - α * x)) * (2 / (1 - x ^ 2)) := by
+                    rw [div_self hne_3, div_self hne_a]; ring
           linarith
-      apply convexOn_of_deriv_mono (convex_Icc (0 : ℝ) 1)
-      · have hcont_bc : Continuous (fun q : ℝ ↦ binConv p q) := by unfold binConv; fun_prop
-        exact continuous_h2.comp_continuousOn (hcont_bc.comp_continuousOn continuousOn_h2Inv)
-      · intro v hv
-        rw [interior_Icc] at hv
-        exact (hderiv v hv).differentiableAt.differentiableWithinAt
-      · intro v₁ hv₁ v₂ hv₂ hv12
-        rw [interior_Icc] at hv₁ hv₂
-        rw [(hderiv v₁ hv₁).deriv, (hderiv v₂ hv₂).deriv]
+      let f' : ℝ → ℝ := fun v ↦
+        α * Real.log ((1 - binConv p (h2Inv v)) / binConv p (h2Inv v)) /
+          Real.log ((1 - h2Inv v) / h2Inv v)
+      have hf'_mono : MonotoneOn f' (Ioo (0 : ℝ) 1) := by
+        intro v₁ hv₁ v₂ hv₂ hv12
+        simp only [f']
         set q₁ := h2Inv v₁
         set q₂ := h2Inv v₂
         have hq₁ : q₁ ∈ Ioo (0 : ℝ) (1 / 2) := h2Inv_mem_Ioo hv₁
@@ -387,6 +406,47 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
             field_simp [hne1, hne2]; ring
         rw [hrew q₁ hq₁, hrew q₂ hq₂]
         exact mul_le_mul_of_nonneg_left (hanti_ratio hx₂ hx₁ hx21) (le_of_lt hα0)
+      have hcont_gc : ContinuousOn (fun w ↦ gc u w) (Icc (0 : ℝ) 1) := by
+        have hcont_bc : Continuous (fun q : ℝ ↦ binConv p q) := by unfold binConv; fun_prop
+        exact continuous_h2.comp_continuousOn (hcont_bc.comp_continuousOn continuousOn_h2Inv)
+      refine ⟨convex_Icc (0 : ℝ) 1, ?_⟩
+      intro x hx y hy a b ha hb hab
+      simp only [smul_eq_mul]
+      rcases eq_or_lt_of_le ha with rfl | ha_pos
+      · have hb1 : b = 1 := by linarith
+        subst hb1; simp
+      rcases eq_or_lt_of_le hb with rfl | hb_pos
+      · have ha1 : a = 1 := by linarith
+        subst ha1; simp
+      suffices hsym : ∀ x' y' a' b' : ℝ, x' ∈ Icc (0 : ℝ) 1 → y' ∈ Icc (0 : ℝ) 1 →
+          x' < y' → 0 < a' → 0 < b' → a' + b' = 1 →
+          gc u (a' * x' + b' * y') ≤ a' * gc u x' + b' * gc u y' by
+        rcases lt_trichotomy x y with hlt | rfl | hgt
+        · exact hsym x y a b hx hy hlt ha_pos hb_pos hab
+        · have : a * x + b * x = x := by linear_combination hab * x
+          rw [this]; linear_combination -hab * gc u x
+        · have h := hsym y x b a hy hx hgt hb_pos ha_pos (by linarith)
+          linarith
+      intro x' y' a' b' hx' hy' hxy ha' hb' hab'
+      set z := a' * x' + b' * y'
+      have hxz : x' < z := by simp only [z]; nlinarith
+      have hzy : z < y' := by simp only [z]; nlinarith
+      have ⟨c₁, hc₁, hceq₁⟩ := exists_hasDerivAt_eq_slope (fun w ↦ gc u w) f' hxz
+        (hcont_gc.mono (Icc_subset_Icc hx'.1 (le_trans (le_of_lt hzy) hy'.2)))
+        (fun w hw ↦ hderiv w ⟨lt_of_le_of_lt hx'.1 hw.1, lt_of_lt_of_le hw.2 (le_trans (le_of_lt hzy) hy'.2)⟩)
+      have ⟨c₂, hc₂, hceq₂⟩ := exists_hasDerivAt_eq_slope (fun w ↦ gc u w) f' hzy
+        (hcont_gc.mono (Icc_subset_Icc (le_trans hx'.1 (le_of_lt hxz)) hy'.2))
+        (fun w hw ↦ hderiv w ⟨lt_of_le_of_lt (le_trans hx'.1 (le_of_lt hxz)) hw.1, lt_of_lt_of_le hw.2 hy'.2⟩)
+      have hc₁_mem : c₁ ∈ Ioo (0 : ℝ) 1 := ⟨lt_of_le_of_lt hx'.1 hc₁.1, lt_of_lt_of_le (lt_trans hc₁.2 hzy) hy'.2⟩
+      have hc₂_mem : c₂ ∈ Ioo (0 : ℝ) 1 := ⟨lt_of_le_of_lt (le_trans hx'.1 (le_of_lt hxz)) hc₂.1, lt_of_lt_of_le hc₂.2 hy'.2⟩
+      have hslope_le : (gc u z - gc u x') / (z - x') ≤ (gc u y' - gc u z) / (y' - z) := by
+        rw [← hceq₁, ← hceq₂]
+        exact hf'_mono hc₁_mem hc₂_mem (le_of_lt (lt_trans hc₁.2 hc₂.1))
+      have hzx : z - x' = b' * (y' - x') := by simp only [z]; linear_combination -(hab' - 1) * x'
+      have hyz : y' - z = a' * (y' - x') := by simp only [z]; linear_combination (hab' - 1) * y'
+      rw [hzx, hyz, div_le_div_iff₀ (mul_pos hb' (by linarith)) (mul_pos ha' (by linarith))] at hslope_le
+      have hpos_d : 0 < y' - x' := by linarith
+      nlinarith
 
 /-! ### Proposition 4.3 Endpoint Asymptotics (Eq. 1.8) -/
 
@@ -497,12 +557,15 @@ theorem prop_4_3_asymptotic :
       have hpos : 0 < 1 + Real.log 2 * δ := by positivity
       rw [le_sub_iff_add_le, ← le_sub_iff_add_le', inv_le_comm₀ hpos (by nlinarith)]
       rw [inv_le_iff_one_le_mul₀ (by nlinarith)]
+      have hhalf_δ : (1 / 2 : ℝ) * δ ≤ Real.log 2 * δ := by nlinarith
+      have hlog_δ : Real.log 2 * δ ≤ δ := by nlinarith
       nlinarith
     simp only [p2]; rw [hpow]; linarith
   have hp2_pos : 0 < p2 := by linarith
   have hp2_lt_quarter : p2 < 1 / 4 := by nlinarith
   have hp1_ub : p1 ≤ δ / L := (le_div_iff₀ hL_pos).mpr (h2Inv_mul_logb_le hδ_pos hδ_le_q)
   have hp1_lb : (1 - η) * δ / L ≤ p1 := by
+    have h1mη : 0 < 1 - η := by linarith
     set t := (1 - η) * δ / L
     have ht_pos : 0 < t := by positivity
     have ht_lt1 : t < 1 / 2 := by
@@ -536,6 +599,9 @@ theorem prop_4_3_asymptotic :
         simp only [t]; ring
       rw [ht_eq] at h1
       have hprod : (1 - η) * (1 + η) ≤ 1 := by nlinarith
+      have hnn : 0 ≤ (1 - η) * δ := by nlinarith
+      have hstep : (1 - η) * δ * ((Real.logb 2 (Real.exp 1 / (1 - η)) + L + Real.logb 2 L) / L) ≤
+          (1 - η) * δ * (1 + η) := mul_le_mul_of_nonneg_left hsum_le hnn
       nlinarith
     have hle : h2 t ≤ h2 p1 := by rwa [h2_h2Inv ⟨le_of_lt hδ_pos, by linarith⟩]
     by_contra hgt
@@ -553,9 +619,9 @@ theorem prop_4_3_asymptotic :
   have hgap_lb : (q - p2) * (Real.logb 2 ((1 - q) / q)) ≤ deltaGap δ p2 := by
     have hsec : (h2 q - h2 p2) / (q - p2) ≥ Real.log ((1 - q) / q) / Real.log 2 := by
       have hderiv_le := exists_hasDerivAt_eq_slope h2
-        (fun x _ ↦ Real.log ((1 - x) / x) / Real.log 2) hq_gt_p2
+        (fun x ↦ Real.log ((1 - x) / x) / Real.log 2) hq_gt_p2
         continuous_h2.continuousOn
-        (fun x hx ↦ hasDerivAt_h2 (by linarith [hx.1]) (by linarith [hx.2]))
+        (fun x hx ↦ by simpa [Real.logb] using hasDerivAt_h2 (by linarith [hx.1]) (by linarith [hx.2]))
       rcases hderiv_le with ⟨c, hc, hceq⟩
       rw [← hceq]
       apply div_le_div_of_nonneg_right _ (le_of_lt hlog2_pos)
@@ -567,9 +633,9 @@ theorem prop_4_3_asymptotic :
     exact (le_div_iff₀ (by linarith)).mp hsec
   have hgap_ub : deltaGap δ p2 ≤ (q - p2) * (Real.logb 2 ((1 - p2) / p2)) := by
     have hderiv_ge := exists_hasDerivAt_eq_slope h2
-      (fun x _ ↦ Real.log ((1 - x) / x) / Real.log 2) hq_gt_p2
+      (fun x ↦ Real.log ((1 - x) / x) / Real.log 2) hq_gt_p2
       continuous_h2.continuousOn
-      (fun x hx ↦ hasDerivAt_h2 (by linarith [hx.1]) (by linarith [hx.2]))
+      (fun x hx ↦ by simpa [Real.logb] using hasDerivAt_h2 (by linarith [hx.1]) (by linarith [hx.2]))
     rcases hderiv_ge with ⟨c, hc, hceq⟩
     have hsec : (h2 q - h2 p2) / (q - p2) ≤ Real.log ((1 - p2) / p2) / Real.log 2 := by
       rw [← hceq]
