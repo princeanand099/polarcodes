@@ -383,7 +383,7 @@ theorem lemma_4_1_gram_dephasing
               apply Finset.sum_congr rfl; intro x _
               rw [Finset.mul_sum]; apply Finset.sum_congr rfl; intro y _
               simp only [star_mul', star_star]; ring
-        _ = _ := by rw [hoverlap]; apply Finset.sum_congr rfl; intro x _; ring
+        _ = _ := by rw [hoverlap]; apply Finset.sum_congr rfl; intro x _; simp only [Bool.true_eq_false, ↓reduceIte]; ring
     · simp only [Bool.true_eq_false, ↓reduceIte, h1m2p]
       rw [Finset.mul_sum]
       calc ∑ x : d₁, ∑ y : d₂,
@@ -394,7 +394,7 @@ theorem lemma_4_1_gram_dephasing
               apply Finset.sum_congr rfl; intro x _
               rw [Finset.mul_sum]; apply Finset.sum_congr rfl; intro y _
               simp only [star_mul', star_star]; ring
-        _ = _ := by rw [hoverlap_conj]; apply Finset.sum_congr rfl; intro x _; ring
+        _ = _ := by rw [hoverlap_conj]; apply Finset.sum_congr rfl; intro x _; simp only [Bool.true_eq_false, ↓reduceIte]; ring
     · simp only [↓reduceIte, one_mul]
       calc ∑ x : d₁, ∑ y : d₂,
               ((Real.sqrt 2 : ℂ)⁻¹) * (ρ₁.sqrtMat i x * star (ψ₁ y)) *
@@ -431,7 +431,7 @@ theorem lemma_4_1_gram_dephasing
       rw [← h0, Finset.sum_mul, Finset.mul_sum]
       apply Finset.sum_congr rfl; intro x _
       simp only [star_mul', star_star]
-      calc φ₀ k₁ * star (ρ₀.sqrtMat x i₁) * star ((Real.sqrt 2 : ℂ)⁻¹) *
+      calc star ((Real.sqrt 2 : ℂ)⁻¹) * (star (ρ₀.sqrtMat x i₁) * φ₀ k₁) *
             (((Real.sqrt 2 : ℂ)⁻¹) * (ρ₀.sqrtMat x i₂ * star (φ₀ k₂)))
           = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) *
               (star (ρ₀.sqrtMat x i₁) * ρ₀.sqrtMat x i₂ * (φ₀ k₁ * star (φ₀ k₂))) := by ring
@@ -443,7 +443,7 @@ theorem lemma_4_1_gram_dephasing
       rw [← h1, ← hψ₁_ketbra k₁ k₂, Finset.sum_mul, Finset.mul_sum]
       apply Finset.sum_congr rfl; intro x _
       simp only [star_mul', star_star]
-      calc ψ₁ k₁ * star (ρ₁.sqrtMat x i₁) * star ((Real.sqrt 2 : ℂ)⁻¹) *
+      calc star ((Real.sqrt 2 : ℂ)⁻¹) * (star (ρ₁.sqrtMat x i₁) * ψ₁ k₁) *
             (((Real.sqrt 2 : ℂ)⁻¹) * (ρ₁.sqrtMat x i₂ * star (ψ₁ k₂)))
           = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) *
               (star (ρ₁.sqrtMat x i₁) * ρ₁.sqrtMat x i₂ * (ψ₁ k₁ * star (ψ₁ k₂))) := by ring
