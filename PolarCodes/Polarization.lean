@@ -36,6 +36,12 @@ lemma treeProb_eq_avg (n : ℕ) (P : (Fin n → Bool) → Prop) :
   unfold treeProb treeAvg
   rw [Finset.sum_boole]
 
+lemma treeAvg_zero (f : (Fin 0 → Bool) → ℝ) : treeAvg 0 f = f Fin.elim0 := by
+  unfold treeAvg
+  rw [pow_zero, div_one, Finset.univ_unique, Finset.sum_singleton]
+  congr 1
+  exact Subsingleton.elim _ _
+
 lemma treeAvg_const (n : ℕ) (c : ℝ) : treeAvg n (fun _ ↦ c) = c := by
   unfold treeAvg
   rw [Finset.sum_const, Finset.card_univ, Fintype.card_fun, Fintype.card_bool, Fintype.card_fin,
@@ -104,11 +110,9 @@ lemma treeProb_compl (n : ℕ) (P : (Fin n → Bool) → Prop) :
     treeProb n (fun b ↦ ¬ P b) = 1 - treeProb n P := by
   have hsum : treeProb n (fun b ↦ ¬ P b) + treeProb n P = 1 := by
     rw [treeProb_eq_avg, treeProb_eq_avg, ← treeAvg_add]
-    calc treeAvg n (fun b ↦ (by classical exact if ¬ P b then (1 : ℝ) else 0) +
-            (by classical exact if P b then (1 : ℝ) else 0))
-        = treeAvg n (fun _ ↦ 1) := by
-          congr 1; ext b; classical by_cases hp : P b <;> simp [hp]
-      _ = 1 := treeAvg_const n 1
+    trans treeAvg n (fun _ ↦ 1)
+    · congr 1; ext b; classical by_cases hp : P b <;> simp [hp]
+    · exact treeAvg_const n 1
   linarith
 
 /-- One-step splitting of `treeAvg (n + 1)` by the first coordinate `b 0`. -/
@@ -128,7 +132,7 @@ lemma treeAvg_succ (n : ℕ) (f : (Fin (n + 1) → Bool) → ℝ) :
           ext i
           refine Fin.cases ?_ ?_ i <;> simp }
     rw [← Equiv.sum_comp e, Fintype.sum_prod_type]
-    simp [e]
+    simp [e, add_comm]
   rw [hsum, pow_succ]
   ring
 
@@ -154,7 +158,7 @@ lemma treeAvg_snoc (n : ℕ) (f : (Fin (n + 1) → Bool) → ℝ) :
           · simp [Fin.snoc_last]
           · intro j; simp [Fin.snoc_castSucc] }
     rw [← Equiv.sum_comp e, Fintype.sum_prod_type]
-    simp [e]
+    simp [e, add_comm]
   rw [hsum, pow_succ]
   ring
 
@@ -164,11 +168,6 @@ lemma treeProb_succ (n : ℕ) (P : (Fin (n + 1) → Bool) → Prop) :
         treeProb n (fun b ↦ P (Fin.cons (α := fun _ ↦ Bool) true b))) / 2 := by
   rw [treeProb_eq_avg, treeAvg_succ, treeProb_eq_avg, treeProb_eq_avg]
   congr 1
-  exact congrArg₂ (· + ·)
-    (congrArg (treeAvg n) (funext fun b ↦ by
-      classical by_cases h : P (Fin.cons (α := fun _ ↦ Bool) false b) <;> simp [h]))
-    (congrArg (treeAvg n) (funext fun b ↦ by
-      classical by_cases h : P (Fin.cons (α := fun _ ↦ Bool) true b) <;> simp [h]))
 
 /-- Tower property for `treeAvg` over concatenated binary paths `Fin (m₁ + m₂) → Bool`. -/
 lemma treeAvg_append (m₁ m₂ : ℕ) (f : (Fin (m₁ + m₂) → Bool) → ℝ) :
@@ -179,15 +178,12 @@ lemma treeAvg_append (m₁ m₂ : ℕ) (f : (Fin (m₁ + m₂) → Bool) → ℝ
     have heq : ∀ b₁ : Fin m₁ → Bool,
         treeAvg 0 (fun b₂ ↦ f (Fin.append b₁ b₂)) = f b₁ := by
       intro b₁
-      unfold treeAvg
-      simp only [pow_zero, div_one]
-      have huniv : (Finset.univ : Finset (Fin 0 → Bool)) = {Fin.elim0} := by
-        ext x; simp [Subsingleton.elim x Fin.elim0]
-      rw [huniv, Finset.sum_singleton]
-      congr 1; ext i; simp [Fin.append, Fin.addCases]
+      rw [treeAvg_zero]
+      congr 1; ext i; simp [Fin.append, Fin.addCases]; rfl
     simp_rw [heq]
     rfl
   | succ m₂ ih =>
+    change treeAvg ((m₁ + m₂) + 1) f = _
     rw [treeAvg_snoc (m₁ + m₂)]
     have hsnoc : ∀ (a : Bool) (b₁ : Fin m₁ → Bool) (b₂ : Fin m₂ → Bool),
         Fin.snoc (α := fun _ ↦ Bool) (Fin.append b₁ b₂) a =
@@ -217,8 +213,7 @@ lemma treeProb_append (m₁ m₂ : ℕ) (P : (Fin (m₁ + m₂) → Bool) → Pr
       treeAvg m₁ (fun b₁ ↦ treeProb m₂ (fun b₂ ↦ P (Fin.append b₁ b₂))) := by
   rw [treeProb_eq_avg, treeAvg_append]
   congr 1; ext b₁
-  rw [treeProb_eq_avg]
-  congr 1; ext b₂; classical by_cases h : P (Fin.append b₁ b₂) <;> simp [h]
+  exact (treeProb_eq_avg m₂ (fun b₂ ↦ P (Fin.append b₁ b₂))).symm
 
 /-- Markov's inequality on `Fin n → Bool`. -/
 lemma treeProb_markov (n : ℕ) {f : (Fin n → Bool) → ℝ} (hf : ∀ b, 0 ≤ f b)
@@ -269,23 +264,17 @@ theorem tree_doob_maximal :
     · have hzero : treeProb 0 (fun b ↦ ∃ t : Fin 1,
           c ≤ M t.val (Nat.le_of_lt_succ t.isLt)
             (pathPrefix (Nat.le_of_lt_succ t.isLt) b)) = 0 := by
-        rw [treeProb_eq_avg]
-        have hf : (fun b : Fin 0 → Bool ↦ by
-            classical
-            exact if (∃ t : Fin 1, c ≤ M t.val (Nat.le_of_lt_succ t.isLt)
-              (pathPrefix (Nat.le_of_lt_succ t.isLt) b)) then (1 : ℝ) else 0) = fun _ ↦ 0 := by
-          ext b; classical
-          split_ifs with h
-          · exfalso
-            rcases h with ⟨t, ht⟩
-            have ht0 : t.val = 0 := Nat.lt_one_iff.mp t.isLt
-            have hfun : pathPrefix (Nat.le_of_lt_succ t.isLt) b =
-                (by subst ht0; exact Fin.elim0) := by
-              subst ht0; ext i; exact Fin.elim0 i
-            subst ht0
-            exact h0 (by simpa [hfun] using ht)
-          · rfl
-        rw [hf, treeAvg_const]
+        rw [treeProb_eq_avg, treeAvg_zero]
+        classical
+        split_ifs with h
+        · exfalso
+          rcases h with ⟨t, ht⟩
+          have ht0 : t = 0 := Subsingleton.elim t 0
+          subst ht0
+          have hfun : pathPrefix (Nat.le_of_lt_succ (0 : Fin 1).isLt) Fin.elim0 = Fin.elim0 := by
+            ext i; exact Fin.elim0 i
+          exact h0 (by simpa [hfun] using ht)
+        · rfl
       rw [hzero]
       exact div_nonneg (hnn 0 (Nat.zero_le 0) Fin.elim0) (le_of_lt hc)
   | succ m ih =>
@@ -370,7 +359,7 @@ theorem tree_doob_maximal :
           Fin.snoc (α := fun _ ↦ Bool) (Fin.elim0 : Fin 0 → Bool) a =
             Fin.cons (α := fun _ ↦ Bool) a Fin.elim0 := by
         intro a; ext i
-        have hi : i = 0 := Subsingleton.elim i 0
+        have hi : i = 0 := Fin.ext (Nat.lt_one_iff.mp i.isLt)
         subst hi; simp [Fin.snoc]
       simp only [hsnoc0] at hstep0
       have hf := hih false
@@ -573,12 +562,7 @@ noncomputable def symCap (P : PolarProcess) : ℝ := 1 - P.H 0 Fin.elim0
 
 lemma avg_H (P : PolarProcess) (t : ℕ) : treeAvg t (P.H t) = P.H 0 Fin.elim0 := by
   induction t with
-  | zero =>
-    unfold treeAvg
-    simp only [pow_zero, div_one]
-    have huniv : (Finset.univ : Finset (Fin 0 → Bool)) = {Fin.elim0} := by
-      ext x; simp [Subsingleton.elim x Fin.elim0]
-    rw [huniv, Finset.sum_singleton]
+  | zero => exact treeAvg_zero (P.H 0)
   | succ t ih =>
     rw [treeAvg_snoc, ← treeAvg_add]
     have hdiv : ∀ (g : (Fin t → Bool) → ℝ), treeAvg t g / 2 = treeAvg t (fun b ↦ g b / 2) := by
@@ -594,11 +578,7 @@ lemma avg_T_le (P : PolarProcess) (t : ℕ) :
       Lambda0 ^ t * Real.sqrt (P.H 0 Fin.elim0 * (1 - P.H 0 Fin.elim0)) := by
   induction t with
   | zero =>
-    unfold treeAvg
-    simp only [pow_zero, div_one, one_mul]
-    have huniv : (Finset.univ : Finset (Fin 0 → Bool)) = {Fin.elim0} := by
-      ext x; simp [Subsingleton.elim x Fin.elim0]
-    rw [huniv, Finset.sum_singleton]
+    rw [treeAvg_zero, pow_zero, one_mul]
   | succ t ih =>
     rw [treeAvg_snoc, ← treeAvg_add]
     have hdiv : ∀ (g : (Fin t → Bool) → ℝ), treeAvg t g / 2 = treeAvg t (fun b ↦ g b / 2) := by
@@ -649,13 +629,6 @@ noncomputable def stage2Y0 (ε : ℝ) : ℕ :=
 noncomputable def stage2Depth (ε : ℝ) : ℕ :=
   Nat.ceil (((stage2Y0 ε : ℝ) / 2 + Real.logb 2 (8 / ε)) / Real.logb 2 (1 / gamma2))
 
-lemma Lambda0_pos : 0 < Lambda0 := by
-  unfold Lambda0
-  apply Real.sqrt_pos.mpr
-  have h1 := theta0_pos
-  have h2 := theta0_lt_101
-  nlinarith
-
 lemma Lambda0_lt_one : Lambda0 < 1 := lt_trans Lambda0_lt (by norm_num)
 
 lemma gamma2_pos : 0 < gamma2 := by
@@ -681,7 +654,7 @@ lemma phiGold_sq : phiGold ^ 2 = phiGold + 1 := by
   nlinarith
 
 lemma phiGold_add_inv_sq : phiGold + phiGold ^ (-2 : ℤ) = 2 := by
-  have hpos : phiGold ≠ 0 := by linarith [phiGold_gt_one]
+  have hpos : phiGold + 1 ≠ 0 := by linarith [phiGold_gt_one]
   rw [zpow_neg, zpow_two, ← sq, phiGold_sq]
   field_simp [hpos]
   nlinarith [phiGold_sq]
@@ -699,12 +672,10 @@ theorem lemma_5_2_stage1 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
   set Z₀ := stage1Z0 ε
   have hL0 : 0 < Lambda0 := Lambda0_pos
   have hL1 : Lambda0 < 1 := Lambda0_lt_one
-  have hlogL : 0 < Real.logb 2 (1 / Lambda0) := by
-    rw [Real.logb_pos_iff (by norm_num : (1 : ℝ) < 2)]
-    exact (one_lt_div hL0).mpr hL1
+  have hlogL : 0 < Real.logb 2 (1 / Lambda0) :=
+    Real.logb_pos (by norm_num) ((one_lt_div hL0).mpr hL1)
   have hm₁_ge : (8 / Real.logb 2 (1 / Lambda0)) * Real.logb 2 (64 / ε) ≤ (m₁ : ℝ) :=
     Nat.le_ceil _
-  -- Step 1: `η ≤ (ε / 64)^4`
   have hη_pos : 0 < η := Real.rpow_pos_of_pos hL0 _
   have hη_le : η ≤ (ε / 64) ^ 4 := by
     have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
@@ -725,12 +696,10 @@ theorem lemma_5_2_stage1 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
     rw [Real.logb, Real.logb, div_le_div_iff_of_pos_right hlog2] at h1
     exact (Real.log_le_log_iff hη_pos (by positivity)).mp h1
   have hη_lt_quarter : η < 1 / 4 := by
-    have : (ε / 64) ^ 4 < 1 / 4 := by
-      have h1 : ε / 64 < 1 / 64 := by linarith
-      have h2 : 0 < ε / 64 := by positivity
-      nlinarith [sq_nonneg (ε / 64)]
+    have hpow : (ε / 64) ^ 4 ≤ (1 / 64 : ℝ) ^ 4 :=
+      pow_le_pow_left₀ (by positivity) (by linarith) 4
+    norm_num at hpow
     linarith
-  -- Step 2: Markov bound on `P(η < H < 1 - η) ≤ η`
   have hmid : treeProb m₁ (fun b ↦ η < P.H m₁ b ∧ P.H m₁ b < 1 - η) ≤ η := by
     have havgT : treeAvg m₁ (fun b ↦ Real.sqrt (P.H m₁ b * (1 - P.H m₁ b))) ≤
         (1 / 2) * Lambda0 ^ m₁ := by
@@ -762,7 +731,6 @@ theorem lemma_5_2_stage1 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
       rw [← Real.sqrt_sq (show 0 ≤ (1 / 2) * η by linarith)]
       apply Real.sqrt_le_sqrt
       nlinarith
-    have hη_le_one : η ≤ 1 := by linarith
     calc treeProb m₁ (fun b ↦ η < P.H m₁ b ∧ P.H m₁ b < 1 - η)
         ≤ treeAvg m₁ (fun b ↦ Real.sqrt (P.H m₁ b * (1 - P.H m₁ b))) /
             Real.sqrt ((3 / 4) * η) := hmarkov
@@ -774,7 +742,6 @@ theorem lemma_5_2_stage1 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
           rw [← hη_sq]
           have hηne : η ≠ 0 := ne_of_gt hη_pos
           field_simp [hηne]
-  -- Step 3: Splitting `I(W) = E[1 - H_{m₁}] ≤ P(E₁) + P(mid) + η`
   have hI_le : P.symCap ≤
       treeProb m₁ (fun b ↦ P.H m₁ b ≤ η) +
         treeProb m₁ (fun b ↦ η < P.H m₁ b ∧ P.H m₁ b < 1 - η) + η := by
@@ -784,34 +751,29 @@ theorem lemma_5_2_stage1 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
     apply treeAvg_mono
     intro b; classical
     have hH := P.H_mem m₁ b
-    by_cases h1 : P.H m₁ b ≤ η
-    · simp only [h1, ↓reduceIte]
-      have hnot : ¬ (η < P.H m₁ b ∧ P.H m₁ b < 1 - η) := by linarith
-      simp only [hnot, ↓reduceIte]
-      linarith [hH.1, hη_pos]
-    · simp only [h1, ↓reduceIte]
-      by_cases h2 : P.H m₁ b < 1 - η
-      · have hmidb : η < P.H m₁ b ∧ P.H m₁ b < 1 - η := ⟨lt_of_not_ge h1, h2⟩
-        simp only [hmidb, ↓reduceIte]
-        linarith [hH.1, hη_pos]
-      · have hnot : ¬ (η < P.H m₁ b ∧ P.H m₁ b < 1 - η) := fun h ↦ h2 h.2
-        simp only [hnot, ↓reduceIte]
-        linarith
+    split_ifs with h1 h2 h3
+    · linarith [hH.1, hη_pos]
+    · linarith [hH.1, hη_pos]
+    · linarith [hH.1, hη_pos]
+    · have hge : 1 - η ≤ P.H m₁ b := by
+        by_contra hlt
+        exact h3 ⟨lt_of_not_ge h1, lt_of_not_ge hlt⟩
+      linarith
   have h2η : 2 * η ≤ ε / 4 := by
-    have : 2 * (ε / 64) ^ 4 ≤ ε / 4 := by
-      have h1 : ε / 64 ≤ 1 / 64 := by linarith
-      have h2 : 0 ≤ ε / 64 := by positivity
-      nlinarith [sq_nonneg (ε / 64)]
-    linarith
-  -- Step 4: Bounds on `Z₀` and `4 √Z₀`
+    have h3 : (ε / 64) ^ 3 ≤ (1 / 64 : ℝ) ^ 3 :=
+      pow_le_pow_left₀ (by positivity) (by linarith) 3
+    have h4 : (ε / 64) ^ 4 = (ε / 64) * (ε / 64) ^ 3 := by ring
+    norm_num at h3
+    nlinarith
   have hlog2_lt : Real.log 2 < 1 := lt_trans Real.log_two_lt_d9 (by norm_num)
   have hlog2_pos : 0 < Real.log 2 := Real.log_pos (by norm_num)
   have hZ0_le : Z₀ ≤ 2 * (ε / 64) ^ 2 := by
     simp only [Z₀, stage1Z0]
     have harg : 2 * Real.log 2 * η ≤ (2 * (ε / 64) ^ 2) ^ 2 := by
       have h1 : 2 * Real.log 2 * η ≤ 2 * η := by nlinarith
-      have h2 : 2 * (ε / 64) ^ 4 ≤ 4 * (ε / 64) ^ 4 := by positivity
-      nlinarith
+      have hnn : 0 ≤ (ε / 64) ^ 4 := by positivity
+      have hsq : (2 * (ε / 64) ^ 2) ^ 2 = 4 * (ε / 64) ^ 4 := by ring
+      linarith
     calc Real.sqrt (2 * Real.log 2 * η)
         ≤ Real.sqrt ((2 * (ε / 64) ^ 2) ^ 2) := Real.sqrt_le_sqrt harg
       _ = 2 * (ε / 64) ^ 2 := Real.sqrt_sq (by positivity)
@@ -821,9 +783,8 @@ theorem lemma_5_2_stage1 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
   have h4sqrtZ0 : 4 * Real.sqrt Z₀ < ε / 8 := by
     have hstrict : Real.sqrt Z₀ < 2 * (ε / 64) := by
       have harg : Z₀ < (2 * (ε / 64)) ^ 2 := by
-        have : 2 * (ε / 64) ^ 2 < 4 * (ε / 64) ^ 2 := by
-          have : 0 < (ε / 64) ^ 2 := by positivity
-          linarith
+        have hpos2 : 0 < (ε / 64) ^ 2 := by positivity
+        have hsq : (2 * (ε / 64)) ^ 2 = 4 * (ε / 64) ^ 2 := by ring
         linarith
       rw [Real.sqrt_lt' (by positivity)]
       exact harg
@@ -847,7 +808,7 @@ theorem lemma_5_3_stage2 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
   have ⟨_, _, hZ0_lt, h4sqrtZ0⟩ := lemma_5_2_stage1 P hε0 hε1
   let Z' : (t : ℕ) → (Fin t → Bool) → ℝ := fun t b ↦ P.Z (m₁ + t) (Fin.append w b)
   have hZ'_nn : ∀ t b, 0 ≤ Z' t b := fun t b ↦ (P.Z_mem (m₁ + t) (Fin.append w b)).1
-  have hZ'_snoc : ∀ t b (a : Bool),
+  have hZ'_snoc : ∀ (t : ℕ) (b : Fin t → Bool) (a : Bool),
       Fin.append w (Fin.snoc (α := fun _ ↦ Bool) b a) =
         Fin.snoc (α := fun _ ↦ Bool) (Fin.append w b) a := by
     intro t b a; ext i
@@ -859,13 +820,15 @@ theorem lemma_5_3_stage2 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
       · simp [Fin.append, Fin.addCases, hj]
       · have hsub : j.val - m₁ < t := by omega
         simp [Fin.append, Fin.addCases, hj, Fin.snoc, hsub]
-  have hZ'_plus : ∀ t b, Z' (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b true) = (Z' t b) ^ 2 := by
+  have hZ'_plus : ∀ (t : ℕ) (b : Fin t → Bool),
+      Z' (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b true) = (Z' t b) ^ 2 := by
     intro t b; simp only [Z', hZ'_snoc]; exact P.Z_plus (m₁ + t) (Fin.append w b)
-  have hZ'_minus : ∀ t b, Z' (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b false) ≤ 2 * Z' t b := by
+  have hZ'_minus : ∀ (t : ℕ) (b : Fin t → Bool),
+      Z' (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b false) ≤ 2 * Z' t b := by
     intro t b; simp only [Z', hZ'_snoc]; exact P.Z_minus (m₁ + t) (Fin.append w b)
   have hZ'0 : Z' 0 Fin.elim0 = P.Z m₁ w := by
     simp only [Z']
-    congr 1; ext i; simp [Fin.append, Fin.addCases]
+    congr 1; ext i; simp [Fin.append, Fin.addCases]; rfl
   let hit16 : (t : ℕ) → (Fin t → Bool) → Prop :=
     fun t b ↦ ∃ s : Fin (t + 1), (1 / 16 : ℝ) < Z' s.val (pathPrefix (Nat.le_of_lt_succ s.isLt) b)
   let M : (t : ℕ) → (Fin t → Bool) → ℝ :=
@@ -900,7 +863,7 @@ theorem lemma_5_3_stage2 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
         refine ⟨s.castSucc, ?_⟩
         simpa [pathPrefix] using hs
       simp [hnot_prev]
-  have hpref_snoc : ∀ t b (a : Bool),
+  have hpref_snoc : ∀ (t : ℕ) (b : Fin t → Bool) (a : Bool),
       pathPrefix (Nat.le_succ t) (Fin.snoc (α := fun _ ↦ Bool) b a) = b := by
     intro t b a; ext i; simp [pathPrefix, Fin.snoc_castSucc]
   have hM_step_not_hit : ∀ t b, ¬ hit16 t b →
@@ -1009,11 +972,7 @@ theorem lemma_5_3_stage2 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
     intro t
     induction t with
     | zero =>
-      unfold treeAvg
-      simp only [pow_zero, div_one, one_mul]
-      have huniv : (Finset.univ : Finset (Fin 0 → Bool)) = {Fin.elim0} := by
-        ext x; simp [Subsingleton.elim x Fin.elim0]
-      rw [huniv, Finset.sum_singleton]; classical
+      rw [treeAvg_zero, pow_zero, one_mul]; classical
       split_ifs
       · simp only [M, hZ'0]; exact Real.sqrt_le_sqrt hw
       · exact Real.sqrt_nonneg _
@@ -1073,7 +1032,11 @@ theorem lemma_5_3_stage2 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
     have hc_pos : 0 < (2 : ℝ) ^ (-(Y₀ : ℝ) / 2) := Real.rpow_pos_of_pos (by norm_num) _
     have hmarkov := treeProb_markov m₂
       (f := fun b ↦ by classical exact if ¬ hit16 m₂ b then M m₂ b else 0)
-      (fun b ↦ by classical split_ifs <;> [exact hM_nn m₂ b; exact le_rfl])
+      (fun b ↦ by
+        classical
+        split_ifs
+        · exact hM_nn m₂ b
+        · exact le_rfl)
       hc_pos
       (P := fun b ↦ ¬ hit16 m₂ b ∧ (2 : ℝ) ^ (-(Y₀ : ℝ)) < Z' m₂ b)
       (fun b ⟨hnot, hgt⟩ ↦ by
@@ -1092,9 +1055,8 @@ theorem lemma_5_3_stage2 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
       calc Real.sqrt Z₀ ≤ Real.sqrt 1 := Real.sqrt_le_sqrt (by linarith)
         _ = 1 := Real.sqrt_one
     have hγ_bound : gamma2 ^ m₂ * (2 : ℝ) ^ ((Y₀ : ℝ) / 2) ≤ ε / 8 := by
-      have hlogg : 0 < Real.logb 2 (1 / gamma2) := by
-        rw [Real.logb_pos_iff (by norm_num : (1 : ℝ) < 2)]
-        exact (one_lt_div gamma2_pos).mpr gamma2_lt_one
+      have hlogg : 0 < Real.logb 2 (1 / gamma2) :=
+        Real.logb_pos (by norm_num) ((one_lt_div gamma2_pos).mpr gamma2_lt_one)
       have hm₂_ge : ((Y₀ : ℝ) / 2 + Real.logb 2 (8 / ε)) / Real.logb 2 (1 / gamma2) ≤ (m₂ : ℝ) :=
         Nat.le_ceil _
       have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
