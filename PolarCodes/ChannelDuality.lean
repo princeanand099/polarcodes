@@ -395,7 +395,7 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
     simp only [H_u, hadamardTensorI, Matrix.mul_apply, Matrix.star_apply, Matrix.of_apply]
     simp only [Fintype.sum_prod_type, Fintype.sum_bool, Prod.mk.injEq, ite_and,
       ite_mul, zero_mul, mul_ite, mul_zero, apply_ite star, star_zero,
-      Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
+      Finset.sum_ite_eq, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
     simp only [hK_entries, B_blk, CQChannel.checkCombine, CQChannel.ketBraBool,
       DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, Bool.not_false, Bool.not_true,
       Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Matrix.of_apply,
