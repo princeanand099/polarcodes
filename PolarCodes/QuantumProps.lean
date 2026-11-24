@@ -33,7 +33,7 @@ namespace PolarCodes
 lemma charpoly_diagonal_complex {d : Type*} [Fintype d] [DecidableEq d] (v : d → ℂ) :
     (Matrix.diagonal v).charpoly = ∏ i : d, (Polynomial.X - Polynomial.C (v i)) := by
   unfold Matrix.charpoly Matrix.charmatrix
-  have hdiag : Matrix.scalar d Polynomial.X - (Matrix.diagonal v).map Polynomial.C =
+  have hdiag : Matrix.scalar d Polynomial.X - Polynomial.C.mapMatrix (Matrix.diagonal v) =
       Matrix.diagonal (fun i ↦ Polynomial.X - Polynomial.C (v i)) := by
     ext i j
     by_cases h : i = j
@@ -51,9 +51,68 @@ lemma isHermitian_charpoly {d : Type*} [Fintype d] [DecidableEq d]
     have h := hA.spectral_theorem
     simpa [U, D, Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply] using h
   have hU : star U * U = 1 := Unitary.coe_star_mul_self hA.eigenvectorUnitary
-  rw [hspec, Matrix.charpoly_mul_comm, ← Matrix.mul_assoc, hU, Matrix.one_mul,
+  conv_lhs => rw [hspec]
+  rw [Matrix.charpoly_mul_comm, ← Matrix.mul_assoc, hU, Matrix.one_mul,
     charpoly_diagonal_complex]
   rfl
+
+private lemma roots_charpoly_mul_X_pow {d : Type*} [Fintype d] [DecidableEq d]
+    {M : Matrix d d ℂ} (hM : M.IsHermitian) (m : ℕ) :
+    (M.charpoly * Polynomial.X ^ m).roots.filter (· ≠ (0 : ℂ)) =
+      (Finset.univ.val.map (fun i : d ↦ (hM.eigenvalues i : ℂ))).filter (· ≠ (0 : ℂ)) := by
+  have hcpM := isHermitian_charpoly hM
+  have hne1 : M.charpoly ≠ 0 := by
+    rw [hcpM]
+    exact Finset.prod_ne_zero_iff.mpr fun i _ ↦ Polynomial.X_sub_C_ne_zero _
+  have hne2 : (Polynomial.X : ℂ[X]) ^ m ≠ 0 := pow_ne_zero m Polynomial.X_ne_zero
+  rw [Polynomial.roots_mul (mul_ne_zero hne1 hne2), Multiset.filter_add]
+  have hX : ((Polynomial.X : ℂ[X]) ^ m).roots.filter (· ≠ (0 : ℂ)) = 0 := by
+    rw [Polynomial.roots_X_pow, Multiset.filter_eq_nil]
+    intro z hz
+    simp only [Multiset.mem_nsmul, Multiset.mem_singleton] at hz
+    simp [hz.2]
+  rw [hX, add_zero, hcpM]
+  have hprod_ne : (∏ i : d, (Polynomial.X - Polynomial.C (hM.eigenvalues i : ℂ))) ≠ 0 :=
+    Finset.prod_ne_zero_iff.mpr fun i _ ↦ Polynomial.X_sub_C_ne_zero _
+  rw [Polynomial.roots_prod _ Finset.univ hprod_ne]
+  congr 1
+  simp only [Polynomial.roots_X_sub_C, Multiset.bind_singleton]
+
+private lemma sum_eq_sum_filter_ne_zero {d : Type*} [Fintype d] [DecidableEq d]
+    (v : d → ℝ) {f : ℝ → ℝ} (hf0 : f 0 = 0) :
+    ∑ i : d, f (v i) =
+      (((Finset.univ.val.map (fun i : d ↦ (v i : ℂ))).filter (· ≠ (0 : ℂ))).map
+        (fun z : ℂ ↦ f z.re)).sum := by
+  have h1 : ∑ i : d, f (v i) =
+      ((Finset.univ.val.map (fun i : d ↦ (v i : ℂ))).map (fun z : ℂ ↦ f z.re)).sum := by
+    rw [Multiset.map_map]
+    simp only [Function.comp_def, Complex.ofReal_re]
+    rfl
+  rw [h1]
+  have hpart := (Multiset.filter_add_not (fun z : ℂ ↦ z ≠ 0)
+    (Finset.univ.val.map (fun i : d ↦ (v i : ℂ)))).symm
+  conv_lhs => rw [hpart]
+  rw [Multiset.map_add, Multiset.sum_add]
+  have hzero : ((Multiset.filter (fun z : ℂ ↦ ¬ z ≠ 0)
+      (Finset.univ.val.map (fun i : d ↦ (v i : ℂ)))).map (fun z : ℂ ↦ f z.re)).sum = 0 := by
+    apply Multiset.sum_eq_zero
+    intro r hr
+    rcases Multiset.mem_map.mp hr with ⟨z, hz, rfl⟩
+    rw [Multiset.mem_filter] at hz
+    have hz0 : z = 0 := not_not.mp hz.2
+    rw [hz0, Complex.zero_re, hf0]
+  rw [hzero, add_zero]
+
+private lemma charpoly_zero_complex (d : Type*) [Fintype d] [DecidableEq d] :
+    (0 : Matrix d d ℂ).charpoly = Polynomial.X ^ (Fintype.card d) := by
+  have h0 : (0 : Matrix d d ℂ) = Matrix.diagonal (fun _ : d ↦ (0 : ℂ)) := by
+    ext i j; simp [Matrix.diagonal_apply]
+  rw [h0, charpoly_diagonal_complex]
+  simp [Finset.prod_const]
+
+private lemma charpoly_sqrt_mul_sqrt {d : Type*} [Fintype d] [DecidableEq d] (ρ σ : DensityOp d) :
+    (ρ.sqrtMat * σ.mat * ρ.sqrtMat).charpoly = (ρ.mat * σ.mat).charpoly := by
+  rw [Matrix.charpoly_mul_comm, ← Matrix.mul_assoc, ρ.sqrtMat_mul_self]
 
 /-- Master nonzero-spectrum invariance theorem: if two Hermitian matrices `A, B` (possibly of
 different dimensions `d₁, d₂`) satisfy `A.charpoly * X^k = B.charpoly * X^l`, then for every
@@ -65,55 +124,11 @@ theorem spectral_sum_eq_of_charpoly_mul_X_pow
     {k l : ℕ} (hcp : A.charpoly * Polynomial.X ^ k = B.charpoly * Polynomial.X ^ l)
     {f : ℝ → ℝ} (hf0 : f 0 = 0) :
     ∑ i : d₁, f (hA.eigenvalues i) = ∑ j : d₂, f (hB.eigenvalues j) := by
-  have hroots_eq : ∀ {d : Type*} [Fintype d] [DecidableEq d]
-      {M : Matrix d d ℂ} (hM : M.IsHermitian) (m : ℕ),
-      (M.charpoly * Polynomial.X ^ m).roots.filter (· ≠ (0 : ℂ)) =
-        (Finset.univ.val.map (fun i : d ↦ (hM.eigenvalues i : ℂ))).filter (· ≠ (0 : ℂ)) := by
-    intro d _ _ M hM m
-    have hcpM := isHermitian_charpoly hM
-    have hne1 : M.charpoly ≠ 0 := by
-      rw [hcpM]
-      exact Finset.prod_ne_zero_iff.mpr fun i _ ↦ Polynomial.X_sub_C_ne_zero _
-    have hne2 : (Polynomial.X : ℂ[X]) ^ m ≠ 0 := pow_ne_zero m Polynomial.X_ne_zero
-    rw [Polynomial.roots_mul (mul_ne_zero hne1 hne2), Multiset.filter_add]
-    have hX : ((Polynomial.X : ℂ[X]) ^ m).roots.filter (· ≠ (0 : ℂ)) = 0 := by
-      rw [Polynomial.roots_X_pow, Multiset.filter_eq_nil]
-      intro z hz
-      rw [Multiset.mem_replicate] at hz
-      simp [hz.2]
-    rw [hX, add_zero, hcpM]
-    have hprod_ne : (∏ i : d, (Polynomial.X - Polynomial.C (hM.eigenvalues i : ℂ))) ≠ 0 :=
-      Finset.prod_ne_zero_iff.mpr fun i _ ↦ Polynomial.X_sub_C_ne_zero _
-    rw [Polynomial.roots_prod _ Finset.univ hprod_ne]
-    congr 1
-    simp [Polynomial.roots_X_sub_C, Finset.val_eq_coe]
   have hfilt : (Finset.univ.val.map (fun i : d₁ ↦ (hA.eigenvalues i : ℂ))).filter (· ≠ (0 : ℂ)) =
       (Finset.univ.val.map (fun j : d₂ ↦ (hB.eigenvalues j : ℂ))).filter (· ≠ (0 : ℂ)) := by
-    rw [← hroots_eq hA k, ← hroots_eq hB l, hcp]
-  have hsum_filt : ∀ {d : Type*} [Fintype d] [DecidableEq d] (v : d → ℝ),
-      ∑ i : d, f (v i) =
-        (((Finset.univ.val.map (fun i : d ↦ (v i : ℂ))).filter (· ≠ (0 : ℂ))).map
-          (fun z : ℂ ↦ f z.re)).sum := by
-    intro d _ _ v
-    have h1 : ∑ i : d, f (v i) =
-        ((Finset.univ.val.map (fun i : d ↦ (v i : ℂ))).map (fun z : ℂ ↦ f z.re)).sum := by
-      rw [Multiset.map_map]
-      simp [Finset.sum_eq_multiset_sum]
-    rw [h1]
-    have hpart := (Multiset.filter_add_not (fun z : ℂ ↦ z ≠ 0)
-      (Finset.univ.val.map (fun i : d ↦ (v i : ℂ)))).symm
-    conv_lhs => rw [hpart]
-    rw [Multiset.map_add, Multiset.sum_add]
-    have hzero : ((Multiset.filter (fun z : ℂ ↦ ¬ z ≠ 0)
-        (Finset.univ.val.map (fun i : d ↦ (v i : ℂ)))).map (fun z : ℂ ↦ f z.re)).sum = 0 := by
-      apply Multiset.sum_eq_zero
-      intro r hr
-      rcases Multiset.mem_map.mp hr with ⟨z, hz, rfl⟩
-      rw [Multiset.mem_filter] at hz
-      have hz0 : z = 0 := not_not.mp hz.2
-      rw [hz0, Complex.zero_re, hf0]
-    rw [hzero, add_zero]
-  rw [hsum_filt hA.eigenvalues, hsum_filt hB.eigenvalues, hfilt]
+    rw [← roots_charpoly_mul_X_pow hA k, ← roots_charpoly_mul_X_pow hB l, hcp]
+  rw [sum_eq_sum_filter_ne_zero hA.eigenvalues hf0,
+    sum_eq_sum_filter_ne_zero hB.eigenvalues hf0, hfilt]
 
 /-- Sylvester's characteristic polynomial identity for arbitrary rectangular matrices
 `M : Matrix d₁ d₂ ℂ`: `(M * Mᴴ).charpoly * X^(|d₂|) = (Mᴴ * M).charpoly * X^(|d₁|)`. -/
@@ -129,28 +144,20 @@ lemma charpoly_mul_conjTranspose_eq {d₁ d₂ : Type*}
   have hQP : Q * P = Matrix.fromBlocks 0 0 0 (Mᴴ * M) := by
     simp [P, Q, Matrix.fromBlocks_multiply]
   have hcomm := Matrix.charpoly_mul_comm P Q
-  rw [hPQ, hQP] at hcomm
-  have hzero_cp : ∀ {d : Type*} [Fintype d] [DecidableEq d],
-      (0 : Matrix d d ℂ).charpoly = Polynomial.X ^ (Fintype.card d) := by
-    intro d _ _
-    have h0 : (0 : Matrix d d ℂ) = Matrix.diagonal (fun _ : d ↦ (0 : ℂ)) := by
-      ext i j; simp [Matrix.diagonal_apply]
-    rw [h0, charpoly_diagonal_complex]
-    simp [Finset.prod_const]
-  rw [Matrix.charpoly_fromBlocks_zero₁₂, Matrix.charpoly_fromBlocks_zero₁₂,
-    hzero_cp, hzero_cp] at hcomm
-  linarith [hcomm]
+  rw [hPQ, hQP, Matrix.charpoly_fromBlocks_zero₁₂, Matrix.charpoly_fromBlocks_zero₁₂,
+    charpoly_zero_complex d₂, charpoly_zero_complex d₁, mul_comm (Polynomial.X ^ Fintype.card d₁)]
+    at hcomm
+  exact hcomm
 
 /-- Nonzero-spectrum invariance for `M * Mᴴ` vs `Mᴴ * M` for any rectangular `M : Matrix d₁ d₂ ℂ`. -/
 theorem spectral_sum_mul_conjTranspose {d₁ d₂ : Type*}
     [Fintype d₁] [DecidableEq d₁] [Fintype d₂] [DecidableEq d₂]
-    (M : Matrix d₁ d₂ ℂ) {f : ℝ → ℝ} (hf0 : f 0 = 0) :
-    ∑ i : d₁, f (Matrix.posSemidef_mul_conjTranspose_same M).isHermitian.eigenvalues i =
-      ∑ j : d₂, f (Matrix.posSemidef_conjTranspose_mul_self M).isHermitian.eigenvalues j :=
-  spectral_sum_eq_of_charpoly_mul_X_pow
-    (Matrix.posSemidef_mul_conjTranspose_same M).isHermitian
-    (Matrix.posSemidef_conjTranspose_mul_self M).isHermitian
-    (charpoly_mul_conjTranspose_eq M) hf0
+    (M : Matrix d₁ d₂ ℂ)
+    (h1 : (M * Mᴴ).IsHermitian := by simp [Matrix.IsHermitian])
+    (h2 : (Mᴴ * M).IsHermitian := by simp [Matrix.IsHermitian])
+    {f : ℝ → ℝ} (hf0 : f 0 = 0) :
+    ∑ i : d₁, f (h1.eigenvalues i) = ∑ j : d₂, f (h2.eigenvalues j) :=
+  spectral_sum_eq_of_charpoly_mul_X_pow h1 h2 (charpoly_mul_conjTranspose_eq M) hf0
 
 /-- Spectral sum of a real diagonal Hermitian matrix equals `∑ i, f (v i)`. -/
 lemma spectral_sum_diagonal {d : Type*} [Fintype d] [DecidableEq d]
@@ -170,31 +177,10 @@ lemma spectral_sum_diagonal {d : Type*} [Fintype d] [DecidableEq d]
       Finset.prod_ne_zero_iff.mpr fun i _ ↦ Polynomial.X_sub_C_ne_zero _
     have hr := congr_arg Polynomial.roots hprod_eq
     rw [Polynomial.roots_prod _ Finset.univ hne1, Polynomial.roots_prod _ Finset.univ hne2] at hr
-    simp only [Polynomial.roots_X_sub_C] at hr
+    simp only [Polynomial.roots_X_sub_C, Multiset.bind_singleton] at hr
     exact congr_arg (Multiset.filter (· ≠ (0 : ℂ))) hr
-  have hsum_filt : ∀ (w : d → ℝ),
-      ∑ i : d, f (w i) =
-        (((Finset.univ.val.map (fun i : d ↦ (w i : ℂ))).filter (· ≠ (0 : ℂ))).map
-          (fun z : ℂ ↦ f z.re)).sum := by
-    intro w
-    have h1 : ∑ i : d, f (w i) =
-        ((Finset.univ.val.map (fun i : d ↦ (w i : ℂ))).map (fun z : ℂ ↦ f z.re)).sum := by
-      rw [Multiset.map_map]; simp [Finset.sum_eq_multiset_sum]
-    rw [h1]
-    have hpart := (Multiset.filter_add_not (fun z : ℂ ↦ z ≠ 0)
-      (Finset.univ.val.map (fun i : d ↦ (w i : ℂ)))).symm
-    conv_lhs => rw [hpart]
-    rw [Multiset.map_add, Multiset.sum_add]
-    have hzero : ((Multiset.filter (fun z : ℂ ↦ ¬ z ≠ 0)
-        (Finset.univ.val.map (fun i : d ↦ (w i : ℂ)))).map (fun z : ℂ ↦ f z.re)).sum = 0 := by
-      apply Multiset.sum_eq_zero
-      intro r hr
-      rcases Multiset.mem_map.mp hr with ⟨z, hz, rfl⟩
-      rw [Multiset.mem_filter] at hz
-      have hz0 : z = 0 := not_not.mp hz.2
-      rw [hz0, Complex.zero_re, hf0]
-    rw [hzero, add_zero]
-  rw [hsum_filt hH.eigenvalues, hsum_filt v, hroots]
+  rw [sum_eq_sum_filter_ne_zero hH.eigenvalues hf0,
+    sum_eq_sum_filter_ne_zero v hf0, hroots]
 
 /-- Spectral sum of `U * A * star U` equals spectral sum of `A` for any unitary `U`. -/
 lemma spectral_sum_conjUnitary {d : Type*} [Fintype d] [DecidableEq d]
@@ -338,17 +324,17 @@ theorem vonNeumannEntropy_block_midpoint {d : Type*} [Fintype d] [DecidableEq d]
   let lam : Bool × d → ℝ := fun p ↦ if p.1 = false then ρ₀.eigvals p.2 / 2 else ρ₁.eigvals p.2 / 2
   have hU_star_mul : star U * U = 1 := by
     ext ⟨b₁, i₁⟩ ⟨b₂, i₂⟩
-    simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.of_apply, Matrix.one_apply,
+    simp only [U, Matrix.mul_apply, Matrix.star_apply, Matrix.of_apply, Matrix.one_apply,
       Fintype.sum_prod_type, Fintype.sum_bool]
     cases b₁ <;> cases b₂
-    · simp only [↓reduceIte, Bool.false_eq_true, mul_zero, zero_mul, add_zero, Prod.mk.injEq,
-        true_and]
+    · simp only [↓reduceIte, Bool.false_eq_true, Bool.true_eq_false, star_zero, mul_zero, zero_mul,
+        zero_add, add_zero, Finset.sum_const_zero, Prod.mk.injEq, true_and]
       have h := congr_fun (congr_fun (Unitary.coe_star_mul_self ρ₀.eigUnitary) i₁) i₂
       simpa [U₀, Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply] using h
     · simp
     · simp
-    · simp only [Bool.true_eq_false, ↓reduceIte, mul_zero, zero_mul, zero_add, Prod.mk.injEq,
-        true_and]
+    · simp only [Bool.true_eq_false, Bool.false_eq_true, ↓reduceIte, star_zero, mul_zero, zero_mul,
+        zero_add, add_zero, Finset.sum_const_zero, Prod.mk.injEq, true_and]
       have h := congr_fun (congr_fun (Unitary.coe_star_mul_self ρ₁.eigUnitary) i₁) i₂
       simpa [U₁, Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply] using h
   have hspec₀ : ρ₀.mat = U₀ * Matrix.diagonal (Complex.ofReal ∘ ρ₀.eigvals) * star U₀ := by
@@ -359,25 +345,28 @@ theorem vonNeumannEntropy_block_midpoint {d : Type*} [Fintype d] [DecidableEq d]
       Unitary.conjStarAlgAut_apply] using ρ₁.isHermitian.spectral_theorem
   have hM_eq : M.mat = U * Matrix.diagonal (Complex.ofReal ∘ lam) * star U := by
     ext ⟨b₁, i₁⟩ ⟨b₂, i₂⟩
-    simp only [M, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, CQChannel.ketBraBool,
+    simp only [M, U, lam, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, CQChannel.ketBraBool,
       Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Matrix.of_apply,
       Matrix.mul_apply, Matrix.diagonal_apply, Matrix.star_apply, Function.comp_apply,
       Fintype.sum_prod_type, Fintype.sum_bool, smul_eq_mul]
     cases b₁ <;> cases b₂
-    · simp only [↓reduceIte, and_self, one_mul, Bool.false_eq_true, zero_mul, smul_zero, add_zero,
-        lam, mul_zero, zero_add]
+    · simp only [↓reduceIte, and_self, one_mul, Bool.false_eq_true, Bool.true_eq_false,
+        Prod.mk.injEq, true_and, false_and, ite_false, ite_true, zero_mul, mul_zero, smul_zero,
+        star_zero, add_zero, zero_add, Finset.sum_const_zero, Finset.sum_ite_eq', Finset.mem_univ]
       have h := congr_fun (congr_fun hspec₀ i₁) i₂
       simp only [Matrix.mul_apply, Matrix.diagonal_apply, Matrix.star_apply,
-        Function.comp_apply, mul_ite, mul_zero, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte] at h ⊢
+        Function.comp_apply, mul_ite, mul_zero, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte] at h
       rw [h, Complex.real_smul, Finset.mul_sum]
       apply Finset.sum_congr rfl; intro k _; push_cast; ring
-    · simp [lam]
-    · simp [lam]
-    · simp only [Bool.true_eq_false, ↓reduceIte, and_self, zero_mul, smul_zero, zero_add, one_mul,
-        lam, mul_zero, add_zero]
+    · simp
+    · simp
+    · simp only [Bool.true_eq_false, Bool.false_eq_true, ↓reduceIte, and_self,
+        Prod.mk.injEq, true_and, false_and, ite_false, ite_true, zero_mul, mul_zero, smul_zero,
+        star_zero, add_zero, zero_add, one_mul, Finset.sum_const_zero, Finset.sum_ite_eq',
+        Finset.mem_univ]
       have h := congr_fun (congr_fun hspec₁ i₁) i₂
       simp only [Matrix.mul_apply, Matrix.diagonal_apply, Matrix.star_apply,
-        Function.comp_apply, mul_ite, mul_zero, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte] at h ⊢
+        Function.comp_apply, mul_ite, mul_zero, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte] at h
       rw [h, Complex.real_smul, Finset.mul_sum]
       apply Finset.sum_congr rfl; intro k _; push_cast; ring
   have hD_herm : (Matrix.diagonal (Complex.ofReal ∘ lam)).IsHermitian := by
@@ -484,10 +473,12 @@ lemma rootFidelity_symm {d : Type*} [Fintype d] [DecidableEq d] (ρ σ : Density
   unfold rootFidelity
   have h1 : ρ.sqrtMat * σ.mat * ρ.sqrtMat = (ρ.sqrtMat * σ.sqrtMat) * (ρ.sqrtMat * σ.sqrtMat)ᴴ := by
     rw [Matrix.conjTranspose_mul, ρ.sqrtMat_isHermitian.eq, σ.sqrtMat_isHermitian.eq,
-      Matrix.mul_assoc, ← Matrix.mul_assoc σ.sqrtMat, σ.sqrtMat_mul_self, Matrix.mul_assoc]
+      ← σ.sqrtMat_mul_self]
+    simp only [Matrix.mul_assoc]
   have h2 : σ.sqrtMat * ρ.mat * σ.sqrtMat = (ρ.sqrtMat * σ.sqrtMat)ᴴ * (ρ.sqrtMat * σ.sqrtMat) := by
     rw [Matrix.conjTranspose_mul, ρ.sqrtMat_isHermitian.eq, σ.sqrtMat_isHermitian.eq,
-      Matrix.mul_assoc, ← Matrix.mul_assoc ρ.sqrtMat, ρ.sqrtMat_mul_self, Matrix.mul_assoc]
+      ← ρ.sqrtMat_mul_self]
+    simp only [Matrix.mul_assoc]
   have hcp := charpoly_mul_conjTranspose_eq (ρ.sqrtMat * σ.sqrtMat)
   rw [← h1, ← h2] at hcp
   exact spectral_sum_eq_of_charpoly_mul_X_pow
@@ -501,10 +492,6 @@ theorem rootFidelity_tensor {d₁ d₂ : Type*}
     (ρ₁ σ₁ : DensityOp d₁) (ρ₂ σ₂ : DensityOp d₂) :
     rootFidelity (DensityOp.tensor ρ₁ ρ₂) (DensityOp.tensor σ₁ σ₂) =
       rootFidelity ρ₁ σ₁ * rootFidelity ρ₂ σ₂ := by
-  have hchar_AB : ∀ {d : Type*} [Fintype d] [DecidableEq d] (ρ σ : DensityOp d),
-      (ρ.sqrtMat * σ.mat * ρ.sqrtMat).charpoly = (ρ.mat * σ.mat).charpoly := by
-    intro d _ _ ρ σ
-    rw [Matrix.charpoly_mul_comm, ← Matrix.mul_assoc, ρ.sqrtMat_mul_self]
   set A₁ := ρ₁.sqrtMat * σ₁.mat * ρ₁.sqrtMat
   set A₂ := ρ₂.sqrtMat * σ₂.mat * ρ₂.sqrtMat
   have hA₁ := (posSemidef_sqrt_mul_sqrt ρ₁ σ₁).isHermitian
@@ -539,7 +526,7 @@ theorem rootFidelity_tensor {d₁ d₂ : Type*}
   have hcp_eq : ((DensityOp.tensor ρ₁ ρ₂).sqrtMat * (DensityOp.tensor σ₁ σ₂).mat *
       (DensityOp.tensor ρ₁ ρ₂).sqrtMat).charpoly =
       (Matrix.diagonal (Complex.ofReal ∘ lam)).charpoly := by
-    rw [hchar_AB]
+    rw [charpoly_sqrt_mul_sqrt]
     have hK_AB : (DensityOp.tensor ρ₁ ρ₂).mat * (DensityOp.tensor σ₁ σ₂).mat =
         Matrix.kroneckerMap (· * ·) (ρ₁.mat * σ₁.mat) (ρ₂.mat * σ₂.mat) := by
       simp only [DensityOp.tensor, ← Matrix.mul_kronecker_mul]
@@ -583,10 +570,6 @@ theorem rootFidelity_block_midpoint {d : Type*} [Fintype d] [DecidableEq d]
   set S := DensityOp.midpoint
     (DensityOp.tensor (CQChannel.ketBraBool false) σ₀)
     (DensityOp.tensor (CQChannel.ketBraBool true) σ₁)
-  have hchar_AB : ∀ {α : Type*} [Fintype α] [DecidableEq α] (ρ σ : DensityOp α),
-      (ρ.sqrtMat * σ.mat * ρ.sqrtMat).charpoly = (ρ.mat * σ.mat).charpoly := by
-    intro α _ _ ρ σ
-    rw [Matrix.charpoly_mul_comm, ← Matrix.mul_assoc, ρ.sqrtMat_mul_self]
   set A₀ := ρ₀.sqrtMat * σ₀.mat * ρ₀.sqrtMat
   set A₁ := ρ₁.sqrtMat * σ₁.mat * ρ₁.sqrtMat
   have hA₀ := (posSemidef_sqrt_mul_sqrt ρ₀ σ₀).isHermitian
@@ -612,8 +595,9 @@ theorem rootFidelity_block_midpoint {d : Type*} [Fintype d] [DecidableEq d]
           e, Equiv.coe_fn_symm_mk, Matrix.mul_apply, Fintype.sum_prod_type, Fintype.sum_bool,
           R, S, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, CQChannel.ketBraBool,
           Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Matrix.of_apply,
-          ↓reduceIte, Bool.false_eq_true, and_self, one_mul, zero_mul, smul_zero, add_zero,
-          mul_zero, Complex.real_smul, Finset.mul_sum]
+          ↓reduceIte, Bool.false_eq_true, Bool.true_eq_false, and_self, true_and, and_true,
+          false_and, and_false, ite_false, ite_true, one_mul, zero_mul, smul_zero, add_zero,
+          zero_add, mul_zero, Finset.sum_const_zero, Complex.real_smul, Finset.mul_sum]
         apply Finset.sum_congr rfl; intro k _; push_cast; ring
       | inr j =>
         simp [e, R, S, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, CQChannel.ketBraBool,
@@ -628,8 +612,9 @@ theorem rootFidelity_block_midpoint {d : Type*} [Fintype d] [DecidableEq d]
           e, Equiv.coe_fn_symm_mk, Matrix.mul_apply, Fintype.sum_prod_type, Fintype.sum_bool,
           R, S, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, CQChannel.ketBraBool,
           Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Matrix.of_apply,
-          ↓reduceIte, Bool.true_eq_false, and_self, one_mul, zero_mul, smul_zero, zero_add,
-          mul_zero, Complex.real_smul, Finset.mul_sum]
+          ↓reduceIte, Bool.true_eq_false, Bool.false_eq_true, and_self, true_and, and_true,
+          false_and, and_false, ite_false, ite_true, one_mul, zero_mul, smul_zero, zero_add,
+          add_zero, mul_zero, Finset.sum_const_zero, Complex.real_smul, Finset.mul_sum]
         apply Finset.sum_congr rfl; intro k _; push_cast; ring
   have hD_block : (Matrix.diagonal (Complex.ofReal ∘ lam)).reindex e e =
       Matrix.fromBlocks (Matrix.diagonal (fun i ↦ ((hA₀.eigenvalues i / 4 : ℝ) : ℂ))) 0 0
@@ -651,7 +636,8 @@ theorem rootFidelity_block_midpoint {d : Type*} [Fintype d] [DecidableEq d]
     have hspec : ρ.sqrtMat * σ.mat * ρ.sqrtMat =
         U * Matrix.diagonal (Complex.ofReal ∘ hA.eigenvalues) * star U := by
       simpa [U, Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply] using hA.spectral_theorem
-    rw [hspec, Matrix.smul_mul, Matrix.mul_smul, Matrix.charpoly_mul_comm, ← Matrix.mul_assoc,
+    conv_lhs => rw [hspec]
+    rw [Matrix.smul_mul, Matrix.mul_smul, Matrix.charpoly_mul_comm, ← Matrix.mul_assoc,
       Unitary.coe_star_mul_self hA.eigenvectorUnitary, Matrix.one_mul]
     congr 1
     ext i j
@@ -659,7 +645,7 @@ theorem rootFidelity_block_midpoint {d : Type*} [Fintype d] [DecidableEq d]
     split_ifs <;> [· push_cast; ring; · simp]
   have hcp : (R.sqrtMat * S.mat * R.sqrtMat).charpoly =
       (Matrix.diagonal (Complex.ofReal ∘ lam)).charpoly := by
-    rw [hchar_AB, ← Matrix.charpoly_reindex e (R.mat * S.mat),
+    rw [charpoly_sqrt_mul_sqrt, ← Matrix.charpoly_reindex e (R.mat * S.mat),
       ← Matrix.charpoly_reindex e (Matrix.diagonal (Complex.ofReal ∘ lam)),
       hRS_block, hD_block, Matrix.charpoly_fromBlocks_zero₁₂, Matrix.charpoly_fromBlocks_zero₁₂,
       hcp_smul ρ₀ σ₀ hA₀, hcp_smul ρ₁ σ₁ hA₁]
@@ -676,6 +662,8 @@ theorem rootFidelity_block_midpoint {d : Type*} [Fintype d] [DecidableEq d]
       rw [Real.sqrt_div' x (by norm_num : (0 : ℝ) ≤ 4), show Real.sqrt 4 = 2 by
         rw [show (4 : ℝ) = 2 ^ 2 by norm_num, Real.sqrt_sq (by norm_num)]]
     simp_rw [h4, ← Finset.sum_div, add_div]
+    rw [add_comm]
+    rfl
 
 /-- **Lemma 5.1(b) (plus channel)**: `Z(W⁺) = Z(W)²` for every binary-input c-q channel `W`. -/
 theorem fidelityParam_plusChannel {d : Type*} [Fintype d] [DecidableEq d] (W : CQChannel d) :

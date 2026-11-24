@@ -256,7 +256,10 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
         have hlog2 : Real.log 2 ≠ 0 := ne_of_gt (Real.log_pos (by norm_num))
         have hlogq : Real.log ((1 - q) / q) ≠ 0 :=
           ne_of_gt (Real.log_pos (by rw [one_lt_div hq.1]; linarith [hq.2]))
+        rw [inv_div]
+        simp only [q, r]
         field_simp [hlog2, hlogq]
+        ring
       have hanti_ratio : AntitoneOn
           (fun x : ℝ ↦ Real.log ((1 + α * x) / (1 - α * x)) / Real.log ((1 + x) / (1 - x)))
           (Ioo 0 1) := by
@@ -290,7 +293,6 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
             have hax_pos : 0 < α * x := mul_pos hα0 hx.1
             have hne1 : 1 - α * x ≠ 0 := by linarith
             have hne2 : 1 + α * x ≠ 0 := by linarith
-            have hne3 : 1 - (α * x) ^ 2 ≠ 0 := by nlinarith
             have hfac : 1 - (α * x) ^ 2 = (1 - α * x) * (1 + α * x) := by ring
             rw [hfac]
             field_simp [hne1, hne2]
@@ -326,7 +328,6 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
             have hax_pos : 0 < α * x := mul_pos hα0 hx.1
             have hne1 : 1 - α * x ≠ 0 := by linarith
             have hne2 : 1 + α * x ≠ 0 := by linarith
-            have hne3 : 1 - (α * x) ^ 2 ≠ 0 := by nlinarith
             have hfac : 1 - (α * x) ^ 2 = (1 - α * x) * (1 + α * x) := by ring
             rw [hfac]
             field_simp [hne1, hne2]
@@ -363,13 +364,7 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
             have hne_a : 1 - (α * x) ^ 2 ≠ 0 := ne_of_gt h1
             have hne_x : 1 - x ^ 2 ≠ 0 := ne_of_gt h2
             have hne_3 : α * x ≠ 0 := ne_of_gt h3
-            calc 2 * (α * x) / ((1 - (α * x) ^ 2) * (1 - x ^ 2)) *
-                  ((1 - (α * x) ^ 2) / (α * x) * Real.log ((1 + α * x) / (1 - α * x)))
-                = (2 / (1 - x ^ 2)) * ((α * x) / (α * x)) *
-                    ((1 - (α * x) ^ 2) / (1 - (α * x) ^ 2)) *
-                    Real.log ((1 + α * x) / (1 - α * x)) := by ring
-              _ = Real.log ((1 + α * x) / (1 - α * x)) * (2 / (1 - x ^ 2)) := by
-                    rw [div_self hne_3, div_self hne_a]; ring
+            field_simp [hne_a, hne_x, hne_3]
           linarith
       let f' : ℝ → ℝ := fun v ↦
         α * Real.log ((1 - binConv p (h2Inv v)) / binConv p (h2Inv v)) /
@@ -398,7 +393,7 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
           · congr 1
             have hbc : 1 - 2 * binConv p q = α * (1 - 2 * q) := by unfold binConv; simp only [α]; ring
             have hne1 : binConv p q ≠ 0 := by unfold binConv; nlinarith [hp.1, hp.2, hq.1, hq.2]
-            have hne2 : 1 - α * (1 - 2 * q) ≠ 0 := by linarith
+            have hne2 : 1 - α * (1 - 2 * q) ≠ 0 := by nlinarith [hα0, hα1, hq.1, hq.2]
             field_simp [hne1, hne2]; linarith
           · congr 1
             have hne1 : q ≠ 0 := ne_of_gt hq.1
@@ -426,11 +421,17 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
         · have : a * x + b * x = x := by linear_combination hab * x
           rw [this]; linear_combination -hab * gc u x
         · have h := hsym y x b a hy hx hgt hb_pos ha_pos (by linarith)
+          rw [add_comm (b * y)] at h
           linarith
       intro x' y' a' b' hx' hy' hxy ha' hb' hab'
       set z := a' * x' + b' * y'
-      have hxz : x' < z := by simp only [z]; nlinarith
-      have hzy : z < y' := by simp only [z]; nlinarith
+      have hpos_d : 0 < y' - x' := by linarith
+      have hzx : z - x' = b' * (y' - x') := by
+        simp only [z]; rw [show a' = 1 - b' by linarith]; ring
+      have hyz : y' - z = a' * (y' - x') := by
+        simp only [z]; rw [show b' = 1 - a' by linarith]; ring
+      have hxz : x' < z := by linarith [mul_pos hb' hpos_d]
+      have hzy : z < y' := by linarith [mul_pos ha' hpos_d]
       have ⟨c₁, hc₁, hceq₁⟩ := exists_hasDerivAt_eq_slope (fun w ↦ gc u w) f' hxz
         (hcont_gc.mono (Icc_subset_Icc hx'.1 (le_trans (le_of_lt hzy) hy'.2)))
         (fun w hw ↦ hderiv w ⟨lt_of_le_of_lt hx'.1 hw.1, lt_of_lt_of_le hw.2 (le_trans (le_of_lt hzy) hy'.2)⟩)
@@ -442,11 +443,13 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
       have hslope_le : (gc u z - gc u x') / (z - x') ≤ (gc u y' - gc u z) / (y' - z) := by
         rw [← hceq₁, ← hceq₂]
         exact hf'_mono hc₁_mem hc₂_mem (le_of_lt (lt_trans hc₁.2 hc₂.1))
-      have hzx : z - x' = b' * (y' - x') := by simp only [z]; linear_combination -(hab' - 1) * x'
-      have hyz : y' - z = a' * (y' - x') := by simp only [z]; linear_combination (hab' - 1) * y'
-      rw [hzx, hyz, div_le_div_iff₀ (mul_pos hb' (by linarith)) (mul_pos ha' (by linarith))] at hslope_le
-      have hpos_d : 0 < y' - x' := by linarith
-      nlinarith
+      rw [hzx, hyz, div_le_div_iff₀ (mul_pos hb' hpos_d) (mul_pos ha' hpos_d)] at hslope_le
+      have hcancel : (gc u z - gc u x') * a' ≤ (gc u y' - gc u z) * b' := by
+        apply le_of_mul_le_mul_right _ hpos_d
+        linarith only [hslope_le]
+      have hcombine : (a' + b') * gc u z ≤ a' * gc u x' + b' * gc u y' := by linarith only [hcancel]
+      rw [hab', one_mul] at hcombine
+      exact hcombine
 
 /-! ### Proposition 4.3 Endpoint Asymptotics (Eq. 1.8) -/
 
@@ -492,6 +495,7 @@ lemma h2Inv_mul_logb_le {δ : ℝ} (hδ0 : 0 < δ) (hδ1 : δ ≤ 1 / 4) :
 
 /-- **Proposition 4.3 (Endpoint Asymptotic, Eq. 1.8)**:
 `lim_{δ → 0+} Δ(δ, 1 - 2^(-δ)) / δ = 1`. -/
+set_option maxHeartbeats 800000 in
 theorem prop_4_3_asymptotic :
     Tendsto (fun δ : ℝ ↦ deltaGap δ (1 - (2 : ℝ) ^ (-δ)) / δ) (𝓝[>] 0) (𝓝 1) := by
   rw [Metric.tendsto_nhdsWithin_nhds]
@@ -593,16 +597,16 @@ theorem prop_4_3_asymptotic :
         exact le_trans (div_le_div_of_nonneg_right hleC (le_of_lt hL_pos)) h1'
       have hsum_le : (Real.logb 2 (Real.exp 1 / (1 - η)) + L + Real.logb 2 L) / L ≤ 1 + η := by
         rw [add_div, add_div, div_self (ne_of_gt hL_pos)]
-        linarith
+        linarith only [hC_bound, hlogL_div]
       have ht_eq : t * (Real.logb 2 (Real.exp 1 / (1 - η)) + L + Real.logb 2 L) =
           (1 - η) * δ * ((Real.logb 2 (Real.exp 1 / (1 - η)) + L + Real.logb 2 L) / L) := by
         simp only [t]; ring
       rw [ht_eq] at h1
-      have hprod : (1 - η) * (1 + η) ≤ 1 := by nlinarith
-      have hnn : 0 ≤ (1 - η) * δ := by nlinarith
+      have hprod : (1 - η) * (1 + η) ≤ 1 := by nlinarith only [hη_pos]
+      have hnn : 0 ≤ (1 - η) * δ := by nlinarith only [h1mη, hδ_pos]
       have hstep : (1 - η) * δ * ((Real.logb 2 (Real.exp 1 / (1 - η)) + L + Real.logb 2 L) / L) ≤
           (1 - η) * δ * (1 + η) := mul_le_mul_of_nonneg_left hsum_le hnn
-      nlinarith
+      nlinarith only [h1, hstep, hprod, hδ_pos]
     have hle : h2 t ≤ h2 p1 := by rwa [h2_h2Inv ⟨le_of_lt hδ_pos, by linarith⟩]
     by_contra hgt
     have := strictMonoOn_h2 (h2Inv_mem_Icc ⟨le_of_lt hδ_pos, by linarith⟩)
