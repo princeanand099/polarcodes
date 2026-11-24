@@ -6,7 +6,7 @@ Authors: Prince Anand
 import PolarCodes.Bhattacharyya
 
 /-!
-# Positive/Negative Spectral Trace Parts and Sylvester's Law of Inertia
+# Frenkel's Integral Formula, Data Processing Inequality, and Lemma 5.1(a)
 
 This module proves:
 1. Positive/negative spectral trace parts `posPartTrace`, `negPartTrace` and Frenkel's
@@ -14,6 +14,14 @@ This module proves:
    instantiated on the partial trace `partialTrace₂Mat`.
 2. Sylvester's Law of Inertia (`negEigCount_congruence`) for Hermitian matrices under
    invertible congruence `P * A * Pᴴ`.
+3. **Frenkel's Integral Formula (Eq. 3.7)** (`relEntropy_frenkel_integral`) and its
+   **Hockey-Stick Form (Eq. 3.8)** (`relEntropy_hockeyStick_integral`) for full-rank states,
+   proved purely real-analytically via the congruence `X(t, r) = (ρ + r I)^{1/2}(I + t M(r))(ρ + r I)^{1/2}`,
+   Sylvester's inertia, layer-cake representation, elementary partial fractions, and Tonelli's theorem.
+4. **Data Processing Inequality (DPI)** for `relEntropy` and `qjs` under `partialTrace₂`
+   (`relEntropy_partialTrace₂_le`, `qjs_partialTrace₂_le`).
+5. **Lemma 5.1(a)** (`condEntropy_ge_one_sub_h2`, `fidelityParam_le_sqrt_condEntropy`,
+   `condEntropy_le_logb_one_add_fidelityParam`).
 -/
 
 open Matrix BigOperators Real
@@ -138,8 +146,8 @@ lemma negPartTrace_eq_posPartTrace_neg {A : Matrix d d ℂ} (hA : A.IsHermitian)
   symm
   trans ∑ i : d, max (hD_herm.eigenvalues i) 0
   · exact spectral_sum_eq_of_charpoly_mul_X_pow hneg hD_herm (k := 0) (l := 0)
-      (by rw [pow_zero, mul_one, mul_one, hcp]) (by simp)
-  · exact spectral_sum_diagonal lam hD_herm (by simp)
+      (by rw [pow_zero, mul_one, mul_one, hcp]) (by simp [max_self])
+  · exact spectral_sum_diagonal lam hD_herm (by simp [max_self])
 
 lemma posPartTrace_smul_nonneg {c : ℝ} (hc : 0 ≤ c) {A : Matrix d d ℂ} (hA : A.IsHermitian)
     (hcA : ((c : ℂ) • A).IsHermitian) :
@@ -152,7 +160,7 @@ lemma posPartTrace_smul_nonneg {c : ℝ} (hc : 0 ≤ c) {A : Matrix d d ℂ} (hA
   have hD_herm : (Matrix.diagonal (Complex.ofReal ∘ lam)).IsHermitian := by
     rw [Matrix.IsHermitian, Matrix.diagonal_conjTranspose]; congr 1; ext i; simp
   have hsmul_eq : (c : ℂ) • A = U * Matrix.diagonal (Complex.ofReal ∘ lam) * star U := by
-    rw [hspec, Matrix.smul_mul, Matrix.mul_smul]
+    rw [hspec, ← Matrix.smul_mul, ← Matrix.mul_smul]
     congr 2; ext i j
     simp only [Matrix.smul_apply, Matrix.diagonal_apply, Function.comp_apply, lam, smul_eq_mul]
     split_ifs <;> simp
@@ -162,11 +170,12 @@ lemma posPartTrace_smul_nonneg {c : ℝ} (hc : 0 ≤ c) {A : Matrix d d ℂ} (hA
   trans ∑ i : d, max (lam i) 0
   · trans ∑ i : d, max (hD_herm.eigenvalues i) 0
     · exact spectral_sum_eq_of_charpoly_mul_X_pow hcA hD_herm (k := 0) (l := 0)
-        (by rw [pow_zero, mul_one, mul_one, hcp]) (by simp)
-    · exact spectral_sum_diagonal lam hD_herm (by simp)
+        (by rw [pow_zero, mul_one, mul_one, hcp]) (by simp [max_self])
+    · exact spectral_sum_diagonal lam hD_herm (by simp [max_self])
   · rw [Finset.mul_sum]
     apply Finset.sum_congr rfl; intro i _
-    simp only [lam, ← mul_max_of_nonneg _ _ hc, mul_zero]
+    simp only [lam]
+    rw [← mul_max_of_nonneg _ _ hc, mul_zero]
 
 lemma negPartTrace_smul_nonneg {c : ℝ} (hc : 0 ≤ c) {A : Matrix d d ℂ} (hA : A.IsHermitian)
     (hcA : ((c : ℂ) • A).IsHermitian) :
@@ -196,7 +205,7 @@ lemma re_trace_mul_nonneg_of_posSemidef {X Y : Matrix d d ℂ}
       _ = X := by simpa [U, Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply] using hX.isHermitian.spectral_theorem.symm
   have hSH : S.IsHermitian := by
     rw [Matrix.IsHermitian, Matrix.conjTranspose_mul, Matrix.conjTranspose_mul,
-      Matrix.conjTranspose_eq_star, star_star, Matrix.diagonal_conjTranspose]
+      ← Matrix.star_eq_conjTranspose, star_star, Matrix.diagonal_conjTranspose]
     have hD' : (fun i : d ↦ star ((Real.sqrt (hX.isHermitian.eigenvalues i) : ℝ) : ℂ)) =
         fun i : d ↦ ((Real.sqrt (hX.isHermitian.eigenvalues i) : ℝ) : ℂ) := by ext i; simp
     simp [S, D, hD', Matrix.mul_assoc]
@@ -209,7 +218,8 @@ lemma re_trace_mul_nonneg_of_posSemidef {X Y : Matrix d d ℂ}
     set V : Matrix d d ℂ := (hPSD.isHermitian.eigenvectorUnitary : Matrix d d ℂ)
     have hspec : S * Y * S = V * Matrix.diagonal (Complex.ofReal ∘ hPSD.isHermitian.eigenvalues) * star V := by
       simpa [V, Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply] using hPSD.isHermitian.spectral_theorem
-    rw [hspec, Matrix.trace_mul_cycle, Unitary.coe_star_mul_self hPSD.isHermitian.eigenvectorUnitary,
+    conv_lhs => rw [hspec]
+    rw [Matrix.trace_mul_cycle, Unitary.coe_star_mul_self hPSD.isHermitian.eigenvectorUnitary,
       Matrix.one_mul, Matrix.trace_diagonal]; rfl
   rw [hsum, Complex.re_sum]
   exact Finset.sum_nonneg fun i _ ↦ by simpa using hPSD.eigenvalues_nonneg i
@@ -239,16 +249,19 @@ lemma posPartTrace_le_trace_of_le {A B : Matrix d d ℂ} (hA : A.IsHermitian)
         Matrix.diagonal (fun i : d ↦ ((1 - indP i : ℝ) : ℂ)) = 1 := by
       ext i j; simp only [Matrix.add_apply, Matrix.diagonal_apply, Matrix.one_apply]
       split_ifs
+
       · push_cast; ring
+
       · simp
-    rw [hD, Matrix.mul_one, Unitary.coe_mul_star_self hA.eigenvectorUnitary]
+    rw [hD, Matrix.mul_one]; exact Unitary.coe_mul_star_self hA.eigenvectorUnitary
   have hPA : (P * A).trace = (posPartTrace hA : ℂ) := by
     have hspec : A = U * Matrix.diagonal (Complex.ofReal ∘ hA.eigenvalues) * star U := by
       simpa [U, Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply] using hA.spectral_theorem
     have hmul : P * A = U * Matrix.diagonal (fun i : d ↦ ((max (hA.eigenvalues i) 0 : ℝ) : ℂ)) * star U := by
       calc P * A = U * (Matrix.diagonal (fun i ↦ (indP i : ℂ)) *
               ((star U * U) * Matrix.diagonal (Complex.ofReal ∘ hA.eigenvalues))) * star U := by
-            conv_lhs => rw [hspec]; simp only [P, Matrix.mul_assoc]
+            conv_lhs => rw [hspec]
+            simp only [P, Matrix.mul_assoc]
         _ = U * (Matrix.diagonal (fun i ↦ (indP i : ℂ)) *
               Matrix.diagonal (Complex.ofReal ∘ hA.eigenvalues)) * star U := by
             rw [Unitary.coe_star_mul_self hA.eigenvectorUnitary, Matrix.one_mul]
@@ -261,8 +274,9 @@ lemma posPartTrace_le_trace_of_le {A B : Matrix d d ℂ} (hA : A.IsHermitian)
     rw [hmul, Matrix.trace_mul_cycle, Unitary.coe_star_mul_self hA.eigenvectorUnitary,
       Matrix.one_mul, Matrix.trace_diagonal, posPartTrace, Complex.ofReal_sum]
   have hdiff : B.trace - (posPartTrace hA : ℂ) = (Q * B).trace + (P * (B - A)).trace := by
-    rw [← hPA, Matrix.mul_sub, Matrix.trace_sub, ← Matrix.trace_add, ← Matrix.add_mul,
-      add_comm Q P, hPQ, Matrix.one_mul]
+    have hBsplit : B.trace = (Q * B).trace + (P * B).trace := by
+      rw [← Matrix.trace_add, ← Matrix.add_mul, add_comm Q P, hPQ, Matrix.one_mul]
+    rw [← hPA, Matrix.mul_sub, Matrix.trace_sub, hBsplit]
     ring
   have hre := congr_arg Complex.re hdiff
   simp only [Complex.sub_re, Complex.ofReal_re, Complex.add_re] at hre
@@ -280,7 +294,10 @@ lemma posPartTrace_map_le (ℰ : Matrix d₁ d₁ ℂ →ₗ[ℂ] Matrix d₂ d�
   have h1 : (ℰ (posPartMat hA)).PosSemidef := hpos _ (posPartMat_posSemidef hA)
   have h2 : (ℰ (posPartMat hA) - ℰ A).PosSemidef := by
     rw [← map_sub, show posPartMat hA - A = negPartMat hA by
-      have := posPartMat_sub_negPartMat hA; abel_nf at this ⊢; rw [← this]; abel]
+      have hsub := posPartMat_sub_negPartMat hA
+      calc posPartMat hA - A = posPartMat hA - (posPartMat hA - negPartMat hA) := by
+            congr 1; exact hsub.symm
+        _ = negPartMat hA := by abel]
     exact hpos _ (negPartMat_posSemidef hA)
   calc posPartTrace hEA
       ≤ (ℰ (posPartMat hA)).trace.re := posPartTrace_le_trace_of_le hEA h1 h2
@@ -324,10 +341,6 @@ lemma partialTrace₂Mat_posSemidef {X : Matrix (d₁ × d₂) (d₁ × d₂) �
         simp_rw [Finset.sum_mul, Finset.mul_sum]
         conv_lhs => arg 2; ext i; rw [Finset.sum_comm]
         rw [Finset.sum_comm]
-        apply Finset.sum_congr rfl; intro k _
-        apply Finset.sum_congr rfl; intro i _
-        apply Finset.sum_congr rfl; intro j _
-        ring
       · apply Finset.sum_congr rfl; intro k _
         simp only [dotProduct, Matrix.mulVec, Pi.star_apply, Fintype.sum_prod_type]
         apply Finset.sum_congr rfl; intro i _
@@ -372,7 +385,8 @@ lemma re_quadForm_spectral {A : Matrix d d ℂ} (hA : A.IsHermitian) (x : d → 
   set y : d → ℂ := (star U).mulVec x
   have hquad : star x ⬝ᵥ A.mulVec x = ∑ i : d, ((hA.eigenvalues i : ℝ) : ℂ) * ((‖y i‖ ^ 2 : ℝ) : ℂ) := by
     have h1 : A.mulVec x = U.mulVec ((Matrix.diagonal (Complex.ofReal ∘ hA.eigenvalues)).mulVec y) := by
-      rw [hspec, Matrix.mulVec_mulVec, Matrix.mulVec_mulVec]
+      conv_lhs => rw [hspec]
+      rw [Matrix.mulVec_mulVec, Matrix.mulVec_mulVec]
     rw [h1, Matrix.dotProduct_mulVec, show star x ᵥ* U = star y by
       ext i
       simp only [y, Matrix.vecMul, Matrix.mulVec, dotProduct, Pi.star_apply, Matrix.star_apply,
@@ -394,11 +408,13 @@ lemma finrank_le_negEigCount {A : Matrix d d ℂ} (hA : A.IsHermitian)
     Module.finrank ℂ W ≤ negEigCount hA := by
   set U : Matrix d d ℂ := (hA.eigenvectorUnitary : Matrix d d ℂ)
   let S_pos : Finset d := Finset.univ.filter fun i : d ↦ 0 ≤ hA.eigenvalues i
+  -- Subspace `V_pos` of vectors whose coordinates along `U` vanish outside `S_pos`
   let V_pos : Submodule ℂ (d → ℂ) :=
     { carrier := {x : d → ℂ | ∀ i : d, hA.eigenvalues i < 0 → ((star U).mulVec x) i = 0}
       add_mem' := fun hx hy i hi ↦ by rw [Matrix.mulVec_add, Pi.add_apply, hx i hi, hy i hi, add_zero]
       zero_mem' := fun i _ ↦ by simp
       smul_mem' := fun c x hx i hi ↦ by rw [Matrix.mulVec_smul, Pi.smul_apply, hx i hi, smul_zero] }
+  -- On `V_pos`, `Re ⟨x, A x⟩ ≥ 0`
   have hV_nonneg : ∀ x ∈ V_pos, 0 ≤ (star x ⬝ᵥ A.mulVec x).re := by
     intro x hx
     rw [re_quadForm_spectral hA x]
@@ -406,15 +422,17 @@ lemma finrank_le_negEigCount {A : Matrix d d ℂ} (hA : A.IsHermitian)
     by_cases hlt : hA.eigenvalues i < 0
     · rw [hx i hlt]; simp
     · exact mul_nonneg (le_of_not_gt hlt) (sq_nonneg _)
+  -- Hence `W ⊓ V_pos = ⊥`
   have hinf : W ⊓ V_pos = ⊥ := by
     rw [Submodule.eq_bot_iff]
     intro x ⟨hxW, hxV⟩
     by_contra hne
     linarith [hneg x hxW hne, hV_nonneg x hxV]
+  -- Compute `finrank V_pos = S_pos.card` via the linear equiv `star U`
   let eU : (d → ℂ) ≃ₗ[ℂ] (d → ℂ) :=
     LinearEquiv.ofLinear (Matrix.toLin' (star U)) (Matrix.toLin' U)
-      (by ext x i; simp [Matrix.toLin'_apply, Matrix.mulVec_mulVec, Unitary.coe_star_mul_self hA.eigenvectorUnitary])
-      (by ext x i; simp [Matrix.toLin'_apply, Matrix.mulVec_mulVec, Unitary.coe_mul_star_self hA.eigenvectorUnitary])
+      (LinearMap.ext fun v ↦ by simp [Matrix.toLin'_apply, Matrix.mulVec_mulVec, U, Unitary.coe_star_mul_self hA.eigenvectorUnitary])
+      (LinearMap.ext fun v ↦ by simp [Matrix.toLin'_apply, Matrix.mulVec_mulVec, U, Unitary.coe_mul_star_self hA.eigenvectorUnitary])
   let K : Submodule ℂ (d → ℂ) :=
     { carrier := {y : d → ℂ | ∀ i : d, hA.eigenvalues i < 0 → y i = 0}
       add_mem' := fun hx hy i hi ↦ by simp [hx i hi, hy i hi]
@@ -439,20 +457,25 @@ lemma finrank_le_negEigCount {A : Matrix d d ℂ} (hA : A.IsHermitian)
             have hlt : hA.eigenvalues i < 0 := by simp [S_pos] at hi; exact hi
             exact (y.2 i hlt).symm
         right_inv := fun f ↦ by ext ⟨i, hi⟩; simp [hi] }
-    rw [eK.finrank_eq, Module.finrank_pi, Fintype.card_subtype]
+    rw [eK.finrank_eq, Module.finrank_pi, Fintype.card_coe]
   have hV_finrank : Module.finrank ℂ V_pos = S_pos.card := by
     rw [hV_eq, ← hK_finrank]
-    exact (Submodule.equivMapOfInjective eU.toLinearMap eU.injective _).finrank_eq.symm.trans (by
-      congr 1; exact Submodule.map_comap_eq_self (by rw [LinearMap.range_eq_top.mpr eU.surjective]; exact le_top))
+    have hmc : Submodule.map eU.toLinearMap (K.comap eU.toLinearMap) = K :=
+      Submodule.map_comap_eq_self (by rw [LinearMap.range_eq_top.mpr eU.surjective]; exact le_top)
+    rw [← hmc]
+    exact (Submodule.equivMapOfInjective eU.toLinearMap eU.injective _).finrank_eq.symm
   have hdim := Submodule.finrank_sup_add_finrank_inf_eq W V_pos
   rw [hinf, finrank_bot, add_zero, hV_finrank] at hdim
   have hle : Module.finrank ℂ (W ⊔ V_pos) ≤ Fintype.card d := by
-    simpa [Module.finrank_pi] using Submodule.finrank_le (W ⊔ V_pos)
+    have h := Submodule.finrank_le (W ⊔ V_pos)
+    rwa [Module.finrank_pi] at h
   have htot : S_pos.card + negEigCount hA = Fintype.card d := by
     unfold negEigCount
     have h : S_pos.card + (Finset.univ.filter fun i : d ↦ ¬ 0 ≤ hA.eigenvalues i).card = Fintype.card d := by
       rw [← Finset.card_union_of_disjoint (Finset.disjoint_filter.mpr fun _ _ h1 h2 ↦ h2 h1)]
-      congr 1; ext i; simp [em]
+      have hunion : S_pos ∪ (Finset.univ.filter fun i : d ↦ ¬ 0 ≤ hA.eigenvalues i) = Finset.univ := by
+        ext i; simp [S_pos, em]
+      rw [hunion, Finset.card_univ]
     have hneg_eq : (Finset.univ.filter fun i : d ↦ ¬ 0 ≤ hA.eigenvalues i) =
         Finset.univ.filter fun i : d ↦ hA.eigenvalues i < 0 := by
       ext i; simp [not_le]
@@ -481,8 +504,8 @@ theorem negEigCount_congruence {A P Q : Matrix d d ℂ} (hA : A.IsHermitian)
       let S_neg : Finset d := Finset.univ.filter fun i : d ↦ hX.eigenvalues i < 0
       let eU : (d → ℂ) ≃ₗ[ℂ] (d → ℂ) :=
         LinearEquiv.ofLinear (Matrix.toLin' (star U)) (Matrix.toLin' U)
-          (by ext x i; simp [Matrix.toLin'_apply, Matrix.mulVec_mulVec, Unitary.coe_star_mul_self hX.eigenvectorUnitary])
-          (by ext x i; simp [Matrix.toLin'_apply, Matrix.mulVec_mulVec, Unitary.coe_mul_star_self hX.eigenvectorUnitary])
+          (LinearMap.ext fun v ↦ by simp [Matrix.toLin'_apply, Matrix.mulVec_mulVec, U, Unitary.coe_star_mul_self hX.eigenvectorUnitary])
+          (LinearMap.ext fun v ↦ by simp [Matrix.toLin'_apply, Matrix.mulVec_mulVec, U, Unitary.coe_mul_star_self hX.eigenvectorUnitary])
       let K : Submodule ℂ (d → ℂ) :=
         { carrier := {y : d → ℂ | ∀ i : d, 0 ≤ hX.eigenvalues i → y i = 0}
           add_mem' := fun hx hy i hi ↦ by simp [hx i hi, hy i hi]
@@ -505,19 +528,20 @@ theorem negEigCount_congruence {A P Q : Matrix d d ℂ} (hA : A.IsHermitian)
                 have hge : 0 ≤ hX.eigenvalues i := by simp [S_neg] at hi; exact hi
                 exact (y.2 i hge).symm
             right_inv := fun f ↦ by ext ⟨i, hi⟩; simp [hi] }
-        rw [eK.finrank_eq, Module.finrank_pi, Fintype.card_subtype]
-        rfl
+        rw [eK.finrank_eq, Module.finrank_pi, Fintype.card_coe]; rfl
       have hV_eq : V_neg = K.comap eU.toLinearMap := by ext x; rfl
       rw [hV_eq, ← hK_fin]
-      exact (Submodule.equivMapOfInjective eU.toLinearMap eU.injective _).finrank_eq.symm.trans (by
-        congr 1; exact Submodule.map_comap_eq_self (by rw [LinearMap.range_eq_top.mpr eU.surjective]; exact le_top))
+      have hmc : Submodule.map eU.toLinearMap (K.comap eU.toLinearMap) = K :=
+        Submodule.map_comap_eq_self (by rw [LinearMap.range_eq_top.mpr eU.surjective]; exact le_top)
+      rw [← hmc]
+      exact (Submodule.equivMapOfInjective eU.toLinearMap eU.injective _).finrank_eq.symm
     have hV_neg_strict : ∀ x ∈ V_neg, x ≠ 0 → (star x ⬝ᵥ X.mulVec x).re < 0 := by
       intro x hx hne
       rw [re_quadForm_spectral hX x]
       have hy_ne : (star U).mulVec x ≠ 0 := by
         intro hy0; apply hne
         have := congr_arg U.mulVec hy0
-        rw [Matrix.mulVec_mulVec, Unitary.coe_mul_star_self hX.eigenvectorUnitary,
+        rw [Matrix.mulVec_mulVec, show U * star U = 1 from Unitary.coe_mul_star_self hX.eigenvectorUnitary,
           Matrix.one_mulVec, Matrix.mulVec_zero] at this
         exact this
       obtain ⟨i₀, hi₀⟩ : ∃ i₀ : d, ((star U).mulVec x) i₀ ≠ 0 := by
@@ -531,17 +555,15 @@ theorem negEigCount_congruence {A P Q : Matrix d d ℂ} (hA : A.IsHermitian)
         by_cases hge : 0 ≤ hX.eigenvalues i
         · rw [hx i hge]; simp
         · exact mul_nonpos_of_nonpos_of_nonneg (le_of_lt (lt_of_not_ge hge)) (sq_nonneg _)
-      exact Finset.sum_lt_sum_of_nonempty ⟨i₀, Finset.mem_univ _⟩ (fun i _ ↦ hterm_le i)
-        |>.trans_le (by simp) |> fun _ ↦ by
-          have hsplit := Finset.add_sum_erase Finset.univ
-            (fun i : d ↦ hX.eigenvalues i * ‖((star U).mulVec x) i‖ ^ 2) (Finset.mem_univ i₀)
-          have hrest : ∑ i ∈ Finset.univ.erase i₀, hX.eigenvalues i * ‖((star U).mulVec x) i‖ ^ 2 ≤ 0 :=
-            Finset.sum_nonpos fun i _ ↦ hterm_le i
-          linarith
+      have hsplit := Finset.add_sum_erase Finset.univ
+        (fun i : d ↦ hX.eigenvalues i * ‖((star U).mulVec x) i‖ ^ 2) (Finset.mem_univ i₀)
+      have hrest : ∑ i ∈ Finset.univ.erase i₀, hX.eigenvalues i * ‖((star U).mulVec x) i‖ ^ 2 ≤ 0 :=
+        Finset.sum_nonpos fun i _ ↦ hterm_le i
+      linarith
     let eN : (d → ℂ) ≃ₗ[ℂ] (d → ℂ) :=
       LinearEquiv.ofLinear (Matrix.toLin' Nᴴ) (Matrix.toLin' Mᴴ)
-        (by ext x i; simp [Matrix.toLin'_apply, Matrix.mulVec_mulVec, ← Matrix.conjTranspose_mul, hMN])
-        (by ext x i; simp [Matrix.toLin'_apply, Matrix.mulVec_mulVec, ← Matrix.conjTranspose_mul, hNM])
+        (LinearMap.ext fun v ↦ by simp [Matrix.toLin'_apply, Matrix.mulVec_mulVec, ← Matrix.conjTranspose_mul, hMN])
+        (LinearMap.ext fun v ↦ by simp [Matrix.toLin'_apply, Matrix.mulVec_mulVec, ← Matrix.conjTranspose_mul, hNM])
     let W := V_neg.map eN.toLinearMap
     have hW_fin : Module.finrank ℂ W = negEigCount hX := by
       rw [← hV_finrank]
@@ -553,7 +575,7 @@ theorem negEigCount_congruence {A P Q : Matrix d d ℂ} (hA : A.IsHermitian)
     have hx_ne : x ≠ 0 := by intro hx0; apply hne; simp [hx0]
     have hquad : star (eN.toLinearMap x) ⬝ᵥ Y.mulVec (eN.toLinearMap x) = star x ⬝ᵥ X.mulVec x := by
       simp only [eN, LinearEquiv.coe_toLinearMap, LinearEquiv.ofLinear_apply, Matrix.toLin'_apply]
-      rw [hYeq, Matrix.mulVec_mulVec, Matrix.mulVec_mulVec, Matrix.mul_assoc M X,
+      rw [hYeq, Matrix.mulVec_mulVec, Matrix.mul_assoc (M * X),
         show Mᴴ * Nᴴ = (N * M)ᴴ by rw [Matrix.conjTranspose_mul], hNM, Matrix.conjTranspose_one,
         Matrix.mul_one, Matrix.dotProduct_mulVec]
       have hvec : star (Nᴴ.mulVec x) ᵥ* M = star x := by
@@ -575,11 +597,13 @@ theorem negEigCount_congruence {A P Q : Matrix d d ℂ} (hA : A.IsHermitian)
     exact hV_neg_strict x hx hx_ne
   apply le_antisymm
   · have hAeq : A = Q * (P * A * Pᴴ) * Qᴴ := by
+      symm
       calc Q * (P * A * Pᴴ) * Qᴴ
           = (Q * P) * A * (Pᴴ * Qᴴ) := by simp only [Matrix.mul_assoc]
-        _ = 1 * A * (Q * P)ᴴ := by rw [hQP, Matrix.conjTranspose_mul]
+        _ = 1 * A * (Q * P)ᴴ := by rw [hQP, ← Matrix.conjTranspose_mul]
         _ = A := by rw [hQP, Matrix.conjTranspose_one, Matrix.one_mul, Matrix.mul_one]
     exact hle hB hA hQP hPQ hAeq
   · exact hle hA hB hPQ hQP rfl
+
 
 end PolarCodes

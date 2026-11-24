@@ -77,7 +77,9 @@ private noncomputable def hadamardTensorI (d : Type*) [Fintype d] [DecidableEq d
     · subst hi
       simp only [ite_mul, zero_mul, mul_ite, mul_zero, apply_ite star, star_zero,
         Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte, Prod.mk.injEq, and_true]
-      cases b₁ <;> cases b₂ <;> simp [star_mul', hsq2] <;> ring
+      have hsq2' : ((Real.sqrt 2 : ℂ)⁻¹) ^ 2 = 1 / 2 := by
+        simpa [sq] using hsq2
+      cases b₁ <;> cases b₂ <;> simp [star_mul', hsq2, hsq2'] <;> ring
     · simp only [Prod.mk.injEq, hi, and_false, ↓reduceIte]
       have h0 : ∀ b : Bool, ∑ x : d,
           star (if x = i₁ then ((Real.sqrt 2 : ℂ)⁻¹) * (if b = true ∧ b₁ = true then -1 else 1) else 0) *
@@ -87,7 +89,9 @@ private noncomputable def hadamardTensorI (d : Type*) [Fintype d] [DecidableEq d
         by_cases hx : x = i₁
         · subst hx; simp [hi]
         · simp [hx]
-      rw [h0 true, h0 false, add_zero]⟩
+      have ht := h0 true; simp only [true_and, eq_self_iff_true] at ht
+      have hf := h0 false
+      rw [ht, hf, add_zero]⟩
 
 private lemma conjUnitary_pauliZ_gram_apply {α : Type*} [Fintype α] [DecidableEq α]
     (τ₀ τ₁ : DensityOp α) (x y : Bool × α) :
@@ -101,7 +105,7 @@ private lemma conjUnitary_pauliZ_gram_apply {α : Type*} [Fintype α] [Decidable
     · cases y.1 <;> simp
     · intro z _ hz; simp [Ne.symm hz]
     · intro h; exact absurd (Finset.mem_univ _) h
-  · intro z _ hz; simp [Ne.symm hz]
+  · intro z _ hz; simp [hz]
   · intro h; exact absurd (Finset.mem_univ _) h
 
 private lemma gramFactor_inner_same {α : Type*} [Fintype α] [DecidableEq α]
@@ -166,8 +170,9 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
   set σ₁ := W₂.out true
   set Ψ₁ := gramState ρ₀ ρ₁
   set Ψ₂ := gramState σ₀ σ₁
-  set Ψ̃₁ := DensityOp.conjUnitary (pauliZTensorI d₁) Ψ₁
-  set Ψ̃₂ := DensityOp.conjUnitary (pauliZTensorI d₂) Ψ₂
+  set Ψ1_tilde := DensityOp.conjUnitary (pauliZTensorI d₁) Ψ₁
+  set Ψ2_tilde := DensityOp.conjUnitary (pauliZTensorI d₂) Ψ₂
+  -- Step 1: `(W₁⊥ ⊠ W₂⊥)(1)` is unitarily equivalent to `(W₁⊥ ⊠ W₂⊥)(0)` via `(Z ⊗ I) ⊗ I`
   let Z1I2 : Matrix.unitaryGroup ((Bool × d₁) × (Bool × d₂)) ℂ :=
     ⟨Matrix.diagonal (fun p ↦ if p.1.1 = false then (1 : ℂ) else -1), by
       rw [Matrix.mem_unitaryGroup_iff]
@@ -179,7 +184,7 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
       · simp only [hpq, ↓reduceIte]
         apply Finset.sum_eq_zero; intro r _
         by_cases h1 : p = r
-        · subst h1; simp [Ne.symm hpq]
+        · subst h1; simp [hpq]
         · simp [h1]⟩
   have hconj_out : (DensityOp.conjUnitary Z1I2 ((CQChannel.checkCombine W₁.dual W₂.dual).out false)).mat =
       ((CQChannel.checkCombine W₁.dual W₂.dual).out true).mat := by
@@ -188,10 +193,11 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
       DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, Bool.not_false, Bool.not_true,
       Matrix.mul_apply, Matrix.diagonal_apply, Matrix.star_apply, Matrix.add_apply,
       Matrix.smul_apply, Matrix.kroneckerMap_apply, Complex.real_smul, pauliZTensorI,
-      Ψ₁, Ψ₂, Ψ̃₁, Ψ̃₂]
+      Ψ₁, Ψ₂, Ψ1_tilde, Ψ2_tilde]
+    -- Simplify diagonal conjugation on the LHS
     have hdiag_conj : ∀ (M : Matrix ((Bool × d₁) × (Bool × d₂)) ((Bool × d₁) × (Bool × d₂)) ℂ),
         (∑ x, (∑ y, (if ((a₁, i₁), (a₂, i₂)) = y then (if a₁ = false then (1 : ℂ) else -1) else 0) * M y x) *
-          star (if ((b₁, j₁), (b₂, j₂)) = x then (if b₁ = false then (1 : ℂ) else -1) else 0)) =
+          star (if x = ((b₁, j₁), (b₂, j₂)) then (if x.1.1 = false then (1 : ℂ) else -1) else 0)) =
         (if a₁ = false then (1 : ℂ) else -1) * M ((a₁, i₁), (a₂, i₂)) ((b₁, j₁), (b₂, j₂)) *
           (if b₁ = false then (1 : ℂ) else -1) := by
       intro M
@@ -200,7 +206,7 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
         · cases b₁ <;> simp
         · intro y _ hy; simp [Ne.symm hy]
         · intro h; exact absurd (Finset.mem_univ _) h
-      · intro x _ hx; simp [Ne.symm hx]
+      · intro x _ hx; simp [hx]
       · intro h; exact absurd (Finset.mem_univ _) h
     have hZ1 : ∀ (x y : Bool × d₁),
         (DensityOp.conjUnitary (pauliZTensorI d₁) Ψ₁).mat x y =
@@ -213,7 +219,7 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
         · cases y.1 <;> simp
         · intro z _ hz; simp [Ne.symm hz]
         · intro h; exact absurd (Finset.mem_univ _) h
-      · intro z _ hz; simp [Ne.symm hz]
+      · intro z _ hz; simp [hz]
       · intro h; exact absurd (Finset.mem_univ _) h
     rw [hdiag_conj]
     simp only [Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Complex.real_smul]
@@ -222,6 +228,8 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
   have hS_dual_eq : vonNeumannEntropy ((CQChannel.checkCombine W₁.dual W₂.dual).out true) =
       vonNeumannEntropy ((CQChannel.checkCombine W₁.dual W₂.dual).out false) := by
     rw [← vonNeumannEntropy_eq_of_mat_eq hconj_out, vonNeumannEntropy_conjUnitary]
+  -- Step 2: Compute `S((W₁⊥ ⊠ W₂⊥)(0)) = 1 + ½ (S((W₁ ⊠ W₂)(0)) + S((W₁ ⊠ W₂)(1)))`
+  -- Factor `(W₁⊥ ⊠ W₂⊥)(0) = M * Mᴴ` with `M : ((Bool × d₁) × (Bool × d₂)) × (Bool × (d₁ × d₂))`
   let A₁ := gramFactor ρ₀ ρ₁
   let A₂ := gramFactor σ₀ σ₁
   let Z1A1 : Matrix (Bool × d₁) d₁ ℂ := Matrix.of fun p k ↦
@@ -282,6 +290,7 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
                   (if q₂.1 = false then (1 : ℂ) else -1))) := by ring
         _ = _ := by rw [hsq2']
     rw [hprod_f, hprod_t]; push_cast; ring
+  -- Now show `(H ⊗ I) (Mᴴ M) (H ⊗ I) = ½ |0⟩⟨0| ⊗ (W₁⊠W₂)(0) + ½ |1⟩⟨1| ⊗ (W₁⊠W₂)(1)`
   let B_blk : DensityOp (Bool × (d₁ × d₂)) :=
     DensityOp.midpoint
       (DensityOp.tensor (CQChannel.ketBraBool false) ((CQChannel.checkCombine W₁ W₂).out false))
@@ -400,6 +409,7 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
     exact spectral_sum_eq_of_charpoly_mul_X_pow
       ((CQChannel.checkCombine W₁.dual W₂.dual).out false).isHermitian
       B_blk.isHermitian hcp (by simp [Real.negMulLog])
+  -- Step 3: Compute `S(midpoint((W₁⊥⊠W₂⊥)(0), (W₁⊥⊠W₂⊥)(1))) = 2 + ½(S(ρ₀)+S(ρ₁)+S(σ₀)+S(σ₁))`
   have hmid_dual : (DensityOp.midpoint
       ((CQChannel.checkCombine W₁.dual W₂.dual).out false)
       ((CQChannel.checkCombine W₁.dual W₂.dual).out true)).mat =
@@ -422,6 +432,7 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
     have h3_2 := (lemma_4_1_gram_dephasing σ₀ σ₁ (fun _ : Unit ↦ (1 : ℂ)) (fun _ : Unit ↦ (1 : ℂ))
       (by simp) (by simp)).2.2.1
     linarith
+  -- Step 4: Combine everything!
   have hmid_orig : (DensityOp.midpoint
       ((CQChannel.checkCombine W₁ W₂).out false)
       ((CQChannel.checkCombine W₁ W₂).out true)).mat =
@@ -466,7 +477,7 @@ def bscChannel (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1) : CQChannel Bool where
       { mat := Matrix.diagonal (fun b ↦ if b = false then ((1 - p : ℝ) : ℂ) else (p : ℂ))
         posSemidef := by
           rw [Matrix.posSemidef_diagonal_iff]
-          intro b; cases b <;> simp [Complex.nonneg_iff] <;> linarith
+          intro b; cases b <;> simp only [↓reduceIte, Bool.true_eq_false, Complex.ofReal_nonneg] <;> linarith
         trace_one := by
           simp only [Matrix.trace_diagonal, Fintype.sum_bool, ↓reduceIte, Bool.true_eq_false]
           push_cast; ring }
@@ -474,7 +485,7 @@ def bscChannel (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1) : CQChannel Bool where
       { mat := Matrix.diagonal (fun b ↦ if b = false then (p : ℂ) else ((1 - p : ℝ) : ℂ))
         posSemidef := by
           rw [Matrix.posSemidef_diagonal_iff]
-          intro b; cases b <;> simp [Complex.nonneg_iff] <;> linarith
+          intro b; cases b <;> simp only [↓reduceIte, Bool.true_eq_false, Complex.ofReal_nonneg] <;> linarith
         trace_one := by
           simp only [Matrix.trace_diagonal, Fintype.sum_bool, ↓reduceIte, Bool.true_eq_false]
           push_cast; ring }
@@ -487,20 +498,16 @@ def becChannel (ε : ℝ) (hε0 : 0 ≤ ε) (hε1 : ε ≤ 1) : CQChannel (Fin 3
       { mat := Matrix.diagonal ![((1 - ε : ℝ) : ℂ), 0, (ε : ℂ)]
         posSemidef := by
           rw [Matrix.posSemidef_diagonal_iff]
-          intro i; fin_cases i <;> simp [Complex.nonneg_iff] <;> linarith
+          intro i; fin_cases i <;> simp [Complex.ofReal_nonneg] <;> linarith
         trace_one := by
-          simp only [Matrix.trace_diagonal, Fin.sum_univ_three, Matrix.cons_val_zero,
-            Matrix.cons_val_one, Matrix.cons_val_two]
-          push_cast; ring }
+          simp [Matrix.trace_diagonal, Fin.sum_univ_three] }
     | true =>
       { mat := Matrix.diagonal ![0, ((1 - ε : ℝ) : ℂ), (ε : ℂ)]
         posSemidef := by
           rw [Matrix.posSemidef_diagonal_iff]
-          intro i; fin_cases i <;> simp [Complex.nonneg_iff] <;> linarith
+          intro i; fin_cases i <;> simp [Complex.ofReal_nonneg] <;> linarith
         trace_one := by
-          simp only [Matrix.trace_diagonal, Fin.sum_univ_three, Matrix.cons_val_zero,
-            Matrix.cons_val_one, Matrix.cons_val_two]
-          push_cast; ring }
+          simp [Matrix.trace_diagonal, Fin.sum_univ_three] }
 
 /-- Pure-state binary c-q channel `Pure(f)` with overlap `f ∈ [0, 1]`:
 `|φ₀⟩ = (√((1+f)/2), √((1-f)/2))`, `|φ₁⟩ = (√((1+f)/2), -√((1-f)/2))`. -/
@@ -545,7 +552,7 @@ lemma condEntropy_bscChannel (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1) :
     rw [hdiag_S (fun b ↦ if b = false then p else 1 - p) _ (by
       ext i j; simp only [bscChannel, Matrix.diagonal_apply, Function.comp_apply]
       split_ifs with h1 h2 <;> simp_all), h2_eq_negMulLog]
-    simp
+    simp; ring
   have hSmid : vonNeumannEntropy (DensityOp.midpoint ((bscChannel p hp0 hp1).out false)
       ((bscChannel p hp0 hp1).out true)) = 1 := by
     rw [hdiag_S (fun _ ↦ 1 / 2) _ (by
@@ -588,8 +595,10 @@ lemma condEntropy_pureChannel (f : ℝ) (hf0 : 0 ≤ f) (hf1 : f ≤ 1) :
           (by simp [Real.negMulLog])
       · exact spectral_sum_diagonal (fun _ ↦ 1) hD (by simp [Real.negMulLog])
     rw [hsum]; simp [Real.negMulLog]
-  have hS0 : vonNeumannEntropy ((pureChannel f hf0 hf1).out false) = 0 := hS_pure _ _
-  have hS1 : vonNeumannEntropy ((pureChannel f hf0 hf1).out true) = 0 := hS_pure _ _
+  have hS0 : vonNeumannEntropy ((pureChannel f hf0 hf1).out false) = 0 := by
+    dsimp only [pureChannel]; exact hS_pure _ _
+  have hS1 : vonNeumannEntropy ((pureChannel f hf0 hf1).out true) = 0 := by
+    dsimp only [pureChannel]; exact hS_pure _ _
   have hmid : (DensityOp.midpoint ((pureChannel f hf0 hf1).out false)
       ((pureChannel f hf0 hf1).out true)).mat =
       Matrix.diagonal (Complex.ofReal ∘ fun b : Bool ↦ if b = false then (1 + f) / 2 else (1 - f) / 2) := by
