@@ -28,8 +28,10 @@ lemma continuousOn_h2Inv : ContinuousOn h2Inv (Icc (0 : ℝ) 1) := by
   intro v hv ε hε
   set q := h2Inv v
   have hq : q ∈ Icc (0 : ℝ) (1 / 2) := h2Inv_mem_Icc hv
+  -- Pick `q_lo < q < q_hi` inside `[0, 1/2]` within `ε/2` of `q`
   have hlt_lo : q = 0 ∨ 0 < q := (eq_or_lt_of_le hq.1).imp Eq.symm id
   have hlt_hi : q = 1 / 2 ∨ q < 1 / 2 := eq_or_lt_of_le hq.2
+  -- Left radius `δ_lo`
   obtain ⟨δ_lo, hδ_lo_pos, hδ_lo⟩ : ∃ δ > 0, ∀ w ∈ Icc (0 : ℝ) 1, v - δ < w → q - ε < h2Inv w := by
     rcases hlt_lo with hq0 | hq0
     · refine ⟨1, one_pos, fun w hw _ ↦ ?_⟩
@@ -48,6 +50,7 @@ lemma continuousOn_h2Inv : ContinuousOn h2Inv (Icc (0 : ℝ) 1) := by
       rw [h2Inv_h2 hq₁_mem] at hinv
       have : q - ε / 2 ≤ q₁ := le_max_right _ _
       linarith
+  -- Right radius `δ_hi`
   obtain ⟨δ_hi, hδ_hi_pos, hδ_hi⟩ : ∃ δ > 0, ∀ w ∈ Icc (0 : ℝ) 1, w < v + δ → h2Inv w < q + ε := by
     rcases hlt_hi with hq1 | hq1
     · refine ⟨1, one_pos, fun w hw _ ↦ ?_⟩
@@ -215,20 +218,24 @@ convex on `[0, 1]`. -/
 theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
     ConvexOn ℝ (Icc (0 : ℝ) 1) (fun v ↦ gc u v) := by
   rcases eq_or_lt_of_le hu.1 with rfl | hu0
-  · have heq : EqOn (fun v ↦ gc 0 v) id (Icc (0 : ℝ) 1) := by
+  · -- `u = 0`: `gc 0 v = v` on `[0, 1]`
+    have heq : EqOn (fun v ↦ gc 0 v) id (Icc (0 : ℝ) 1) := by
       intro v hv
       simp only [gc, h2Inv_zero, binConv_zero_left, h2_h2Inv hv, id_eq]
     exact (convexOn_id (convex_Icc (0 : ℝ) 1)).congr heq.symm
   · rcases eq_or_lt_of_le hu.2 with rfl | hu1
-    · have heq : EqOn (fun v ↦ gc 1 v) (fun _ ↦ 1) (Icc (0 : ℝ) 1) := by
+    · -- `u = 1`: `gc 1 v = 1`
+      have heq : EqOn (fun v ↦ gc 1 v) (fun _ ↦ 1) (Icc (0 : ℝ) 1) := by
         intro v _
         simp only [gc, h2Inv_one, binConv_half_left, h2_half]
       exact (convexOn_const 1 (convex_Icc (0 : ℝ) 1)).congr heq.symm
-    · set p := h2Inv u
+    · -- `u ∈ (0, 1)`: `p = h2Inv u ∈ (0, 1/2)`, `α = 1 - 2p ∈ (0, 1)`
+      set p := h2Inv u
       have hp : p ∈ Ioo (0 : ℝ) (1 / 2) := h2Inv_mem_Ioo ⟨hu0, hu1⟩
       set α := 1 - 2 * p
       have hα0 : 0 < α := by simp only [α]; linarith [hp.2]
       have hα1 : α < 1 := by simp only [α]; linarith [hp.1]
+      -- Compute derivative of `gc u` on `(0, 1)`
       have hderiv : ∀ v ∈ Ioo (0 : ℝ) 1,
           HasDerivAt (fun w ↦ gc u w)
             (α * Real.log ((1 - binConv p (h2Inv v)) / binConv p (h2Inv v)) /
@@ -259,6 +266,7 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
         rw [inv_div]
         simp only [q, r]
         field_simp [hlog2, hlogq]
+      -- Show `x ↦ log((1 + α x)/(1 - α x)) / log((1 + x)/(1 - x))` is antitone on `(0, 1)`
       have hanti_ratio : AntitoneOn
           (fun x : ℝ ↦ Real.log ((1 + α * x) / (1 - α * x)) / Real.log ((1 + x) / (1 - x)))
           (Ioo 0 1) := by
@@ -292,6 +300,7 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
             have hax_pos : 0 < α * x := mul_pos hα0 hx.1
             have hne1 : 1 - α * x ≠ 0 := by linarith
             have hne2 : 1 + α * x ≠ 0 := by linarith
+            have hne3 : 1 - (α * x) ^ 2 ≠ 0 := by nlinarith
             have hfac : 1 - (α * x) ^ 2 = (1 - α * x) * (1 + α * x) := by ring
             rw [hfac]
             field_simp [hne1, hne2]
@@ -327,6 +336,7 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
             have hax_pos : 0 < α * x := mul_pos hα0 hx.1
             have hne1 : 1 - α * x ≠ 0 := by linarith
             have hne2 : 1 + α * x ≠ 0 := by linarith
+            have hne3 : 1 - (α * x) ^ 2 ≠ 0 := by nlinarith
             have hfac : 1 - (α * x) ^ 2 = (1 - α * x) * (1 + α * x) := by ring
             rw [hfac]
             field_simp [hne1, hne2]
@@ -351,6 +361,8 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
           have h1 : 0 < 1 - (α * x) ^ 2 := by nlinarith [hax.1, hax.2]
           have h2 : 0 < 1 - x ^ 2 := by nlinarith [hx.1, hx.2]
           have h3 : 0 < α * x := hax.1
+          -- From `((1 - x^2) / x) * log((1+x)/(1-x)) ≤ ((1 - (αx)^2) / (αx)) * log((1+αx)/(1-αx))`,
+          -- multiply by `2 α x / ((1 - (αx)^2)(1 - x^2)) > 0`!
           have hmul := mul_le_mul_of_nonneg_left hle
             (show 0 ≤ 2 * (α * x) / ((1 - (α * x) ^ 2) * (1 - x ^ 2)) by positivity)
           have hL : 2 * (α * x) / ((1 - (α * x) ^ 2) * (1 - x ^ 2)) *
@@ -364,8 +376,10 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
             have hne_x : 1 - x ^ 2 ≠ 0 := ne_of_gt h2
             have hne_α : α ≠ 0 := ne_of_gt hα0
             have hne_x0 : x ≠ 0 := ne_of_gt hx.1
-            field_simp [hne_a, hne_x, hne_α, hne_x0]
+            have hne_ax : 1 - α ^ 2 * x ^ 2 ≠ 0 := by convert hne_a using 1; ring
+            field_simp [hne_a, hne_ax, hne_x, hne_α, hne_x0]
           linarith
+      -- Apply `convexOn_of_deriv_mono` on `Icc 0 1`
       let f' : ℝ → ℝ := fun v ↦
         α * Real.log ((1 - binConv p (h2Inv v)) / binConv p (h2Inv v)) /
           Real.log ((1 - h2Inv v) / h2Inv v)
@@ -498,12 +512,16 @@ set_option maxHeartbeats 800000 in
 `lim_{δ → 0+} Δ(δ, 1 - 2^(-δ)) / δ = 1`. -/
 theorem prop_4_3_asymptotic :
     Tendsto (fun δ : ℝ ↦ deltaGap δ (1 - (2 : ℝ) ^ (-δ)) / δ) (𝓝[>] 0) (𝓝 1) := by
+  -- Use ε-δ directly on `(0, 1/4]` via concavity of `h2`
   rw [Metric.tendsto_nhdsWithin_nhds]
   intro ε hε
+  -- Work with `η = min (ε / 4) (1 / 4) ∈ (0, 1/4]`
   set η : ℝ := min (ε / 4) (1 / 4)
   have hη_pos : 0 < η := lt_min (by linarith) (by norm_num)
   have hη_le : η ≤ 1 / 4 := min_le_right _ _
   have hη_le_ε : η ≤ ε / 4 := min_le_left _ _
+  -- Choose `L₀ > 0` large enough that `(1 + logb 2 (e / (1 - η)) + logb 2 L) / L ≤ η`
+  -- and `(logb 2 4) / L ≤ η` for all `L ≥ L₀`
   have hL_tendsto : Tendsto (fun L : ℝ ↦ Real.logb 2 L / L) atTop (𝓝 0) := by
     have h := Real.tendsto_pow_log_div_mul_add_atTop 1 0 1 one_ne_zero
     simp only [pow_one, one_mul, add_zero] at h
@@ -518,6 +536,7 @@ theorem prop_4_3_asymptotic :
   set L₀ : ℝ := max (max L₁ 16) (max (2 * |C| / η + 1) (2 / η + 1))
   have hL₀_ge16 : 16 ≤ L₀ := le_trans (le_max_right _ _) (le_max_left _ _)
   have hL₀_pos : 0 < L₀ := by linarith
+  -- Take `δ₀ = min (1 / 4) (min (η / 4) (2 ^ (-L₀)))`
   set δ₀ : ℝ := min (1 / 4) (min (η / 4) ((2 : ℝ) ^ (-L₀)))
   have hδ₀_pos : 0 < δ₀ := lt_min (by norm_num) (lt_min (by linarith) (Real.rpow_pos_of_pos (by norm_num) _))
   refine ⟨δ₀, hδ₀_pos, fun δ hδ_pos hδ_dist ↦ ?_⟩
@@ -546,6 +565,7 @@ theorem prop_4_3_asymptotic :
   have hlog2_pos : 0 < Real.log 2 := Real.log_pos (by norm_num)
   have hlog2_lt1 : Real.log 2 < 1 := lt_trans Real.log_two_lt_d9 (by norm_num)
   have hlog2_gt_half : (1 / 2 : ℝ) < Real.log 2 := lt_trans (by norm_num) Real.log_two_gt_d9
+  -- Bounds on `p2 = 1 - exp(-(ln 2) δ)`
   have hp2_ub : p2 ≤ Real.log 2 * δ := by
     have h := Real.add_one_le_exp (-(Real.log 2 * δ))
     have hpow : (2 : ℝ) ^ (-δ) = Real.exp (-(Real.log 2 * δ)) := by
@@ -567,6 +587,7 @@ theorem prop_4_3_asymptotic :
     simp only [p2]; rw [hpow]; linarith
   have hp2_pos : 0 < p2 := by linarith
   have hp2_lt_quarter : p2 < 1 / 4 := by nlinarith
+  -- Bounds on `p1`: `(1 - η) δ / L ≤ p1 ≤ δ / L`
   have hp1_ub : p1 ≤ δ / L := (le_div_iff₀ hL_pos).mpr (h2Inv_mul_logb_le hδ_pos hδ_le_q)
   have hp1_lb : (1 - η) * δ / L ≤ p1 := by
     have h1mη : 0 < 1 - η := by linarith
@@ -620,6 +641,7 @@ theorem prop_4_3_asymptotic :
     have : p1 ≤ δ := le_trans hp1_ub ((div_le_iff₀ hL_pos).mpr (by nlinarith))
     simp only [q, binConv]; nlinarith
   have hq_lt_half : q < 1 / 2 := by nlinarith
+  -- Concavity sandwich: `(q - p2) * h2'(q) ≤ deltaGap δ p2 ≤ (q - p2) * h2'(p2)`
   have hgap_lb : (q - p2) * (Real.logb 2 ((1 - q) / q)) ≤ deltaGap δ p2 := by
     have hsec : (h2 q - h2 p2) / (q - p2) ≥ Real.log ((1 - q) / q) / Real.log 2 := by
       have hderiv_le := exists_hasDerivAt_eq_slope h2
@@ -651,6 +673,7 @@ theorem prop_4_3_asymptotic :
     rw [Real.logb, mul_comm]
     exact (div_le_iff₀ (by linarith)).mp hsec
   have hq_sub_p2 : q - p2 = p1 * (1 - 2 * p2) := by simp only [q, binConv]; ring
+  -- Bound `logb 2 ((1 - q) / q) ≥ L - 2` and `logb 2 ((1 - p2) / p2) ≤ L + 2`
   have hlogq_lb : L - 2 ≤ Real.logb 2 ((1 - q) / q) := by
     have hrat : (1 / 4 : ℝ) * (1 / δ) ≤ (1 - q) / q := by
       rw [le_div_iff₀ (by linarith)]
@@ -677,6 +700,7 @@ theorem prop_4_3_asymptotic :
       Real.logb_pow, Real.logb_self_eq_one (by norm_num)] at h
     push_cast at h
     linarith
+  -- Combine lower and upper bounds on `deltaGap δ p2 / δ`
   have h2_div_L : 2 / L ≤ η := by
     have hL_ge_2 : 2 / η + 1 ≤ L := le_trans (le_trans (le_max_right _ _) (le_max_right _ _)) hL_ge_L₀
     rw [div_le_iff₀ hL_pos]

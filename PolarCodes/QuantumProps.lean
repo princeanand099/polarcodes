@@ -412,6 +412,7 @@ theorem condEntropy_varCombine_eq {d₁ d₂ : Type*}
         (DensityOp.tensor (W₁.out false) (W₂.out true))) / 2 := by
   unfold CQChannel.condEntropy CQChannel.varCombine qjs
   simp only [Bool.not_false, Bool.not_true]
+  -- Rewrite the midpoint of `varCombine(0)` and `varCombine(1)` as a block midpoint
   have hmid_eq : (DensityOp.midpoint
       (DensityOp.midpoint
         (DensityOp.tensor (CQChannel.ketBraBool false) (DensityOp.tensor (W₁.out false) (W₂.out false)))
@@ -446,6 +447,7 @@ theorem entropy_conservation {d₁ d₂ : Type*}
   rw [condEntropy_varCombine_eq]
   unfold CQChannel.condEntropy CQChannel.checkCombine qjs
   simp only [Bool.not_false, Bool.not_true]
+  -- Midpoint of `checkCombine(0)` and `checkCombine(1)` is `midpoint(ρ₀, ρ₁) ⊗ midpoint(σ₀, σ₁)`
   have hmid_check : (DensityOp.midpoint
       (DensityOp.midpoint (DensityOp.tensor (W₁.out false) (W₂.out false))
         (DensityOp.tensor (W₁.out true) (W₂.out true)))
@@ -496,6 +498,11 @@ theorem rootFidelity_tensor {d₁ d₂ : Type*}
     (ρ₁ σ₁ : DensityOp d₁) (ρ₂ σ₂ : DensityOp d₂) :
     rootFidelity (DensityOp.tensor ρ₁ ρ₂) (DensityOp.tensor σ₁ σ₂) =
       rootFidelity ρ₁ σ₁ * rootFidelity ρ₂ σ₂ := by
+  -- Use `charpoly` of `(√ρ₁ ⊗ √ρ₂)(σ₁ ⊗ σ₂)(√ρ₁ ⊗ √ρ₂) = (√ρ₁ σ₁ √ρ₁) ⊗ (√ρ₂ σ₂ √ρ₂)`
+  -- Wait: `√(ρ₁ ⊗ ρ₂)` might differ in choice of eigenbasis, so use `M = (√ρ₁ σ₁^(1/2)) ⊗ (√ρ₂ σ₂^(1/2))`
+  -- and compare `√(ρ₁⊗ρ₂) (σ₁⊗σ₂) √(ρ₁⊗ρ₂)` with `(√(ρ₁⊗ρ₂) (√σ₁ ⊗ √σ₂))`!
+  -- Actually `√(ρ₁ ⊗ ρ₂) * √(ρ₁ ⊗ ρ₂) = ρ₁ ⊗ ρ₂ = (√ρ₁ ⊗ √ρ₂) * (√ρ₁ ⊗ √ρ₂)` and both are PSD,
+  -- or even simpler: `charpoly(√A B √A) = charpoly(A B)` by `Matrix.charpoly_mul_comm`!!
   set A₁ := ρ₁.sqrtMat * σ₁.mat * ρ₁.sqrtMat
   set A₂ := ρ₂.sqrtMat * σ₂.mat * ρ₂.sqrtMat
   have hA₁ := (posSemidef_sqrt_mul_sqrt ρ₁ σ₁).isHermitian
@@ -582,6 +589,7 @@ theorem rootFidelity_block_midpoint {d : Type*} [Fintype d] [DecidableEq d]
     if p.1 = false then hA₀.eigenvalues p.2 / 4 else hA₁.eigenvalues p.2 / 4
   have hD_herm : (Matrix.diagonal (Complex.ofReal ∘ lam)).IsHermitian := by
     rw [Matrix.IsHermitian, Matrix.diagonal_conjTranspose]; congr 1; ext p; simp
+  -- Show `(R.mat * S.mat).charpoly = (diagonal lam).charpoly` via block equivalence `Bool × d ≃ d ⊕ d`
   let e : (Bool × d) ≃ (d ⊕ d) :=
     { toFun := fun p ↦ if p.1 = false then Sum.inl p.2 else Sum.inr p.2
       invFun := fun s ↦ match s with | Sum.inl i => (false, i) | Sum.inr i => (true, i)
@@ -646,7 +654,9 @@ theorem rootFidelity_block_midpoint {d : Type*} [Fintype d] [DecidableEq d]
     congr 1
     ext i j
     simp only [Matrix.smul_apply, Matrix.diagonal_apply, Function.comp_apply, smul_eq_mul]
-    split_ifs <;> [· push_cast; ring; · simp]
+    split_ifs
+    · push_cast; ring
+    · simp
   have hcp : (R.sqrtMat * S.mat * R.sqrtMat).charpoly =
       (Matrix.diagonal (Complex.ofReal ∘ lam)).charpoly := by
     rw [charpoly_sqrt_mul_sqrt, ← Matrix.charpoly_reindex e (R.mat * S.mat),
