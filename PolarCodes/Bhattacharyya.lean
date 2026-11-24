@@ -12,7 +12,7 @@ import PolarCodes.GramDephasing
 
 This module establishes:
 - The trace norm `traceNorm M = ∑ i, √(λ_i(Mᴴ M))`
-- Polar decomposition (`exists_polar_decomp`): every square matrix `M` admits a unitary `U`
+- Polar decomposition (`exists_unitary_polar`): every square matrix `M` admits a unitary `U`
   such that `M = U * |M|` and `Re Tr(Uᴴ M) = ‖M‖₁`
 - Variational upper bound (`re_trace_unitary_mul_le_traceNorm`): `Re Tr(Uᴴ M) ≤ ‖M‖₁` for all
   unitary `U`
@@ -80,6 +80,7 @@ theorem exists_polar_decomp (M : Matrix d d ℂ) :
           rw [hspec]; simp only [Matrix.mul_assoc]
       _ = Matrix.diagonal (Complex.ofReal ∘ hA.eigenvalues) := by
           rw [hV_star_mul, Matrix.one_mul, Matrix.mul_one]
+  -- Columns of `N` as vectors in `E := EuclideanSpace ℂ d`
   let E := EuclideanSpace ℂ d
   let colN : d → E := fun j ↦ WithLp.toLp 2 (fun i ↦ N i j)
   have hinner_N : ∀ j₁ j₂ : d, ⟪colN j₁, colN j₂⟫_ℂ =
@@ -90,6 +91,7 @@ theorem exists_polar_decomp (M : Matrix d d ℂ) :
       Function.comp_apply] at h
     rw [EuclideanSpace.inner_eq_star_dotProduct, dotProduct]
     simpa [colN, mul_comm] using h
+  -- Positive singular value indices `S`
   let S : Finset d := Finset.univ.filter (fun j ↦ 0 < σ j)
   let u : {j : d // j ∈ S} → E := fun j ↦ ((σ j.1 : ℂ)⁻¹) • colN j.1
   have hu_ortho : Orthonormal ℂ u := by
@@ -107,6 +109,7 @@ theorem exists_polar_decomp (M : Matrix d d ℂ) :
       field_simp [hne]
     · have hne : j₁.1 ≠ j₂.1 := fun h ↦ heq (Subtype.ext h)
       simp [heq, hne]
+  -- Span `K` of `{u j}` and its orthogonal complement `Kᗮ`
   let K : Submodule ℂ E := Submodule.span ℂ (Set.range u)
   have hlin : LinearIndependent ℂ u := hu_ortho.linearIndependent
   have hcard_K : Module.finrank ℂ K = Fintype.card {j : d // j ∈ S} := by
@@ -163,6 +166,7 @@ theorem exists_polar_decomp (M : Matrix d d ℂ) :
     have h := (orthonormal_iff_ite.mp hcolW_ortho) j₁ j₂
     rw [EuclideanSpace.inner_eq_star_dotProduct, dotProduct] at h
     simpa [W, Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply, mul_comm] using h
+  -- Verify `W * diag(σ) = N`
   have hWN : W * Matrix.diagonal (Complex.ofReal ∘ σ) = N := by
     ext i j
     simp only [W, Matrix.mul_apply, Matrix.diagonal_apply, Matrix.of_apply, Function.comp_apply,
@@ -177,10 +181,12 @@ theorem exists_polar_decomp (M : Matrix d d ℂ) :
         have hnot : ¬ 0 < σ j := fun h ↦ hj (Finset.mem_filter.mpr ⟨Finset.mem_univ _, h⟩)
         linarith [hσ_nn j]
       rw [hσ0, Complex.ofReal_zero, mul_zero]
+      -- Since `σ j = 0`, `‖colN j‖² = hA.eigenvalues j = 0`, so `N i j = 0`
       have hlam0 : hA.eigenvalues j = 0 := by rw [← hσ_sq j, hσ0]; ring
       have hnorm0 : ⟪colN j, colN j⟫_ℂ = 0 := by rw [hinner_N j j]; simp [hlam0]
       have hcol0 : colN j = 0 := inner_self_eq_zero.mp hnorm0
       exact (congr_fun (congr_arg WithLp.ofLp hcol0) i).symm
+  -- Set `U := W * star V ∈ unitaryGroup d ℂ`
   let U_unit : Matrix.unitaryGroup d ℂ := ⟨W, hW_mem⟩ * star hA.eigenvectorUnitary
   refine ⟨U_unit, ?_⟩
   show M = (W * star V) * (V * Matrix.diagonal (Complex.ofReal ∘ σ) * star V)
@@ -283,6 +289,7 @@ def partialTrace₂ (ρ : DensityOp (d₁ × d₂)) : DensityOp d₁ where
       have hh := congr_fun (congr_fun ρ.isHermitian.eq (i, k)) (j, k)
       simpa [Matrix.conjTranspose_apply] using hh
     · intro x
+      -- Actually prove via `posSemidef` of each term directly
       have hsum' : star x ⬝ᵥ (Matrix.of fun i j ↦ ∑ k : d₂, ρ.mat (i, k) (j, k)).mulVec x =
           ∑ k : d₂, star (fun p : d₁ × d₂ ↦ if p.2 = k then x p.1 else 0) ⬝ᵥ
             ρ.mat.mulVec (fun p : d₁ × d₂ ↦ if p.2 = k then x p.1 else 0) := by
@@ -360,7 +367,8 @@ theorem exists_uhlmann_purification (ρ σ : DensityOp d) :
         Unitary.coe_star_mul_self U, Matrix.one_mul, σ.sqrtMat_mul_self]
     have h := congr_fun (congr_fun hprod i) j
     simpa [Matrix.mul_apply, Matrix.conjTranspose_apply] using h
-  · have hinner' : ∑ p : d × d, star (ψ₀ p) * ψ₁ p =
+  · -- Wait: let's compute `hinner` cleanly in 4 lines
+    have hinner' : ∑ p : d × d, star (ψ₀ p) * ψ₁ p =
         ((U : Matrix d d ℂ)ᴴ * (ρ.sqrtMat * σ.sqrtMat)).trace := by
       have hcyc : ((U : Matrix d d ℂ)ᴴ * (ρ.sqrtMat * σ.sqrtMat)).trace =
           (ρ.sqrtMatᴴ * (σ.sqrtMat * (U : Matrix d d ℂ)ᴴ)).trace := by
@@ -397,9 +405,13 @@ private lemma traceNorm_singleBlock (a b : Bool) (M : Matrix d d ℂ) :
       (M * Mᴴ).charpoly * Polynomial.X ^ (Fintype.card (Bool × d)) := by
     rw [hBHB, ← hRRH]
     exact (charpoly_mul_conjTranspose_eq R).symm
+  have hcp2 := charpoly_mul_conjTranspose_eq M
   have hcp_final : (Bᴴ * B).charpoly * Polynomial.X ^ (Fintype.card d) =
       (Mᴴ * M).charpoly * Polynomial.X ^ (Fintype.card (Bool × d)) := by
     rw [hcp1]
+    have hcard : Fintype.card (Bool × d) = Fintype.card d + Fintype.card d := by
+      simp [Fintype.card_prod]; ring
+    -- Since `(M * Mᴴ).charpoly = (Mᴴ * M).charpoly` for square `M`
     have hsq : (M * Mᴴ).charpoly = (Mᴴ * M).charpoly := Matrix.charpoly_mul_comm M Mᴴ
     rw [hsq]
   unfold traceNorm
@@ -425,11 +437,13 @@ private lemma traceNorm_half_smul (M : Matrix d d ℂ) :
       (Matrix.diagonal (Complex.ofReal ∘ lam)).charpoly := by
     rw [hmul]
     conv_lhs => rw [hspec]
-    rw [← Matrix.smul_mul, Matrix.charpoly_mul_comm, Matrix.mul_smul, ← Matrix.mul_assoc,
+    rw [Matrix.smul_mul, Matrix.mul_smul, Matrix.charpoly_mul_comm, ← Matrix.mul_assoc,
       Unitary.coe_star_mul_self hA.eigenvectorUnitary, Matrix.one_mul]
     congr 1; ext i j
     simp only [Matrix.smul_apply, Matrix.diagonal_apply, Function.comp_apply, smul_eq_mul, lam]
-    split_ifs <;> [· push_cast; ring; · simp]
+    split_ifs
+    · push_cast; ring
+    · simp
   unfold traceNorm
   trans ∑ i : d, Real.sqrt (lam i)
   · trans ∑ i : d, Real.sqrt (hD_herm.eigenvalues i)
@@ -451,6 +465,7 @@ theorem fidelityParam_minusChannel_le (W : CQChannel d) :
   set ρ₁ := W.out true
   set τ₀ := (CQChannel.minusChannel W).out false
   set τ₁ := (CQChannel.minusChannel W).out true
+  -- Factor `τ₀ = P * Pᴴ` and `τ₁ = Q * Qᴴ` via `P, Q : Matrix (d × d) (Bool × (d × d)) ℂ`
   let X0 : DensityOp (d × d) := DensityOp.tensor ρ₀ ρ₀
   let X1 : DensityOp (d × d) := DensityOp.tensor ρ₁ ρ₁
   let Y0 : DensityOp (d × d) := DensityOp.tensor ρ₁ ρ₀
@@ -510,6 +525,7 @@ theorem fidelityParam_minusChannel_le (W : CQChannel d) :
           = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) * (σ.sqrtMat p (x, y) * σ.sqrtMat (x, y) q) := by ring
         _ = (1 / 2 : ℂ) * (σ.sqrtMat p (x, y) * σ.sqrtMat (x, y) q) := by rw [hsq2']
     rw [hblock Y0, hblock Y1]; push_cast; ring
+  -- `traceNorm (Pᴴ * Q) = rootFidelity τ₀ τ₁` via Sylvester identity on `R := Qᴴ * τ₀.sqrtMat`
   have htn_eq : traceNorm (Pᴴ * Q) = rootFidelity τ₀ τ₁ := by
     have hprod1 : (Pᴴ * Q)ᴴ * (Pᴴ * Q) = Qᴴ * τ₀.mat * Q := by
       rw [Matrix.conjTranspose_mul, Matrix.conjTranspose_conjTranspose, Matrix.mul_assoc,
@@ -527,6 +543,7 @@ theorem fidelityParam_minusChannel_le (W : CQChannel d) :
     exact spectral_sum_eq_of_charpoly_mul_X_pow
       (Matrix.posSemidef_conjTranspose_mul_self (Pᴴ * Q)).isHermitian
       (posSemidef_sqrt_mul_sqrt τ₀ τ₁).isHermitian hcp Real.sqrt_zero
+  -- Decompose `Pᴴ * Q = B₀₀ + B₀₁ + B₁₀ + B₁₁`
   let mkB : Bool → Bool → Matrix (d × d) (d × d) ℂ → Matrix (Bool × (d × d)) (Bool × (d × d)) ℂ :=
     fun a b M ↦ Matrix.of fun p q ↦ if p.1 = a ∧ q.1 = b then M p.2 q.2 else 0
   let B00 := mkB false false (((1 / 2 : ℝ) : ℂ) • (X0.sqrtMat * Y0.sqrtMat))
@@ -553,6 +570,7 @@ theorem fidelityParam_minusChannel_le (W : CQChannel d) :
     simp only [P, Q, B00, B01, B10, B11, mkB, Matrix.mul_apply, Matrix.conjTranspose_apply,
       Matrix.add_apply, Matrix.of_apply, Matrix.smul_apply, Complex.real_smul]
     cases a <;> cases b <;> simp [hEntry]
+  -- Each block has trace norm `(1/2) * Z(W)`
   have hF_self : ∀ (ρ : DensityOp d), rootFidelity ρ ρ = 1 := by
     intro ρ
     unfold rootFidelity
@@ -579,7 +597,9 @@ theorem fidelityParam_minusChannel_le (W : CQChannel d) :
       ext i j
       simp only [Matrix.mul_apply, Matrix.diagonal_apply, Function.comp_apply, lam,
         mul_ite, mul_zero, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
-      split_ifs <;> [· push_cast; ring; · rfl]
+      split_ifs
+      · push_cast; ring
+      · rfl
     have hcp : (ρ.sqrtMat * ρ.mat * ρ.sqrtMat).charpoly =
         (Matrix.diagonal (Complex.ofReal ∘ lam)).charpoly := by
       rw [h1, hsq, Matrix.charpoly_mul_comm, ← Matrix.mul_assoc,
