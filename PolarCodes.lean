@@ -14,3 +14,6 @@ import PolarCodes.QuantumProps
 import PolarCodes.GramDephasing
 import PolarCodes.Bhattacharyya
 import PolarCodes.ChannelDuality
+import PolarCodes.SpectralTrace
+import PolarCodes.FrenkelIntegral
+import PolarCodes.DataProcessing
