@@ -104,7 +104,7 @@ theorem exists_polar_decomp (M : Matrix d d ℂ) :
     · subst heq
       simp only [↓reduceIte]
       have hne : (σ j₁.1 : ℂ) ≠ 0 := Complex.ofReal_ne_zero.mpr (ne_of_gt hpos₁)
-      rw [← hσ_sq j₁.1, Complex.ofReal_pow, sq, Complex.star_def, ← Complex.ofReal_inv,
+      rw [← hσ_sq j₁.1, Complex.ofReal_pow, sq, ← Complex.ofReal_inv,
         Complex.conj_ofReal, Complex.ofReal_inv]
       field_simp [hne]
     · have hne : j₁.1 ≠ j₂.1 := fun h ↦ heq (Subtype.ext h)
@@ -121,7 +121,8 @@ theorem exists_polar_decomp (M : Matrix d d ℂ) :
   have hcard_compl : Fintype.card {j : d // j ∉ S} = Module.finrank ℂ Kᗮ := by
     have htot : Fintype.card {j : d // j ∈ S} + Fintype.card {j : d // j ∉ S} = Fintype.card d := by
       simp only [Fintype.card_subtype]
-      exact Finset.filter_card_add_filter_neg_card_eq_card _
+      rw [← Finset.card_union_of_disjoint (Finset.disjoint_filter.mpr fun _ _ h1 h2 ↦ h2 h1)]
+      congr 1; ext x; simp [em]
     omega
   let b_perp := stdOrthonormalBasis ℂ Kᗮ
   let e_perp : {j : d // j ∉ S} ≃ Fin (Module.finrank ℂ Kᗮ) :=
@@ -143,13 +144,13 @@ theorem exists_polar_decomp (M : Matrix d d ℂ) :
       simp only [hne, ↓reduceIte]
       have hmemK : u ⟨j₁, h1⟩ ∈ K := Submodule.subset_span (Set.mem_range_self _)
       have hmemP : (b_perp (e_perp ⟨j₂, h2⟩) : E) ∈ Kᗮ := (b_perp (e_perp ⟨j₂, h2⟩)).2
-      exact (Submodule.mem_orthogonal' K _).mp hmemP _ hmemK
+      exact inner_eq_zero_symm.mp ((Submodule.mem_orthogonal' K _).mp hmemP _ hmemK)
     · simp only [colW, h1, h2, ↓reduceDIte]
       have hne : j₁ ≠ j₂ := fun h ↦ h1 (h.symm ▸ h2)
       simp only [hne, ↓reduceIte]
       have hmemK : u ⟨j₂, h2⟩ ∈ K := Submodule.subset_span (Set.mem_range_self _)
       have hmemP : (b_perp (e_perp ⟨j₁, h1⟩) : E) ∈ Kᗮ := (b_perp (e_perp ⟨j₁, h1⟩)).2
-      exact Submodule.inner_right_of_mem_orthogonal hmemK hmemP
+      exact (Submodule.mem_orthogonal' K _).mp hmemP _ hmemK
     · simp only [colW, h1, h2, ↓reduceDIte]
       have h := (orthonormal_iff_ite.mp b_perp.orthonormal) (e_perp ⟨j₁, h1⟩) (e_perp ⟨j₂, h2⟩)
       change ⟪b_perp (e_perp ⟨j₁, h1⟩), b_perp (e_perp ⟨j₂, h2⟩)⟫_ℂ = _
@@ -181,7 +182,6 @@ theorem exists_polar_decomp (M : Matrix d d ℂ) :
         have hnot : ¬ 0 < σ j := fun h ↦ hj (Finset.mem_filter.mpr ⟨Finset.mem_univ _, h⟩)
         linarith [hσ_nn j]
       rw [hσ0, Complex.ofReal_zero, mul_zero]
-      -- Since `σ j = 0`, `‖colN j‖² = hA.eigenvalues j = 0`, so `N i j = 0`
       have hlam0 : hA.eigenvalues j = 0 := by rw [← hσ_sq j, hσ0]; ring
       have hnorm0 : ⟪colN j, colN j⟫_ℂ = 0 := by rw [hinner_N j j]; simp [hlam0]
       have hcol0 : colN j = 0 := inner_self_eq_zero.mp hnorm0
@@ -234,6 +234,7 @@ theorem re_trace_unitary_mul_le_traceNorm (U' : Matrix.unitaryGroup d ℂ) (M : 
             (V * Matrix.diagonal (Complex.ofReal ∘ σ) * star V))).trace
         = (star V * ((U' : Matrix d d ℂ)ᴴ * (U : Matrix d d ℂ) * V *
             Matrix.diagonal (Complex.ofReal ∘ σ))).trace := by
+            simp only [← Matrix.mul_assoc]
             rw [Matrix.trace_mul_cycle]
             simp only [Matrix.mul_assoc]
       _ = (star V * (U' : Matrix d d ℂ)ᴴ * (U : Matrix d d ℂ) * V *
@@ -258,7 +259,8 @@ theorem re_trace_unitary_mul_le_traceNorm (U' : Matrix.unitaryGroup d ℂ) (M : 
       have hterm : ∀ i : d, (star (Q i j) * Q i j).re = ‖Q i j‖ ^ 2 := by
         intro i
         rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
-      simpa [Complex.re_sum, hterm] using hre_col
+      rw [Complex.re_sum] at hre_col
+      rw [← hre_col]; apply Finset.sum_congr rfl; intro i _; exact (hterm i).symm
     have hdiag_sq : ‖Q j j‖ ^ 2 ≤ 1 := by
       rw [← hsum_sq]
       exact Finset.single_le_sum (fun i _ ↦ sq_nonneg ‖Q i j‖) (Finset.mem_univ j)
@@ -289,24 +291,22 @@ def partialTrace₂ (ρ : DensityOp (d₁ × d₂)) : DensityOp d₁ where
       have hh := congr_fun (congr_fun ρ.isHermitian.eq (i, k)) (j, k)
       simpa [Matrix.conjTranspose_apply] using hh
     · intro x
-      -- Actually prove via `posSemidef` of each term directly
       have hsum' : star x ⬝ᵥ (Matrix.of fun i j ↦ ∑ k : d₂, ρ.mat (i, k) (j, k)).mulVec x =
           ∑ k : d₂, star (fun p : d₁ × d₂ ↦ if p.2 = k then x p.1 else 0) ⬝ᵥ
             ρ.mat.mulVec (fun p : d₁ × d₂ ↦ if p.2 = k then x p.1 else 0) := by
         trans ∑ k : d₂, ∑ i : d₁, star (x i) * ∑ j : d₁, ρ.mat (i, k) (j, k) * x j
         · simp only [dotProduct, Matrix.mulVec, Matrix.of_apply, Pi.star_apply]
           simp_rw [Finset.sum_mul, Finset.mul_sum]
+          conv_lhs => arg 2; ext i; rw [Finset.sum_comm]
           rw [Finset.sum_comm]
           apply Finset.sum_congr rfl; intro k _
-          rw [Finset.sum_comm]
           apply Finset.sum_congr rfl; intro i _
-          rw [Finset.sum_comm]
           apply Finset.sum_congr rfl; intro j _
           ring
         · apply Finset.sum_congr rfl; intro k _
           simp only [dotProduct, Matrix.mulVec, Pi.star_apply, Fintype.sum_prod_type]
           apply Finset.sum_congr rfl; intro i _
-          simp only [star_ite, star_zero, ite_mul, zero_mul, Finset.sum_ite_eq', Finset.mem_univ,
+          simp only [apply_ite star, star_zero, ite_mul, zero_mul, Finset.sum_ite_eq', Finset.mem_univ,
             ↓reduceIte]
           congr 1
           apply Finset.sum_congr rfl; intro j _
@@ -366,20 +366,19 @@ theorem exists_uhlmann_purification (ρ σ : DensityOp d) :
         Matrix.mul_assoc, ← Matrix.mul_assoc (U : Matrix d d ℂ)ᴴ, ← Matrix.star_eq_conjTranspose,
         Unitary.coe_star_mul_self U, Matrix.one_mul, σ.sqrtMat_mul_self]
     have h := congr_fun (congr_fun hprod i) j
-    simpa [Matrix.mul_apply, Matrix.conjTranspose_apply] using h
-  · -- Wait: let's compute `hinner` cleanly in 4 lines
-    have hinner' : ∑ p : d × d, star (ψ₀ p) * ψ₁ p =
+    rw [← h]; simp only [Matrix.mul_apply, Matrix.conjTranspose_apply]
+    apply Finset.sum_congr rfl; intro k _; congr 1; apply Finset.sum_congr rfl; intro x _; ring
+  · have hinner' : ∑ p : d × d, star (ψ₀ p) * ψ₁ p =
         ((U : Matrix d d ℂ)ᴴ * (ρ.sqrtMat * σ.sqrtMat)).trace := by
       have hcyc : ((U : Matrix d d ℂ)ᴴ * (ρ.sqrtMat * σ.sqrtMat)).trace =
           (ρ.sqrtMatᴴ * (σ.sqrtMat * (U : Matrix d d ℂ)ᴴ)).trace := by
         rw [ρ.sqrtMat_isHermitian.eq, ← Matrix.mul_assoc, Matrix.trace_mul_comm]
-        simp only [Matrix.mul_assoc]
       rw [hcyc]
       simp only [Fintype.sum_prod_type, Matrix.trace, Matrix.diag, Matrix.mul_apply,
         Matrix.conjTranspose_apply, ψ₀, ψ₁]
       rw [Finset.sum_comm]
-    rw [hinner', hU, traceNorm_sqrt_mul_sqrt, Complex.norm_real,
-      Real.norm_of_nonneg (Finset.sum_nonneg fun _ _ ↦ Real.sqrt_nonneg _)]
+    rw [hinner', hU, traceNorm_sqrt_mul_sqrt, Complex.norm_real]
+    exact Real.norm_of_nonneg (Finset.sum_nonneg fun _ _ ↦ Real.sqrt_nonneg _)
 
 /-! ### Lemma 5.1(b) (Minus Channel): `Z(W⁻) ≤ 2 Z(W)` -/
 
@@ -405,13 +404,9 @@ private lemma traceNorm_singleBlock (a b : Bool) (M : Matrix d d ℂ) :
       (M * Mᴴ).charpoly * Polynomial.X ^ (Fintype.card (Bool × d)) := by
     rw [hBHB, ← hRRH]
     exact (charpoly_mul_conjTranspose_eq R).symm
-  have hcp2 := charpoly_mul_conjTranspose_eq M
   have hcp_final : (Bᴴ * B).charpoly * Polynomial.X ^ (Fintype.card d) =
       (Mᴴ * M).charpoly * Polynomial.X ^ (Fintype.card (Bool × d)) := by
     rw [hcp1]
-    have hcard : Fintype.card (Bool × d) = Fintype.card d + Fintype.card d := by
-      simp [Fintype.card_prod]; ring
-    -- Since `(M * Mᴴ).charpoly = (Mᴴ * M).charpoly` for square `M`
     have hsq : (M * Mᴴ).charpoly = (Mᴴ * M).charpoly := Matrix.charpoly_mul_comm M Mᴴ
     rw [hsq]
   unfold traceNorm
@@ -437,7 +432,7 @@ private lemma traceNorm_half_smul (M : Matrix d d ℂ) :
       (Matrix.diagonal (Complex.ofReal ∘ lam)).charpoly := by
     rw [hmul]
     conv_lhs => rw [hspec]
-    rw [Matrix.smul_mul, Matrix.mul_smul, Matrix.charpoly_mul_comm, ← Matrix.mul_assoc,
+    rw [Matrix.smul_mul, Matrix.smul_mul, Matrix.charpoly_mul_comm, ← Matrix.mul_assoc,
       Unitary.coe_star_mul_self hA.eigenvectorUnitary, Matrix.one_mul]
     congr 1; ext i j
     simp only [Matrix.smul_apply, Matrix.diagonal_apply, Function.comp_apply, smul_eq_mul, lam]
@@ -465,7 +460,6 @@ theorem fidelityParam_minusChannel_le (W : CQChannel d) :
   set ρ₁ := W.out true
   set τ₀ := (CQChannel.minusChannel W).out false
   set τ₁ := (CQChannel.minusChannel W).out true
-  -- Factor `τ₀ = P * Pᴴ` and `τ₁ = Q * Qᴴ` via `P, Q : Matrix (d × d) (Bool × (d × d)) ℂ`
   let X0 : DensityOp (d × d) := DensityOp.tensor ρ₀ ρ₀
   let X1 : DensityOp (d × d) := DensityOp.tensor ρ₁ ρ₁
   let Y0 : DensityOp (d × d) := DensityOp.tensor ρ₁ ρ₀
@@ -481,9 +475,9 @@ theorem fidelityParam_minusChannel_le (W : CQChannel d) :
   have hPPH : P * Pᴴ = τ₀.mat := by
     ext p q
     simp only [P, τ₀, CQChannel.minusChannel, CQChannel.checkCombine, X0, X1,
-      DensityOp.midpoint, DensityOp.mix, Matrix.mul_apply, Matrix.conjTranspose_apply,
-      Matrix.of_apply, Matrix.add_apply, Matrix.smul_apply, Complex.real_smul,
-      Fintype.sum_prod_type, Fintype.sum_bool, ↓reduceIte, Bool.true_eq_false]
+      Bool.not_false, Bool.not_true, DensityOp.midpoint, DensityOp.mix, Matrix.mul_apply,
+      Matrix.conjTranspose_apply, Matrix.of_apply, Matrix.add_apply, Matrix.smul_apply,
+      Complex.real_smul, Fintype.sum_prod_type, Fintype.sum_bool, ↓reduceIte, Bool.true_eq_false]
     have hblock : ∀ (σ : DensityOp (d × d)),
         (∑ x : d, ∑ y : d, ((Real.sqrt 2 : ℂ)⁻¹) * σ.sqrtMat p (x, y) *
             star (((Real.sqrt 2 : ℂ)⁻¹) * σ.sqrtMat q (x, y))) =
@@ -496,9 +490,8 @@ theorem fidelityParam_minusChannel_le (W : CQChannel d) :
       apply Finset.sum_congr rfl; intro y _
       have hh := congr_fun (congr_fun σ.sqrtMat_isHermitian.eq (x, y)) q
       simp only [Matrix.conjTranspose_apply] at hh
-      rw [star_mul', ← hh]
-      calc ((Real.sqrt 2 : ℂ)⁻¹) * σ.sqrtMat p (x, y) * (σ.sqrtMat (x, y) q * star ((Real.sqrt 2 : ℂ)⁻¹))
-          = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) * (σ.sqrtMat p (x, y) * σ.sqrtMat (x, y) q) := by ring
+      rw [star_mul', hh]
+      calc _ = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) * (σ.sqrtMat p (x, y) * σ.sqrtMat (x, y) q) := by ring
         _ = (1 / 2 : ℂ) * (σ.sqrtMat p (x, y) * σ.sqrtMat (x, y) q) := by rw [hsq2']
     rw [hblock X0, hblock X1]; push_cast; ring
   have hQQH : Q * Qᴴ = τ₁.mat := by
@@ -520,12 +513,10 @@ theorem fidelityParam_minusChannel_le (W : CQChannel d) :
       apply Finset.sum_congr rfl; intro y _
       have hh := congr_fun (congr_fun σ.sqrtMat_isHermitian.eq (x, y)) q
       simp only [Matrix.conjTranspose_apply] at hh
-      rw [star_mul', ← hh]
-      calc ((Real.sqrt 2 : ℂ)⁻¹) * σ.sqrtMat p (x, y) * (σ.sqrtMat (x, y) q * star ((Real.sqrt 2 : ℂ)⁻¹))
-          = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) * (σ.sqrtMat p (x, y) * σ.sqrtMat (x, y) q) := by ring
+      rw [star_mul', hh]
+      calc _ = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) * (σ.sqrtMat p (x, y) * σ.sqrtMat (x, y) q) := by ring
         _ = (1 / 2 : ℂ) * (σ.sqrtMat p (x, y) * σ.sqrtMat (x, y) q) := by rw [hsq2']
     rw [hblock Y0, hblock Y1]; push_cast; ring
-  -- `traceNorm (Pᴴ * Q) = rootFidelity τ₀ τ₁` via Sylvester identity on `R := Qᴴ * τ₀.sqrtMat`
   have htn_eq : traceNorm (Pᴴ * Q) = rootFidelity τ₀ τ₁ := by
     have hprod1 : (Pᴴ * Q)ᴴ * (Pᴴ * Q) = Qᴴ * τ₀.mat * Q := by
       rw [Matrix.conjTranspose_mul, Matrix.conjTranspose_conjTranspose, Matrix.mul_assoc,
@@ -543,7 +534,6 @@ theorem fidelityParam_minusChannel_le (W : CQChannel d) :
     exact spectral_sum_eq_of_charpoly_mul_X_pow
       (Matrix.posSemidef_conjTranspose_mul_self (Pᴴ * Q)).isHermitian
       (posSemidef_sqrt_mul_sqrt τ₀ τ₁).isHermitian hcp Real.sqrt_zero
-  -- Decompose `Pᴴ * Q = B₀₀ + B₀₁ + B₁₀ + B₁₁`
   let mkB : Bool → Bool → Matrix (d × d) (d × d) ℂ → Matrix (Bool × (d × d)) (Bool × (d × d)) ℂ :=
     fun a b M ↦ Matrix.of fun p q ↦ if p.1 = a ∧ q.1 = b then M p.2 q.2 else 0
   let B00 := mkB false false (((1 / 2 : ℝ) : ℂ) • (X0.sqrtMat * Y0.sqrtMat))
@@ -563,23 +553,21 @@ theorem fidelityParam_minusChannel_le (W : CQChannel d) :
       have hh := congr_fun (congr_fun σ₁.sqrtMat_isHermitian.eq r) p
       simp only [Matrix.conjTranspose_apply] at hh
       rw [star_mul', hh]
-      calc σ₁.sqrtMat r p * star ((Real.sqrt 2 : ℂ)⁻¹) * (((Real.sqrt 2 : ℂ)⁻¹) * σ₂.sqrtMat p s)
-          = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) * (σ₁.sqrtMat r p * σ₂.sqrtMat p s) := by ring
+      calc _ = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) * (σ₁.sqrtMat r p * σ₂.sqrtMat p s) := by ring
         _ = ((1 / 2 : ℝ) : ℂ) * (σ₁.sqrtMat r p * σ₂.sqrtMat p s) := by rw [hsq2]; push_cast; rfl
     ext ⟨a, r⟩ ⟨b, s⟩
     simp only [P, Q, B00, B01, B10, B11, mkB, Matrix.mul_apply, Matrix.conjTranspose_apply,
       Matrix.add_apply, Matrix.of_apply, Matrix.smul_apply, Complex.real_smul]
-    cases a <;> cases b <;> simp [hEntry]
-  -- Each block has trace norm `(1/2) * Z(W)`
+    cases a <;> cases b <;>
+      simp only [↓reduceIte, Bool.true_eq_false, Bool.false_eq_true, and_self, and_false, false_and,
+        add_zero, zero_add] <;>
+      exact hEntry _ _ r s
   have hF_self : ∀ (ρ : DensityOp d), rootFidelity ρ ρ = 1 := by
     intro ρ
     unfold rootFidelity
     have h1 : ρ.sqrtMat * ρ.mat * ρ.sqrtMat = ρ.mat * ρ.mat := by
       rw [← ρ.sqrtMat_mul_self]
-      have hcomm : ρ.sqrtMat * (ρ.sqrtMat * ρ.sqrtMat) * ρ.sqrtMat =
-          (ρ.sqrtMat * ρ.sqrtMat) * (ρ.sqrtMat * ρ.sqrtMat) := by
-        simp only [Matrix.mul_assoc]
-      exact hcomm
+      simp only [Matrix.mul_assoc]
     have hspec : ρ.mat = (ρ.eigUnitary : Matrix d d ℂ) *
         Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) * star (ρ.eigUnitary : Matrix d d ℂ) := by
       simpa [DensityOp.eigUnitary, DensityOp.eigvals, Matrix.star_eq_conjTranspose,
@@ -597,9 +585,9 @@ theorem fidelityParam_minusChannel_le (W : CQChannel d) :
       ext i j
       simp only [Matrix.mul_apply, Matrix.diagonal_apply, Function.comp_apply, lam,
         mul_ite, mul_zero, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
-      split_ifs
-      · push_cast; ring
-      · rfl
+      split_ifs with h
+      · subst h; push_cast; ring
+      · simp
     have hcp : (ρ.sqrtMat * ρ.mat * ρ.sqrtMat).charpoly =
         (Matrix.diagonal (Complex.ofReal ∘ lam)).charpoly := by
       rw [h1, hsq, Matrix.charpoly_mul_comm, ← Matrix.mul_assoc,
