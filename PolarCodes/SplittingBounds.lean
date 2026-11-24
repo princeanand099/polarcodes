@@ -267,7 +267,7 @@ theorem theta0_gt : (5673 : ℝ) / 100000 < theta0 := by
       linarith
     have hu_lo := log_one_add_ge_poly4 (x := (1715728 : ℝ) / 21715728) (by norm_num)
     have hu_hi := log_one_sub_le_poly3 (x := (1715728 : ℝ) / 21715728) (by norm_num) (by norm_num)
-    norm_num at hu_lo hu_hi
+    norm_num at hu_lo hu_hi hlog4q0
     have hlogq0_lb : (-122795 : ℝ) / 100000 < Real.log q0 := by linarith
     have hlogp2_ge : (-122795 : ℝ) / 100000 < Real.log p2 :=
       lt_of_lt_of_le hlogq0_lb (Real.log_le_log (by simp only [q0]; norm_num) (le_of_lt hp2_lo))
@@ -289,8 +289,6 @@ lemma theta0_lt_101 : theta0 < 101 / 1000 := by
     rw [h2Inv_le_iff ⟨by norm_num, by norm_num⟩ ⟨by norm_num, by norm_num⟩]
     rw [h2_eq_negMulLog, le_div_iff₀ (Real.log_pos (by norm_num))]
     unfold Real.negMulLog
-    -- `h2(1/20) = -(1/20) log(1/20) - (19/20) log(19/20) > 1/4 * log 2`
-    -- Since `log(20) > log(16) = 4 log 2` and `-(19/20) log(1 - 1/20) ≥ (19/20) * (1/20)`
     have hlog20 : 4 * Real.log 2 ≤ Real.log 20 := by
       have h16 : (4 : ℝ) * Real.log 2 = Real.log 16 := by
         have : (16 : ℝ) = (2 : ℝ) ^ (4 : ℕ) := by norm_num
