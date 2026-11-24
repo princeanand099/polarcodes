@@ -217,7 +217,7 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
       Matrix.kroneckerMap_apply, Complex.real_smul]
     rw [conjUnitary_pauliZ_gram_apply (W₁.out false) (W₁.out true) (a₁, i₁) (b₁, j₁),
       conjUnitary_pauliZ_gram_apply (W₂.out false) (W₂.out true) (a₂, i₂) (b₂, j₂)]
-    cases a₁ <;> cases b₁ <;> simp <;> ring
+    cases a₁ <;> cases b₁ <;> cases a₂ <;> cases b₂ <;> simp <;> ring
   have hS_dual_eq : vonNeumannEntropy ((CQChannel.checkCombine W₁.dual W₂.dual).out true) =
       vonNeumannEntropy ((CQChannel.checkCombine W₁.dual W₂.dual).out false) := by
     rw [← vonNeumannEntropy_eq_of_mat_eq hconj_out, vonNeumannEntropy_conjUnitary]
@@ -252,6 +252,7 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
         (1 / 2 : ℂ) * ((gramState ρ₀ ρ₁).mat p₁ q₁ * (gramState σ₀ σ₁).mat p₂ q₂) := by
       simp only [gramState, A₁, A₂, Matrix.mul_apply, Matrix.conjTranspose_apply,
         Finset.sum_mul, Finset.mul_sum]
+      conv_rhs => rw [Finset.sum_comm]
       apply Finset.sum_congr rfl; intro k₁ _
       apply Finset.sum_congr rfl; intro k₂ _
       simp only [star_mul']
@@ -269,6 +270,7 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
             (if q₂.1 = false then (1 : ℂ) else -1))) := by
       simp only [Z1A1, Z2A2, Matrix.of_apply, gramState, A₁, A₂, Matrix.mul_apply,
         Matrix.conjTranspose_apply, Finset.sum_mul, Finset.mul_sum]
+      conv_rhs => rw [Finset.sum_comm]
       apply Finset.sum_congr rfl; intro k₁ _
       apply Finset.sum_congr rfl; intro k₂ _
       have hs1 : star (if q₁.1 = false then (1 : ℂ) else -1) = if q₁.1 = false then (1 : ℂ) else -1 := by
@@ -389,19 +391,21 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
       DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, Bool.not_false, Bool.not_true,
       Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Matrix.of_apply,
       Complex.real_smul]
-    have hsq2_s : ((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹) = (1 / 2 : ℂ) := hsq2'
     have hstar_s : star ((Real.sqrt 2 : ℂ)⁻¹) = (Real.sqrt 2 : ℂ)⁻¹ := by
       rw [← Complex.ofReal_inv, Complex.star_def, Complex.conj_ofReal]
-    have hsq2_pow : ((Real.sqrt 2 : ℂ)⁻¹) ^ 2 = (1 / 2 : ℂ) := by
-      calc ((Real.sqrt 2 : ℂ)⁻¹) ^ 2 = star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) := by rw [sq, hstar_s]
-        _ = 1 / 2 := hsq2
+    have hsq2_mul : ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) = (1 / 2 : ℂ) := by
+      rw [← hstar_s]; exact hsq2
+    set r0 := ρ₀.mat i₁ j₁
+    set r1 := ρ₁.mat i₁ j₁
+    set s0 := σ₀.mat i₂ j₂
+    set s1 := σ₁.mat i₂ j₂
+    set u := ((Real.sqrt 2 : ℂ)⁻¹)
+    have hu2 : u ^ 2 = (1 / 2 : ℂ) := by rw [sq]; exact hsq2_mul
     cases a <;> cases b <;>
       (simp only [↓reduceIte, Bool.true_eq_false, Bool.false_eq_true, and_self, and_true, and_false,
         true_and, false_and, mul_one, mul_neg, neg_mul, star_mul', star_neg, star_one, hstar_s,
         one_mul, zero_mul, mul_zero, add_zero, zero_add];
-       ring_nf;
-       try simp only [hsq2_pow, hsq2_s, hsq2];
-       push_cast; ring)
+       push_cast; ring_nf; try rw [hu2]; ring)
   have hS_dual0 : vonNeumannEntropy ((CQChannel.checkCombine W₁.dual W₂.dual).out false) =
       1 + (vonNeumannEntropy ((CQChannel.checkCombine W₁ W₂).out false) +
         vonNeumannEntropy ((CQChannel.checkCombine W₁ W₂).out true)) / 2 := by
@@ -506,9 +510,9 @@ def becChannel (ε : ℝ) (hε0 : 0 ≤ ε) (hε1 : ε ≤ 1) : CQChannel (Fin 3
         posSemidef := by
           rw [Matrix.posSemidef_diagonal_iff]
           intro i; fin_cases i
-          · exact_mod_cast (by linarith : (0 : ℝ) ≤ 1 - ε)
+          · dsimp only; exact_mod_cast (by linarith : (0 : ℝ) ≤ 1 - ε)
           · exact le_rfl
-          · exact_mod_cast hε0
+          · dsimp only; exact_mod_cast hε0
         trace_one := by
           simp [Matrix.trace_diagonal, Fin.sum_univ_three] }
     | true =>
@@ -517,8 +521,8 @@ def becChannel (ε : ℝ) (hε0 : 0 ≤ ε) (hε1 : ε ≤ 1) : CQChannel (Fin 3
           rw [Matrix.posSemidef_diagonal_iff]
           intro i; fin_cases i
           · exact le_rfl
-          · exact_mod_cast (by linarith : (0 : ℝ) ≤ 1 - ε)
-          · exact_mod_cast hε0
+          · dsimp only; exact_mod_cast (by linarith : (0 : ℝ) ≤ 1 - ε)
+          · dsimp only; exact_mod_cast hε0
         trace_one := by
           simp [Matrix.trace_diagonal, Fin.sum_univ_three] }
 

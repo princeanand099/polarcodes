@@ -458,7 +458,7 @@ lemma finrank_le_negEigCount {A : Matrix d d ℂ} (hA : A.IsHermitian)
       Submodule.map_comap_eq_self (by rw [LinearMap.range_eq_top.mpr eU.surjective]; exact le_top)
     calc Module.finrank ℂ (K.comap eU.toLinearMap)
         = Module.finrank ℂ (Submodule.map eU.toLinearMap (K.comap eU.toLinearMap)) :=
-          (Submodule.equivMapOfInjective eU.toLinearMap eU.injective (K.comap eU.toLinearMap)).finrank_eq.symm
+          (Submodule.equivMapOfInjective eU.toLinearMap eU.injective (K.comap eU.toLinearMap)).finrank_eq
       _ = Module.finrank ℂ K := by rw [hmc]
   have hdim := Submodule.finrank_sup_add_finrank_inf_eq W V_pos
   rw [hinf, finrank_bot, add_zero, hV_finrank] at hdim
@@ -531,7 +531,7 @@ theorem negEigCount_congruence {A P Q : Matrix d d ℂ} (hA : A.IsHermitian)
         Submodule.map_comap_eq_self (by rw [LinearMap.range_eq_top.mpr eU.surjective]; exact le_top)
       calc Module.finrank ℂ (K.comap eU.toLinearMap)
           = Module.finrank ℂ (Submodule.map eU.toLinearMap (K.comap eU.toLinearMap)) :=
-            (Submodule.equivMapOfInjective eU.toLinearMap eU.injective (K.comap eU.toLinearMap)).finrank_eq.symm
+            (Submodule.equivMapOfInjective eU.toLinearMap eU.injective (K.comap eU.toLinearMap)).finrank_eq
         _ = Module.finrank ℂ K := by rw [hmc]
     have hV_neg_strict : ∀ x ∈ V_neg, x ≠ 0 → (star x ⬝ᵥ X.mulVec x).re < 0 := by
       intro x hx hne
