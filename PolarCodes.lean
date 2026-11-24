@@ -6,6 +6,7 @@ Authors: Prince Anand
 import PolarCodes.BinaryEntropy
 import PolarCodes.QuantumStates
 import PolarCodes.Channels
+import PolarCodes.SplittingBounds
 
 /-!
 # Polynomial-Blocklength Quantum Polar Codes via Nonlinear Dephasing Contraction

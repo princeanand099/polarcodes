@@ -22,6 +22,7 @@ modeled via `Matrix d d ℂ` for `[Fintype d] [DecidableEq d]`:
 -/
 
 open Matrix BigOperators Real
+open scoped ComplexOrder
 
 namespace PolarCodes
 
@@ -85,7 +86,8 @@ noncomputable def tensor {d₁ d₂ : Type*} [Fintype d₁] [DecidableEq d₁]
 noncomputable def conjUnitary (U : Matrix.unitaryGroup d ℂ) (ρ : DensityOp d) : DensityOp d where
   mat := (U : Matrix d d ℂ) * ρ.mat * star (U : Matrix d d ℂ)
   posSemidef := by
-    simpa [Matrix.conjTranspose_eq_star] using ρ.posSemidef.mul_mul_conjTranspose_same (U : Matrix d d ℂ)
+    simpa [← Matrix.star_eq_conjTranspose] using
+      ρ.posSemidef.mul_mul_conjTranspose_same (U : Matrix d d ℂ)
   trace_one := by
     rw [Matrix.trace_mul_cycle, show star (U : Matrix d d ℂ) * (U : Matrix d d ℂ) = 1 from
       Unitary.coe_star_mul_self U, Matrix.one_mul, ρ.trace_one]
@@ -105,6 +107,7 @@ def suppSubset (ρ σ : DensityOp d) : Prop :=
     (star (σ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ)) j i = 0
 
 /-- Umegaki quantum relative entropy `D(ρ ‖ σ) ∈ [0, ∞]` in bits. -/
+open Classical in
 noncomputable def relEntropy (ρ σ : DensityOp d) : ENNReal :=
   if suppSubset ρ σ then
     ENNReal.ofReal
@@ -142,7 +145,7 @@ lemma posSemidef_sqrt_mul_sqrt (ρ σ : DensityOp d) :
   have hsqrtH : ρ.sqrtMat.IsHermitian := by
     unfold DensityOp.sqrtMat
     rw [Matrix.IsHermitian, Matrix.conjTranspose_mul, Matrix.conjTranspose_mul,
-      Matrix.conjTranspose_eq_star, star_star, Matrix.diagonal_conjTranspose]
+      ← Matrix.star_eq_conjTranspose, star_star, Matrix.diagonal_conjTranspose]
     have hdiag : (fun i ↦ star ((Real.sqrt (ρ.eigvals i) : ℂ))) =
         fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ) := by
       ext i; simp
