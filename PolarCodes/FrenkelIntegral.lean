@@ -27,6 +27,38 @@ variable {d d₁ d₂ : Type*} [Fintype d] [DecidableEq d]
 
 /-! ### Layer-Cake Formula and Elementary Partial-Fraction Integrals -/
 
+private lemma tendsto_setLIntegral_monotone {s : ℕ → Set ℝ} (hs_mono : Monotone s)
+    (hs_meas : ∀ n, MeasurableSet (s n)) {f : ℝ → ℝ≥0∞} (hf : Measurable f) :
+    Tendsto (fun n ↦ ∫⁻ x in s n, f x ∂volume) atTop
+      (𝓝 (∫⁻ x in ⋃ n, s n, f x ∂volume)) := by
+  have hrew : ∀ n, ∫⁻ x in s n, f x ∂volume = ∫⁻ x, (s n).indicator f x ∂volume :=
+    fun n ↦ (lintegral_indicator (hs_meas n) f).symm
+  have hunion : ∫⁻ x in ⋃ n, s n, f x ∂volume = ∫⁻ x, (⋃ n, s n).indicator f x ∂volume :=
+    (lintegral_indicator (MeasurableSet.iUnion hs_meas) f).symm
+  simp_rw [hrew, hunion]
+  have hind_mono : Monotone (fun n ↦ (s n).indicator f) := by
+    intro m n hmn x
+    simp only [Set.indicator]
+    split_ifs with h1 h2
+    · exact le_rfl
+    · exact absurd (hs_mono hmn h1) h2
+    · exact zero_le _
+    · exact le_rfl
+  have hsup : (⋃ n, s n).indicator f = fun x ↦ ⨆ n, (s n).indicator f x := by
+    ext x
+    simp only [Set.indicator]
+    split_ifs with hx
+    · obtain ⟨n, hn⟩ := Set.mem_iUnion.mp hx
+      apply le_antisymm
+      · exact le_iSup_of_le n (by simp [hn])
+      · refine iSup_le fun m ↦ ?_; split_ifs <;> simp
+    · symm; rw [iSup_eq_zero]
+      intro n
+      have hn : x ∉ s n := fun h ↦ hx (Set.mem_iUnion.mpr ⟨n, h⟩)
+      simp [hn]
+  rw [hsup, lintegral_iSup (fun n ↦ hf.indicator (hs_meas n)) hind_mono]
+  exact tendsto_atTop_iSup (fun m n hmn ↦ lintegral_mono (hind_mono hmn))
+
 lemma lintegral_negEigCount_eq_negPartTrace {A : Matrix d d ℂ} (hA : A.IsHermitian) :
     ∫⁻ r in Ioi (0 : ℝ),
       (negEigCount (hA.add (show ((r : ℂ) • (1 : Matrix d d ℂ)).IsHermitian by
@@ -43,6 +75,8 @@ lemma lintegral_negEigCount_eq_negPartTrace {A : Matrix d d ℂ} (hA : A.IsHermi
       rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Matrix.conjTranspose_one,
         Complex.star_def, Complex.conj_ofReal])
     set U : Matrix d d ℂ := (hA.eigenvectorUnitary : Matrix d d ℂ)
+    have hU_mul : U * star U = 1 := Unitary.coe_mul_star_self hA.eigenvectorUnitary
+    have hU_star : star U * U = 1 := Unitary.coe_star_mul_self hA.eigenvectorUnitary
     let lam : d → ℝ := fun i ↦ hA.eigenvalues i + r
     have hD_herm : (Matrix.diagonal (Complex.ofReal ∘ lam)).IsHermitian := by
       rw [Matrix.IsHermitian, Matrix.diagonal_conjTranspose]; congr 1; ext i; simp
@@ -53,8 +87,7 @@ lemma lintegral_negEigCount_eq_negPartTrace {A : Matrix d d ℂ} (hA : A.IsHermi
       have h1 : (r : ℂ) • (1 : Matrix d d ℂ) = U * Matrix.diagonal (fun _ : d ↦ (r : ℂ)) * star U := by
         have hdiag : Matrix.diagonal (fun _ : d ↦ (r : ℂ)) = (r : ℂ) • (1 : Matrix d d ℂ) := by
           ext i j; simp [Matrix.diagonal_apply, Matrix.one_apply]
-        rw [hdiag, Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_one,
-          Unitary.coe_mul_star_self hA.eigenvectorUnitary]
+        rw [hdiag, Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_one, hU_mul]
       rw [hspec, h1, ← Matrix.add_mul, ← Matrix.mul_add]
       congr 2; ext i j
       simp only [Matrix.add_apply, Matrix.diagonal_apply, Function.comp_apply, lam]
@@ -62,8 +95,8 @@ lemma lintegral_negEigCount_eq_negPartTrace {A : Matrix d d ℂ} (hA : A.IsHermi
       · push_cast; ring
       · simp
     have hcp : (A + (r : ℂ) • 1).charpoly = (Matrix.diagonal (Complex.ofReal ∘ lam)).charpoly := by
-      rw [hAr_eq, Matrix.charpoly_mul_comm, ← Matrix.mul_assoc,
-        Unitary.coe_star_mul_self hA.eigenvectorUnitary, Matrix.one_mul]
+      rw [hAr_eq, Matrix.charpoly_mul_comm, ← Matrix.mul_assoc, hU_star, Matrix.one_mul]
+    -- Use `spectral_sum_eq_of_charpoly_mul_X_pow` on `f(x) = if x < 0 then 1 else 0`
     have hsum := spectral_sum_eq_of_charpoly_mul_X_pow hAr hD_herm (k := 0) (l := 0)
       (by rw [pow_zero, mul_one, mul_one, hcp]) (f := fun x : ℝ ↦ if x < 0 then (1 : ℝ) else 0) (by simp)
     have hsum2 := spectral_sum_diagonal lam hD_herm (f := fun x : ℝ ↦ if x < 0 then (1 : ℝ) else 0) (by simp)
@@ -89,8 +122,8 @@ lemma lintegral_negEigCount_eq_negPartTrace {A : Matrix d d ℂ} (hA : A.IsHermi
   unfold negPartTrace
   rw [ENNReal.ofReal_sum_of_nonneg (fun i _ ↦ le_max_right _ _)]
   apply Finset.sum_congr rfl; intro i _
-  rw [lintegral_indicator measurableSet_Iio, Measure.restrict_apply measurableSet_Iio,
-    one_mul, Set.inter_comm]
+  rw [lintegral_indicator measurableSet_Iio, MeasureTheory.setLIntegral_one,
+    Measure.restrict_apply measurableSet_Iio, Set.inter_comm]
   show volume (Ioi (0 : ℝ) ∩ Iio (-hA.eigenvalues i)) = ENNReal.ofReal (max (-hA.eigenvalues i) 0)
   rw [show Ioi (0 : ℝ) ∩ Iio (-hA.eigenvalues i) = Ioo (0 : ℝ) (-hA.eigenvalues i) from rfl,
     Real.volume_Ioo, sub_zero]
@@ -105,7 +138,8 @@ lemma lintegral_indicator_inv_abs_mul_sq_sub_one {lam : ℝ} (hlam : -1 < lam) :
       ENNReal.ofReal (Real.log (1 + lam) - lam / (1 + lam)) := by
   have h1pl : 0 < 1 + lam := by linarith
   rcases lt_trichotomy lam 0 with hneg | rfl | hpos
-  · set c : ℝ := -1 / lam
+  · -- Case `-1 < lam < 0`: `1 + t * lam < 0 ↔ -1 / lam < t` (with `-1 / lam > 1`)
+    set c : ℝ := -1 / lam
     have hc1 : 1 < c := by
       simp only [c]; rw [one_lt_div_of_neg hneg]; linarith
     have heq_set : (fun t : ℝ ↦ if 1 + t * lam < 0 then ENNReal.ofReal (1 / (|t| * (t - 1) ^ 2)) else 0) =
@@ -118,36 +152,38 @@ lemma lintegral_indicator_inv_abs_mul_sq_sub_one {lam : ℝ} (hlam : -1 < lam) :
       · rw [if_pos (hiff.mpr h), if_pos h, abs_of_pos (by linarith)]
       · rw [if_neg (mt hiff.mp h), if_neg h]
     rw [heq_set, lintegral_indicator measurableSet_Ioi]
+    -- Antiderivative `g(t) = log (t / (t - 1)) - 1 / (t - 1)` on `(1, ∞)`
     let g : ℝ → ℝ := fun t ↦ Real.log (t / (t - 1)) - 1 / (t - 1)
     have hg_deriv : ∀ t > (1 : ℝ), HasDerivAt g (1 / (t * (t - 1) ^ 2)) t := by
       intro t ht
       have htm1 : 0 < t - 1 := by linarith
       have ht0 : 0 < t := by linarith
       have hq : HasDerivAt (fun s : ℝ ↦ s / (s - 1)) (-1 / (t - 1) ^ 2) t := by
-        have h1 : HasDerivAt (fun s : ℝ ↦ s - 1) 1 t := (hasDerivAt_id t).sub_const 1
-        convert (hasDerivAt_id t).fun_div h1 (ne_of_gt htm1) using 1; ring
+        have h1 : HasDerivAt (fun s : ℝ ↦ s - 1) 1 t := (hasDerivAt_id' t).sub_const 1
+        convert (hasDerivAt_id' t).fun_div h1 (ne_of_gt htm1) using 1; ring
       have hlog : HasDerivAt (fun s : ℝ ↦ Real.log (s / (s - 1)))
           ((-1 / (t - 1) ^ 2) / (t / (t - 1))) t :=
         hq.log (ne_of_gt (div_pos ht0 htm1))
       have hinv : HasDerivAt (fun s : ℝ ↦ 1 / (s - 1)) (-1 / (t - 1) ^ 2) t := by
-        have h1 : HasDerivAt (fun s : ℝ ↦ s - 1) 1 t := (hasDerivAt_id t).sub_const 1
+        have h1 : HasDerivAt (fun s : ℝ ↦ s - 1) 1 t := (hasDerivAt_id' t).sub_const 1
         convert (hasDerivAt_const t (1 : ℝ)).fun_div h1 (ne_of_gt htm1) using 1; ring
       convert hlog.fun_sub hinv using 1
       field_simp [ne_of_gt ht0, ne_of_gt htm1]; ring
     have hg_tendsto : Tendsto g atTop (𝓝 0) := by
+      have hsub_atTop : Tendsto (fun t : ℝ ↦ t - 1) atTop atTop := by
+        simpa [sub_eq_add_neg] using Filter.tendsto_atTop_add_const_right atTop (-1 : ℝ) tendsto_id
+      have hinv : Tendsto (fun t : ℝ ↦ 1 / (t - 1)) atTop (𝓝 0) :=
+        tendsto_const_nhds.div_atTop hsub_atTop
       have h1 : Tendsto (fun t : ℝ ↦ t / (t - 1)) atTop (𝓝 1) := by
         have hrew : ∀ᶠ t : ℝ in atTop, t / (t - 1) = 1 + 1 / (t - 1) := by
           filter_upwards [eventually_gt_atTop (1 : ℝ)] with t ht
           field_simp [ne_of_gt (by linarith : 0 < t - 1)]; ring
         rw [tendsto_congr' hrew]
-        have hinv : Tendsto (fun t : ℝ ↦ 1 / (t - 1)) atTop (𝓝 0) :=
-          tendsto_const_nhds.div_atTop (tendsto_id.atTop_add tendsto_const_nhds)
         simpa using tendsto_const_nhds.add hinv
       have h2 : Tendsto (fun t : ℝ ↦ Real.log (t / (t - 1))) atTop (𝓝 0) := by
         simpa [Real.log_one] using (Real.continuousAt_log one_ne_zero).tendsto.comp h1
-      have h3 : Tendsto (fun t : ℝ ↦ 1 / (t - 1)) atTop (𝓝 0) :=
-        tendsto_const_nhds.div_atTop (tendsto_id.atTop_add tendsto_const_nhds)
-      simpa using h2.sub h3
+      simpa using h2.sub hinv
+    -- Express `Ioi c = ⋃ n : ℕ, Ioc c (c + n + 1)`
     have hunion : Ioi c = ⋃ n : ℕ, Ioc c (c + (n : ℝ) + 1) := by
       ext t; simp only [mem_Ioi, mem_iUnion, mem_Ioc]
       constructor
@@ -162,7 +198,9 @@ lemma lintegral_indicator_inv_abs_mul_sq_sub_one {lam : ℝ} (hlam : -1 < lam) :
         ENNReal.ofReal (1 / (t * (t - 1) ^ 2)) ∂volume) atTop
         (𝓝 (∫⁻ t in Ioi c, ENNReal.ofReal (1 / (t * (t - 1) ^ 2)) ∂volume)) := by
       rw [hunion]
-      exact tendsto_lintegral_iUnion_of_monotone hmono_sets
+      exact tendsto_setLIntegral_monotone hmono_sets (fun _ ↦ measurableSet_Ioc)
+        (ENNReal.measurable_ofReal.comp (measurable_const.div
+          (measurable_id.mul ((measurable_id.sub measurable_const).pow_const 2))))
     have hval_n : ∀ n : ℕ, ∫⁻ t in Ioc c (c + (n : ℝ) + 1),
         ENNReal.ofReal (1 / (t * (t - 1) ^ 2)) ∂volume =
         ENNReal.ofReal (g (c + (n : ℝ) + 1) - g c) := by
@@ -188,7 +226,10 @@ lemma lintegral_indicator_inv_abs_mul_sq_sub_one {lam : ℝ} (hlam : -1 < lam) :
     have hlim_rhs : Tendsto (fun n : ℕ ↦ ENNReal.ofReal (g (c + (n : ℝ) + 1) - g c)) atTop
         (𝓝 (ENNReal.ofReal (0 - g c))) := by
       apply ENNReal.continuous_ofReal.continuousAt.tendsto.comp
-      exact (hg_tendsto.comp ((tendsto_const_nhds.add tendsto_natCast_atTop_atTop).atTop_add tendsto_const_nhds)).sub tendsto_const_nhds
+      have harg : Tendsto (fun n : ℕ ↦ c + (n : ℝ) + 1) atTop atTop :=
+        Filter.tendsto_atTop_add_const_right atTop (1 : ℝ)
+          (Filter.tendsto_atTop_add_const_left atTop c tendsto_natCast_atTop_atTop)
+      exact (hg_tendsto.comp harg).sub tendsto_const_nhds
     simp_rw [hval_n] at hlim_int
     have hres := tendsto_nhds_unique hlim_int hlim_rhs
     rw [hres]
@@ -200,8 +241,10 @@ lemma lintegral_indicator_inv_abs_mul_sq_sub_one {lam : ℝ} (hlam : -1 < lam) :
       rw [hcm1]; field_simp [ne_of_lt hneg, ne_of_gt h1pl]; ring
     simp only [g, hdiv1, hdiv2, Real.log_inv]
     ring
-  · simp [Real.log_one]
-  · set c : ℝ := -1 / lam
+  · -- Case `lam = 0`
+    simp [Real.log_one, show ¬(1 : ℝ) < 0 by norm_num]
+  · -- Case `0 < lam`: `1 + t * lam < 0 ↔ t < -1 / lam` (with `-1 / lam < 0`)
+    set c : ℝ := -1 / lam
     have hc0 : c < 0 := by simp only [c]; exact div_neg_of_neg_of_pos (by norm_num) hpos
     have heq_set : (fun t : ℝ ↦ if 1 + t * lam < 0 then ENNReal.ofReal (1 / (|t| * (t - 1) ^ 2)) else 0) =
         Set.indicator (Iio c) (fun t : ℝ ↦ ENNReal.ofReal (1 / ((-t) * (1 - t) ^ 2))) := by
@@ -221,35 +264,34 @@ lemma lintegral_indicator_inv_abs_mul_sq_sub_one {lam : ℝ} (hlam : -1 < lam) :
       have hmt : 0 < -t := by linarith
       have h1mt : 0 < 1 - t := by linarith
       have hq : HasDerivAt (fun s : ℝ ↦ (-s) / (1 - s)) (-1 / (1 - t) ^ 2) t := by
-        have h1 : HasDerivAt (fun s : ℝ ↦ -s) (-1) t := (hasDerivAt_id t).neg
-        have h2 : HasDerivAt (fun s : ℝ ↦ 1 - s) (-1) t := (hasDerivAt_const t (1 : ℝ)).sub (hasDerivAt_id t)
+        have h1 : HasDerivAt (fun s : ℝ ↦ -s) (-1) t := (hasDerivAt_id' t).neg
+        have h2 : HasDerivAt (fun s : ℝ ↦ 1 - s) (-1) t := by
+          simpa using (hasDerivAt_const t (1 : ℝ)).fun_sub (hasDerivAt_id' t)
         convert h1.fun_div h2 (ne_of_gt h1mt) using 1; ring
       have hlog : HasDerivAt (fun s : ℝ ↦ -Real.log ((-s) / (1 - s)))
           (-((-1 / (1 - t) ^ 2) / ((-t) / (1 - t)))) t :=
         (hq.log (ne_of_gt (div_pos hmt h1mt))).neg
       have hinv : HasDerivAt (fun s : ℝ ↦ 1 / (1 - s)) (1 / (1 - t) ^ 2) t := by
-        have h2 : HasDerivAt (fun s : ℝ ↦ 1 - s) (-1) t := (hasDerivAt_const t (1 : ℝ)).sub (hasDerivAt_id t)
+        have h2 : HasDerivAt (fun s : ℝ ↦ 1 - s) (-1) t := by
+          simpa using (hasDerivAt_const t (1 : ℝ)).fun_sub (hasDerivAt_id' t)
         convert (hasDerivAt_const t (1 : ℝ)).fun_div h2 (ne_of_gt h1mt) using 1; ring
       convert hlog.fun_sub hinv using 1
       field_simp [ne_of_gt hmt, ne_of_gt h1mt]; ring
     have hg_tendsto : Tendsto g atBot (𝓝 0) := by
+      have h1mt : Tendsto (fun t : ℝ ↦ 1 - t) atBot atTop := by
+        simpa [sub_eq_add_neg] using
+          Filter.tendsto_atTop_add_const_left atBot (1 : ℝ) tendsto_neg_atBot_atTop
+      have hinv : Tendsto (fun t : ℝ ↦ 1 / (1 - t)) atBot (𝓝 0) :=
+        tendsto_const_nhds.div_atTop h1mt
       have h1 : Tendsto (fun t : ℝ ↦ (-t) / (1 - t)) atBot (𝓝 1) := by
         have hrew : ∀ᶠ t : ℝ in atBot, (-t) / (1 - t) = 1 - 1 / (1 - t) := by
           filter_upwards [eventually_lt_atBot (0 : ℝ)] with t ht
           field_simp [ne_of_gt (by linarith : 0 < 1 - t)]; ring
         rw [tendsto_congr' hrew]
-        have h1mt : Tendsto (fun t : ℝ ↦ 1 - t) atBot atTop := by
-          simpa using tendsto_const_nhds.add tendsto_neg_atBot_atTop
-        have hinv : Tendsto (fun t : ℝ ↦ 1 / (1 - t)) atBot (𝓝 0) :=
-          tendsto_const_nhds.div_atTop h1mt
         simpa using tendsto_const_nhds.sub hinv
       have h2 : Tendsto (fun t : ℝ ↦ -Real.log ((-t) / (1 - t))) atBot (𝓝 0) := by
         simpa [Real.log_one] using ((Real.continuousAt_log one_ne_zero).tendsto.comp h1).neg
-      have h1mt : Tendsto (fun t : ℝ ↦ 1 - t) atBot atTop := by
-        simpa using tendsto_const_nhds.add tendsto_neg_atBot_atTop
-      have h3 : Tendsto (fun t : ℝ ↦ 1 / (1 - t)) atBot (𝓝 0) :=
-        tendsto_const_nhds.div_atTop h1mt
-      simpa using h2.sub h3
+      simpa using h2.sub hinv
     have hunion : Iio c = ⋃ n : ℕ, Ioo (c - (n : ℝ) - 1) c := by
       ext t; simp only [mem_Iio, mem_iUnion, mem_Ioo]
       constructor
@@ -264,7 +306,9 @@ lemma lintegral_indicator_inv_abs_mul_sq_sub_one {lam : ℝ} (hlam : -1 < lam) :
         ENNReal.ofReal (1 / ((-t) * (1 - t) ^ 2)) ∂volume) atTop
         (𝓝 (∫⁻ t in Iio c, ENNReal.ofReal (1 / ((-t) * (1 - t) ^ 2)) ∂volume)) := by
       rw [hunion]
-      exact tendsto_lintegral_iUnion_of_monotone hmono_sets
+      exact tendsto_setLIntegral_monotone hmono_sets (fun _ ↦ measurableSet_Ioo)
+        (ENNReal.measurable_ofReal.comp (measurable_const.div
+          (measurable_id.neg.mul ((measurable_const.sub measurable_id).pow_const 2))))
     have hval_n : ∀ n : ℕ, ∫⁻ t in Ioo (c - (n : ℝ) - 1) c,
         ENNReal.ofReal (1 / ((-t) * (1 - t) ^ 2)) ∂volume =
         ENNReal.ofReal (g c - g (c - (n : ℝ) - 1)) := by
@@ -283,7 +327,7 @@ lemma lintegral_indicator_inv_abs_mul_sq_sub_one {lam : ℝ} (hlam : -1 < lam) :
         rw [uIcc_of_le hle] at ht
         exact hg_deriv t (lt_of_le_of_lt ht.2 hc0)
       rw [← hftc, intervalIntegral.integral_of_le hle,
-        ← MeasureTheory.integral_Ioo_eq_integral_Ioc,
+        MeasureTheory.integral_Ioc_eq_integral_Ioo,
         MeasureTheory.ofReal_integral_eq_lintegral_ofReal (hint.1.mono_set Ioo_subset_Ioc_self)]
       filter_upwards [ae_restrict_mem measurableSet_Ioo] with t ht
       have ht0 : 0 < -t := by linarith [ht.2]
@@ -296,9 +340,9 @@ lemma lintegral_indicator_inv_abs_mul_sq_sub_one {lam : ℝ} (hlam : -1 < lam) :
         have hneg_nat : Tendsto (fun n : ℕ ↦ -(n : ℝ)) atTop atBot :=
           tendsto_neg_atTop_atBot.comp tendsto_natCast_atTop_atTop
         have h1 : Tendsto (fun n : ℕ ↦ c + -(n : ℝ)) atTop atBot :=
-          Filter.Tendsto.const_add c hneg_nat
+          Filter.tendsto_atBot_add_const_left atTop c hneg_nat
         have h2 : Tendsto (fun n : ℕ ↦ (c + -(n : ℝ)) + (-1 : ℝ)) atTop atBot :=
-          Filter.Tendsto.atBot_add h1 tendsto_const_nhds
+          Filter.tendsto_atBot_add_const_right atTop (-1 : ℝ) h1
         simpa [sub_eq_add_neg] using h2
       exact tendsto_const_nhds.sub (hg_tendsto.comp hbot)
     simp_rw [hval_n] at hlim_int
@@ -342,10 +386,12 @@ lemma measurable_negEigCount_pencil (ρ σ : DensityOp d) :
       set S := Finset.univ.filter (fun i : d ↦ hA₀.eigenvalues i < 0)
       have hS_card : k ≤ S.card := hp₀
       have hS_ne : S.Nonempty := Finset.card_pos.mp (lt_of_lt_of_le (Nat.pos_of_ne_zero hk) hS_card)
+      -- Minimum gap `δ = min_{i ∈ S} (-λ_i) > 0`
       obtain ⟨i₀, hi₀, hmin⟩ := Finset.exists_min_image S (fun i ↦ -hA₀.eigenvalues i) hS_ne
       set δ : ℝ := -hA₀.eigenvalues i₀
       have hδ_pos : 0 < δ := by
         have := (Finset.mem_filter.mp hi₀).2; linarith
+      -- Bound `C` on quadratic form of `σ - ρ` and `I`
       set C : ℝ := (∑ i : d, ∑ j : d, ‖σ.mat i j - ρ.mat i j‖) + 1
       have hC_pos : 0 < C := by
         have : 0 ≤ ∑ i : d, ∑ j : d, ‖σ.mat i j - ρ.mat i j‖ :=
@@ -356,7 +402,10 @@ lemma measurable_negEigCount_pencil (ρ σ : DensityOp d) :
         lt_of_le_of_lt (le_trans (le_max_left _ _) (le_rfl)) (by simpa [Prod.dist_eq, Real.dist_eq] using hp)
       have hp2 : |p.2 - p₀.2| < δ / (2 * C) :=
         lt_of_le_of_lt (le_trans (le_max_right _ _) (le_rfl)) (by simpa [Prod.dist_eq, Real.dist_eq] using hp)
+      -- Construct negative-definite subspace `V = span {U e_i | i ∈ S}` of dimension `S.card ≥ k`
       let U : Matrix d d ℂ := (hA₀.eigenvectorUnitary : Matrix d d ℂ)
+      have hU_mul : U * star U = 1 := Unitary.coe_mul_star_self hA₀.eigenvectorUnitary
+      have hU_star : star U * U = 1 := Unitary.coe_star_mul_self hA₀.eigenvectorUnitary
       let v : d → (d → ℂ) := fun i j ↦ U j i
       let V : Submodule ℂ (d → ℂ) := Submodule.span ℂ (v '' (S : Set d))
       have hv_lin : LinearIndependent ℂ (fun i : S ↦ v i.1) := by
@@ -367,15 +416,17 @@ lemma measurable_negEigCount_pencil (ρ σ : DensityOp d) :
           simp only [Matrix.mulVec, dotProduct, Pi.zero_apply]
           have hcj := congr_fun hc j
           simp only [Finset.sum_apply, Pi.smul_apply, smul_eq_mul, Pi.zero_apply, v] at hcj
-          rw [← hcj, ← Finset.sum_subtype S (fun _ ↦ Iff.rfl) (fun i ↦ c i * U j i.1)]
           trans ∑ i : d, if h : i ∈ S then U j i * c ⟨i, h⟩ else 0
           · apply Finset.sum_congr rfl; intro i _; split_ifs <;> simp
           · rw [Finset.sum_dite]; simp only [Finset.sum_const_zero, add_zero]
-            apply Finset.sum_congr rfl; intro i _; ring
+            rw [← hcj]
+            refine Finset.sum_bij (fun (a : {x // x ∈ Finset.univ ∧ x ∈ S}) _ ↦ (⟨a.1, a.2.2⟩ : S))
+              (fun _ _ ↦ Finset.mem_univ _) (fun _ _ _ _ h ↦ Subtype.ext (congr_arg Subtype.val h))
+              (fun b _ ↦ ⟨⟨b.1, Finset.mem_univ _, b.2⟩, Finset.mem_univ _, rfl⟩)
+              (fun _ _ ↦ mul_comm _ _)
         have hzero : (fun i : d ↦ if h : i ∈ S then c ⟨i, h⟩ else 0) = 0 := by
           have := congr_arg (Matrix.mulVec (star U)) hUc
-          rw [Matrix.mulVec_mulVec, Unitary.coe_star_mul_self hA₀.eigenvectorUnitary,
-            Matrix.one_mulVec, Matrix.mulVec_zero] at this
+          rw [Matrix.mulVec_mulVec, hU_star, Matrix.one_mulVec, Matrix.mulVec_zero] at this
           exact this
         intro ⟨i, hi⟩
         have := congr_fun hzero i
@@ -384,28 +435,33 @@ lemma measurable_negEigCount_pencil (ρ σ : DensityOp d) :
         have hrange : V = Submodule.span ℂ (Set.range (fun i : S ↦ v i.1)) := by
           congr 1; ext x; simp
         rw [hrange, finrank_span_eq_card hv_lin, Fintype.card_coe]
+      -- Show `A(p)` is strictly negative on `V \ {0}`
       have hneg : ∀ x ∈ V, x ≠ 0 →
           (star x ⬝ᵥ (((1 - p.2 : ℝ) : ℂ) • ρ.mat + (p.2 : ℂ) • σ.mat +
             (p.1 : ℂ) • (1 : Matrix d d ℂ)).mulVec x).re < 0 := by
         intro x hx hx0
         have hA₀_le : (star x ⬝ᵥ A₀.mulVec x).re ≤ -δ * ∑ i : d, ‖x i‖ ^ 2 := by
           rw [re_quadForm_spectral hA₀ x]
+          -- Since `x ∈ V`, `(Uᴴ x)_i = 0` for `i ∉ S`
           have horth : ∀ i : d, i ∉ S → ((star U).mulVec x) i = 0 := by
             intro i hi
             have hmem : x ∈ Submodule.span ℂ (v '' (S : Set d)) := hx
             refine Submodule.span_induction ?_ ?_ ?_ ?_ hmem
             · rintro _ ⟨j, hj, rfl⟩
               have hne : i ≠ j := fun h ↦ hi (h ▸ hj)
-              have hu := congr_fun (congr_fun (Unitary.coe_star_mul_self hA₀.eigenvectorUnitary) i) j
+              have hu := congr_fun (congr_fun hU_star i) j
               simpa [Matrix.mulVec, Matrix.mul_apply, dotProduct, v, Matrix.one_apply, hne] using hu
             · simp
             · intro y z _ _ hy hz; rw [Matrix.mulVec_add, Pi.add_apply, hy, hz, add_zero]
             · intro a y _ hy; rw [Matrix.mulVec_smul, Pi.smul_apply, hy, smul_zero]
           have hnorm_eq : ∑ i : d, ‖((star U).mulVec x) i‖ ^ 2 = ∑ i : d, ‖x i‖ ^ 2 := by
             have h1 : star ((star U).mulVec x) ⬝ᵥ ((star U).mulVec x) = star x ⬝ᵥ x := by
-              rw [Matrix.dotProduct_mulVec, Matrix.vecMul_conjTranspose, star_star,
-                Matrix.mulVec_mulVec, Unitary.coe_mul_star_self hA₀.eigenvectorUnitary,
-                Matrix.one_mulVec]
+              have hstar_vec : star ((star U).mulVec x) = (star x) ᵥ* U := by
+                ext i
+                simp only [Pi.star_apply, Matrix.mulVec, Matrix.vecMul, dotProduct, star_sum,
+                  star_mul', Matrix.star_apply, star_star]
+                apply Finset.sum_congr rfl; intro j _; ring
+              rw [hstar_vec, Matrix.dotProduct_mulVec, Matrix.mulVec_mulVec, hU_mul, Matrix.one_mulVec]
             have hre := congr_arg Complex.re h1
             have hsum_sq : ∀ w : d → ℂ, (star w ⬝ᵥ w).re = ∑ i : d, ‖w i‖ ^ 2 := by
               intro w
@@ -421,6 +477,7 @@ lemma measurable_negEigCount_pencil (ρ σ : DensityOp d) :
               have := hmin i hi; linarith
             exact mul_le_mul_of_nonneg_right hle_i (sq_nonneg _)
           · rw [horth i hi]; simp
+        -- Bound perturbation `(star x ⬝ᵥ (A(p) - A₀).mulVec x).re`
         have hdiff_mat : (((1 - p.2 : ℝ) : ℂ) • ρ.mat + (p.2 : ℂ) • σ.mat + (p.1 : ℂ) • (1 : Matrix d d ℂ)) - A₀ =
             ((p.2 - p₀.2 : ℝ) : ℂ) • (σ.mat - ρ.mat) + ((p.1 - p₀.1 : ℝ) : ℂ) • (1 : Matrix d d ℂ) := by
           ext i j; simp only [A₀, Matrix.sub_apply, Matrix.add_apply, Matrix.smul_apply, Complex.real_smul]
@@ -480,7 +537,7 @@ lemma measurable_negEigCount_pencil (ρ σ : DensityOp d) :
           linarith
         have hx_pos : 0 < ∑ i : d, ‖x i‖ ^ 2 := by
           obtain ⟨i, hi⟩ : ∃ i : d, x i ≠ 0 := by
-            by_contra hall; push_neg at hall; exact hx0 (funext hall)
+            by_contra hall; exact hx0 (funext fun i ↦ by_contra fun hi ↦ hall ⟨i, hi⟩)
           exact lt_of_lt_of_le (sq_pos_of_pos (norm_pos_iff.mpr hi))
             (Finset.single_le_sum (fun j _ ↦ sq_nonneg ‖x j‖) (Finset.mem_univ i))
         have hbound : |p.2 - p₀.2| * (∑ i : d, ∑ j : d, ‖σ.mat i j - ρ.mat i j‖) + |p.1 - p₀.1| < δ := by
@@ -510,6 +567,31 @@ lemma measurable_negEigCount_pencil (ρ σ : DensityOp d) :
 
 /-! ### Frenkel's Integral Formula (Theorem 6 / Eq. 3.7) -/
 
+/-- Determinant of a Hermitian matrix equals the product of its real eigenvalues. -/
+private lemma det_isHermitian_eq_prod {A : Matrix d d ℂ} (hA : A.IsHermitian) :
+    A.det = ∏ i : d, (hA.eigenvalues i : ℂ) := by
+  have hspec : A = (hA.eigenvectorUnitary : Matrix d d ℂ) *
+      Matrix.diagonal (Complex.ofReal ∘ hA.eigenvalues) *
+      star (hA.eigenvectorUnitary : Matrix d d ℂ) := by
+    simpa [Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply] using hA.spectral_theorem
+  conv_lhs => rw [hspec]
+  rw [Matrix.det_mul, Matrix.det_mul, mul_right_comm, ← Matrix.det_mul,
+    Unitary.coe_mul_star_self hA.eigenvectorUnitary, Matrix.det_one, one_mul,
+    Matrix.det_diagonal]
+  rfl
+
+/-- Trace of a Hermitian matrix equals the sum of its real eigenvalues. -/
+private lemma trace_isHermitian_eq_sum {A : Matrix d d ℂ} (hA : A.IsHermitian) :
+    A.trace = ∑ i : d, (hA.eigenvalues i : ℂ) := by
+  have hspec : A = (hA.eigenvectorUnitary : Matrix d d ℂ) *
+      Matrix.diagonal (Complex.ofReal ∘ hA.eigenvalues) *
+      star (hA.eigenvectorUnitary : Matrix d d ℂ) := by
+    simpa [Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply] using hA.spectral_theorem
+  conv_lhs => rw [hspec]
+  rw [Matrix.trace_mul_cycle, Unitary.coe_star_mul_self hA.eigenvectorUnitary,
+    Matrix.one_mul, Matrix.trace_diagonal]
+  rfl
+
 /-- **Frenkel's Integral Formula (Theorem 6 / Eq. 3.7)** for full-rank density operators `ρ, σ ≻ 0`:
 `D(ρ ‖ σ) * log 2 = ∫⁻ t : ℝ, Tr(((1 - t) ρ + t σ)_-) / (|t| (t - 1)²) dt`. -/
 theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
@@ -528,27 +610,37 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
   set V : Matrix d d ℂ := star Uσ * Uρ
   have hα_pos : ∀ i : d, 0 < α i := fun i ↦ hρ.eigenvalues_pos i
   have hβ_pos : ∀ j : d, 0 < β j := fun j ↦ hσ.eigenvalues_pos j
-  have hV_unitary : V ∈ Matrix.unitaryGroup d ℂ :=
-    Submonoid.mul_mem _ (Unitary.star_mem σ.eigUnitary.2) ρ.eigUnitary.2
+  have hUρ_mul : Uρ * star Uρ = 1 := Unitary.coe_mul_star_self ρ.eigUnitary
+  have hUρ_star : star Uρ * Uρ = 1 := Unitary.coe_star_mul_self ρ.eigUnitary
+  have hUσ_mul : Uσ * star Uσ = 1 := Unitary.coe_mul_star_self σ.eigUnitary
+  have hUσ_star : star Uσ * Uσ = 1 := Unitary.coe_star_mul_self σ.eigUnitary
+  have hV_star_mul : star V * V = 1 := by
+    simp only [V, star_mul, star_star, Matrix.mul_assoc]
+    rw [← Matrix.mul_assoc Uσ (star Uσ), hUσ_mul, Matrix.one_mul, hUρ_star]
+  have hV_mul_star : V * star V = 1 := by
+    simp only [V, star_mul, star_star, Matrix.mul_assoc]
+    rw [← Matrix.mul_assoc Uρ (star Uρ), hUρ_mul, Matrix.one_mul, hUσ_star]
   have hV_col : ∀ i : d, ∑ j : d, ‖V j i‖ ^ 2 = 1 := by
     intro i
-    have h := congr_arg Complex.re (congr_fun (congr_fun (Unitary.coe_star_mul_self ⟨V, hV_unitary⟩) i) i)
+    have h := congr_arg Complex.re (congr_fun (congr_fun hV_star_mul i) i)
     simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply_eq, Complex.one_re, Complex.re_sum] at h
     convert h using 1
     apply Finset.sum_congr rfl; intro j _
     rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
   have hV_row : ∀ j : d, ∑ i : d, ‖V j i‖ ^ 2 = 1 := by
     intro j
-    have h := congr_arg Complex.re (congr_fun (congr_fun (Unitary.coe_mul_star_self ⟨V, hV_unitary⟩) j) j)
+    have h := congr_arg Complex.re (congr_fun (congr_fun hV_mul_star j) j)
     simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply_eq, Complex.one_re, Complex.re_sum] at h
     convert h using 1
     apply Finset.sum_congr rfl; intro i _
     rw [Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
+  -- Define shifted relative entropy `F(r)` and `g(r) = -F'(r)` for `r ≥ 0`
   let F : ℝ → ℝ := fun r ↦
     ∑ i : d, ∑ j : d, ‖V j i‖ ^ 2 * ((α i + r) * (Real.log (α i + r) - Real.log (β j + r)))
   let g : ℝ → ℝ := fun r ↦
     (∑ j : d, Real.log (β j + r) - ∑ i : d, Real.log (α i + r)) -
       (Fintype.card d : ℝ) + ∑ i : d, ∑ j : d, ‖V j i‖ ^ 2 * ((α i + r) / (β j + r))
+  -- Step 1: `F(0) = relEntropy ρ σ * log 2`
   have hF0_eq : ENNReal.ofReal (F 0) = relEntropy ρ σ * ENNReal.ofReal (Real.log 2) := by
     have hsupp : suppSubset ρ σ := by
       intro i j _ hβ0; exact absurd hβ0 (ne_of_gt (hβ_pos j))
@@ -556,6 +648,7 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
     unfold relEntropy
     rw [if_pos hsupp, ← ENNReal.ofReal_mul (by
       have hnn : 0 ≤ F 0 := by
+        -- `F(0) = ∑ i, ∑ j, ‖V j i‖² * (α_i log(α_i/β_j)) ≥ ∑ i, ∑ j, ‖V j i‖² (α_i - β_j) = 0`
         have hterm : ∀ i j : d, α i - β j ≤ α i * (Real.log (α i) - Real.log (β j)) := by
           intro i j
           have hlog := Real.add_one_le_exp (Real.log (β j) - Real.log (α i))
@@ -579,6 +672,7 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
     congr 1
     rw [div_mul_cancel₀ _ (ne_of_gt hlog2_pos)]
     simp [F, α, β, V, Uρ, Uσ]
+  -- Step 2: `HasDerivAt F (-g r) r` and `ContinuousOn g (Ici 0)`
   have hF_deriv : ∀ r ≥ (0 : ℝ), HasDerivAt F (-g r) r := by
     intro r hr
     have hterm : ∀ i j : d, HasDerivAt
@@ -588,21 +682,22 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
       have hαr : 0 < α i + r := by linarith [hα_pos i]
       have hβr : 0 < β j + r := by linarith [hβ_pos j]
       have h1 : HasDerivAt (fun s : ℝ ↦ α i + s) 1 r := by
-        simpa using (hasDerivAt_const r (α i)).add (hasDerivAt_id r)
+        simpa using (hasDerivAt_const r (α i)).fun_add (hasDerivAt_id' r)
       have h2 : HasDerivAt (fun s : ℝ ↦ Real.log (α i + s)) (1 / (α i + r)) r := by
         simpa using h1.log (ne_of_gt hαr)
       have h3 : HasDerivAt (fun s : ℝ ↦ β j + s) 1 r := by
-        simpa using (hasDerivAt_const r (β j)).add (hasDerivAt_id r)
+        simpa using (hasDerivAt_const r (β j)).fun_add (hasDerivAt_id' r)
       have h4 : HasDerivAt (fun s : ℝ ↦ Real.log (β j + s)) (1 / (β j + r)) r := by
         simpa using h3.log (ne_of_gt hβr)
-      have hprod := h1.mul (h2.sub h4)
+      have hprod := h1.fun_mul (h2.fun_sub h4)
       convert hprod.const_mul (‖V j i‖ ^ 2) using 1
       field_simp [ne_of_gt hαr, ne_of_gt hβr]; ring
     have hsum : HasDerivAt F
         (∑ i : d, ∑ j : d, ‖V j i‖ ^ 2 *
-          (Real.log (α i + r) - Real.log (β j + r) + 1 - (α i + r) / (β j + r))) r :=
-      HasDerivAt.fun_sum (u := Finset.univ)
+          (Real.log (α i + r) - Real.log (β j + r) + 1 - (α i + r) / (β j + r))) r := by
+      have houter := HasDerivAt.fun_sum (u := Finset.univ)
         (fun i _ ↦ HasDerivAt.fun_sum (u := Finset.univ) (fun j _ ↦ hterm i j))
+      exact houter
     convert hsum using 1
     simp only [g]
     have hsplit : (∑ i : d, ∑ j : d, ‖V j i‖ ^ 2 *
@@ -622,26 +717,39 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
       rw [ha, hb, hc]; ring
     linarith
   have hg_cont : ContinuousOn g (Ici 0) := by
+    have hcont_sum : ∀ {ι : Type*} (s : Finset ι) (f : ι → ℝ → ℝ) (x : ℝ),
+        (∀ i ∈ s, ContinuousAt (f i) x) → ContinuousAt (fun y ↦ ∑ i ∈ s, f i y) x := by
+      intro ι s f x hf
+      induction s using Finset.induction_on with
+      | empty => simpa using continuousAt_const
+      | @insert a s ha ih =>
+        have heq : (fun y ↦ ∑ i ∈ insert a s, f i y) = fun y ↦ f a y + ∑ i ∈ s, f i y := by
+          ext y; exact Finset.sum_insert ha
+        rw [heq]
+        exact (hf a (Finset.mem_insert_self a s)).add (ih fun i hi ↦ hf i (Finset.mem_insert_of_mem hi))
     intro r hr
     have h1 : ContinuousAt (fun s : ℝ ↦ ∑ j : d, Real.log (β j + s)) r :=
-      continuousAt_finset_sum _ fun j _ ↦
-        (Real.continuousAt_log (ne_of_gt (by linarith [hβ_pos j, hr]))).comp
+      hcont_sum Finset.univ _ r fun j _ ↦
+        (Real.continuousAt_log (ne_of_gt (by linarith [hβ_pos j, Set.mem_Ici.mp hr] : 0 < β j + r))).comp
           (continuousAt_const.add continuousAt_id)
     have h2 : ContinuousAt (fun s : ℝ ↦ ∑ i : d, Real.log (α i + s)) r :=
-      continuousAt_finset_sum _ fun i _ ↦
-        (Real.continuousAt_log (ne_of_gt (by linarith [hα_pos i, hr]))).comp
+      hcont_sum Finset.univ _ r fun i _ ↦
+        (Real.continuousAt_log (ne_of_gt (by linarith [hα_pos i, Set.mem_Ici.mp hr] : 0 < α i + r))).comp
           (continuousAt_const.add continuousAt_id)
     have h3 : ContinuousAt (fun s : ℝ ↦ ∑ i : d, ∑ j : d, ‖V j i‖ ^ 2 * ((α i + s) / (β j + s))) r :=
-      continuousAt_finset_sum _ fun i _ ↦ continuousAt_finset_sum _ fun j _ ↦
+      hcont_sum Finset.univ _ r fun i _ ↦ hcont_sum Finset.univ _ r fun j _ ↦
         continuousAt_const.mul ((continuousAt_const.add continuousAt_id).div
-          (continuousAt_const.add continuousAt_id) (ne_of_gt (by linarith [hβ_pos j, hr])))
+          (continuousAt_const.add continuousAt_id)
+          (ne_of_gt (by linarith [hβ_pos j, Set.mem_Ici.mp hr] : 0 < β j + r)))
     exact (((h1.sub h2).sub continuousAt_const).add h3).continuousWithinAt
+  -- Step 3: `F(r) → 0` as `r → ∞`
   have hF_tendsto : Tendsto F atTop (𝓝 0) := by
     have hterm : ∀ i j : d, Tendsto
         (fun r : ℝ ↦ ‖V j i‖ ^ 2 * ((α i + r) * (Real.log (α i + r) - Real.log (β j + r))))
         atTop (𝓝 (‖V j i‖ ^ 2 * (α i - β j))) := by
       intro i j
       apply Tendsto.const_mul
+      -- Use squeeze: `(β_j + r) * (u / (1 + u)) ≤ (β_j + r) * log(1 + u) ≤ (β_j + r) * u` for `u = (α_i - β_j)/(β_j + r)`
       have hlo : ∀ᶠ r : ℝ in atTop,
           (α i + r) * ((α i - β j) / (α i + r)) ≤ (α i + r) * (Real.log (α i + r) - Real.log (β j + r)) := by
         filter_upwards [eventually_gt_atTop (0 : ℝ)] with r hr
@@ -682,10 +790,10 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
         have hrew : ∀ᶠ r : ℝ in atTop,
             (α i + r) * ((α i - β j) / (β j + r)) = (α i - β j) * (1 + (α i - β j) / (β j + r)) := by
           filter_upwards [eventually_gt_atTop (0 : ℝ)] with r hr
-          field_simp [ne_of_gt (by linarith [hβ_pos j])]; ring
+          field_simp [ne_of_gt (by linarith [hβ_pos j] : 0 < β j + r)]; ring
         rw [tendsto_congr' hrew]
         have hinv : Tendsto (fun r : ℝ ↦ (α i - β j) / (β j + r)) atTop (𝓝 0) :=
-          tendsto_const_nhds.div_atTop (Filter.Tendsto.const_add (β j) tendsto_id)
+          tendsto_const_nhds.div_atTop (Filter.tendsto_atTop_add_const_left atTop (β j) tendsto_id)
         simpa using tendsto_const_nhds.mul (tendsto_const_nhds.add hinv)
       exact tendsto_of_tendsto_of_tendsto_of_le_of_le' hlo_lim hhi_lim hlo hhi
     have hsum_lim := tendsto_finset_sum Finset.univ (fun i _ ↦
@@ -696,15 +804,19 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
         rw [Finset.sum_comm]; apply Finset.sum_congr rfl; intro j _; rw [← Finset.sum_mul, hV_row, one_mul]
       rw [h2, ρ.sum_eigvals, σ.sum_eigvals, sub_self]
     rwa [hsum_zero] at hsum_lim
+  -- Step 4: Spectral congruence `X(t, r) = S(r) (I + t M(r)) S(r)` for each `r > 0`
   have hg_pos_and_lintegral : ∀ r : ℝ, 0 < r →
       0 ≤ g r ∧
       ENNReal.ofReal (g r) =
         ∫⁻ t : ℝ, (negEigCount (isHermitian_pencil ρ σ r t) : ℝ≥0∞) *
           ENNReal.ofReal (1 / (|t| * (t - 1) ^ 2)) ∂volume := by
     intro r hr
+    -- `P = ρ + r I`, `Q = σ + r I`, `S = P^{1/2}`, `Sinv = P^{-1/2}`, `M = Sinv (σ - ρ) Sinv`
     let S : Matrix d d ℂ := Uρ * Matrix.diagonal (fun i ↦ ((Real.sqrt (α i + r) : ℝ) : ℂ)) * star Uρ
     let Sinv : Matrix d d ℂ := Uρ * Matrix.diagonal (fun i ↦ (((Real.sqrt (α i + r))⁻¹ : ℝ) : ℂ)) * star Uρ
     let Qinv : Matrix d d ℂ := Uσ * Matrix.diagonal (fun j ↦ (((β j + r)⁻¹ : ℝ) : ℂ)) * star Uσ
+    have hdiag_r : Matrix.diagonal (fun _ : d ↦ (r : ℂ)) = (r : ℂ) • (1 : Matrix d d ℂ) := by
+      ext i j; simp [Matrix.diagonal_apply, Matrix.one_apply]
     have hS_herm : S.IsHermitian := by
       simp only [S, Matrix.IsHermitian, Matrix.conjTranspose_mul, Matrix.star_eq_conjTranspose,
         Matrix.conjTranspose_conjTranspose, Matrix.diagonal_conjTranspose, Matrix.mul_assoc]
@@ -715,91 +827,100 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
       congr 2; ext i j; simp [Matrix.diagonal_apply]
     have hS_mul_Sinv : S * Sinv = 1 := by
       simp only [S, Sinv, Matrix.mul_assoc]
-      rw [← Matrix.mul_assoc (star Uρ) Uρ, Unitary.coe_star_mul_self ρ.eigUnitary, Matrix.one_mul,
+      rw [← Matrix.mul_assoc (star Uρ) Uρ, hUρ_star, Matrix.one_mul,
         ← Matrix.mul_assoc (Matrix.diagonal _), Matrix.diagonal_mul_diagonal]
       have hd : Matrix.diagonal (fun i : d ↦ ((Real.sqrt (α i + r) : ℝ) : ℂ) * (((Real.sqrt (α i + r))⁻¹ : ℝ) : ℂ)) = 1 := by
         rw [← Matrix.diagonal_one]; congr 1; ext i
         rw [← Complex.ofReal_mul, mul_inv_cancel₀ (ne_of_gt (Real.sqrt_pos.mpr (by linarith [hα_pos i]))), Complex.ofReal_one]
-      rw [hd, Matrix.one_mul, Unitary.coe_mul_star_self ρ.eigUnitary]
+      rw [hd, Matrix.one_mul, hUρ_mul]
     have hSinv_mul_S : Sinv * S = 1 := by
       simp only [S, Sinv, Matrix.mul_assoc]
-      rw [← Matrix.mul_assoc (star Uρ) Uρ, Unitary.coe_star_mul_self ρ.eigUnitary, Matrix.one_mul,
+      rw [← Matrix.mul_assoc (star Uρ) Uρ, hUρ_star, Matrix.one_mul,
         ← Matrix.mul_assoc (Matrix.diagonal _), Matrix.diagonal_mul_diagonal]
       have hd : Matrix.diagonal (fun i : d ↦ (((Real.sqrt (α i + r))⁻¹ : ℝ) : ℂ) * ((Real.sqrt (α i + r) : ℝ) : ℂ)) = 1 := by
         rw [← Matrix.diagonal_one]; congr 1; ext i
         rw [← Complex.ofReal_mul, inv_mul_cancel₀ (ne_of_gt (Real.sqrt_pos.mpr (by linarith [hα_pos i]))), Complex.ofReal_one]
-      rw [hd, Matrix.one_mul, Unitary.coe_mul_star_self ρ.eigUnitary]
+      rw [hd, Matrix.one_mul, hUρ_mul]
     have hS_sq : S * S = ρ.mat + (r : ℂ) • (1 : Matrix d d ℂ) := by
       have hρ_spec : ρ.mat = Uρ * Matrix.diagonal (Complex.ofReal ∘ α) * star Uρ := by
         simpa [Uρ, α, DensityOp.eigUnitary, DensityOp.eigvals, Matrix.star_eq_conjTranspose,
           Unitary.conjStarAlgAut_apply] using ρ.isHermitian.spectral_theorem
       have hI_spec : (r : ℂ) • (1 : Matrix d d ℂ) = Uρ * Matrix.diagonal (fun _ : d ↦ (r : ℂ)) * star Uρ := by
-        rw [← Matrix.smul_one_eq_diagonal, Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_one,
-          Unitary.coe_mul_star_self ρ.eigUnitary]
+        rw [hdiag_r, Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_one, hUρ_mul]
       simp only [S, Matrix.mul_assoc]
-      rw [← Matrix.mul_assoc (star Uρ) Uρ, Unitary.coe_star_mul_self ρ.eigUnitary, Matrix.one_mul,
+      rw [← Matrix.mul_assoc (star Uρ) Uρ, hUρ_star, Matrix.one_mul,
         ← Matrix.mul_assoc (Matrix.diagonal _), Matrix.diagonal_mul_diagonal]
       have hd : Matrix.diagonal (fun i : d ↦ ((Real.sqrt (α i + r) : ℝ) : ℂ) * ((Real.sqrt (α i + r) : ℝ) : ℂ)) =
           Matrix.diagonal (Complex.ofReal ∘ α) + Matrix.diagonal (fun _ : d ↦ (r : ℂ)) := by
-        rw [← Matrix.diagonal_add]; congr 1; ext i
-        simp only [Function.comp_apply, Pi.add_apply]
-        rw [← Complex.ofReal_mul, Real.mul_self_sqrt (by linarith [hα_pos i]), Complex.ofReal_add]
-      rw [hd, Matrix.mul_add, Matrix.add_mul, ← hρ_spec, ← hI_spec]
+        ext i j; simp only [Matrix.add_apply, Matrix.diagonal_apply, Function.comp_apply]
+        split_ifs
+        · rw [← Complex.ofReal_mul, Real.mul_self_sqrt (by linarith [hα_pos i]), Complex.ofReal_add]
+        · simp
+      rw [hd, Matrix.add_mul, Matrix.mul_add, ← Matrix.mul_assoc, ← Matrix.mul_assoc, ← hρ_spec, ← hI_spec]
     have hQ_mul_Qinv : (σ.mat + (r : ℂ) • (1 : Matrix d d ℂ)) * Qinv = 1 := by
       have hσ_spec : σ.mat = Uσ * Matrix.diagonal (Complex.ofReal ∘ β) * star Uσ := by
         simpa [Uσ, β, DensityOp.eigUnitary, DensityOp.eigvals, Matrix.star_eq_conjTranspose,
           Unitary.conjStarAlgAut_apply] using σ.isHermitian.spectral_theorem
       have hI_spec : (r : ℂ) • (1 : Matrix d d ℂ) = Uσ * Matrix.diagonal (fun _ : d ↦ (r : ℂ)) * star Uσ := by
-        rw [← Matrix.smul_one_eq_diagonal, Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_one,
-          Unitary.coe_mul_star_self σ.eigUnitary]
-      rw [hσ_spec, hI_spec, ← Matrix.add_mul, ← Matrix.mul_add, ← Matrix.diagonal_add]
+        rw [hdiag_r, Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_one, hUσ_mul]
+      have hQ_spec : σ.mat + (r : ℂ) • (1 : Matrix d d ℂ) =
+          Uσ * Matrix.diagonal (fun j ↦ ((β j + r : ℝ) : ℂ)) * star Uσ := by
+        rw [hσ_spec, hI_spec, ← Matrix.add_mul, ← Matrix.mul_add]
+        congr 2; ext i j; simp only [Matrix.add_apply, Matrix.diagonal_apply, Function.comp_apply]
+        split_ifs <;> simp [Complex.ofReal_add]
+      rw [hQ_spec]
       simp only [Qinv, Matrix.mul_assoc]
-      rw [← Matrix.mul_assoc (star Uσ) Uσ, Unitary.coe_star_mul_self σ.eigUnitary, Matrix.one_mul,
+      rw [← Matrix.mul_assoc (star Uσ) Uσ, hUσ_star, Matrix.one_mul,
         ← Matrix.mul_assoc (Matrix.diagonal _), Matrix.diagonal_mul_diagonal]
       have hd : Matrix.diagonal (fun j : d ↦
-          ((Complex.ofReal ∘ β) j + (r : ℂ)) * (((β j + r)⁻¹ : ℝ) : ℂ)) = 1 := by
+          ((β j + r : ℝ) : ℂ) * (((β j + r)⁻¹ : ℝ) : ℂ)) = 1 := by
         rw [← Matrix.diagonal_one]; congr 1; ext j
-        simp only [Function.comp_apply]
-        rw [← Complex.ofReal_add, ← Complex.ofReal_mul,
-          mul_inv_cancel₀ (ne_of_gt (by linarith [hβ_pos j])), Complex.ofReal_one]
-      rw [hd, Matrix.one_mul, Unitary.coe_mul_star_self σ.eigUnitary]
+        rw [← Complex.ofReal_mul,
+          mul_inv_cancel₀ (ne_of_gt (by linarith [hβ_pos j] : 0 < β j + r)), Complex.ofReal_one]
+      rw [hd, Matrix.one_mul, hUσ_mul]
+    -- Define `M = Sinv * (σ - ρ) * Sinv`
     let M : Matrix d d ℂ := Sinv * (σ.mat - ρ.mat) * Sinv
     have hM_herm : M.IsHermitian := by
       simp only [M, Matrix.IsHermitian, Matrix.conjTranspose_mul, Matrix.conjTranspose_sub,
         hSinv_herm.eq, σ.isHermitian.eq, ρ.isHermitian.eq, Matrix.mul_assoc]
     have h1pM : 1 + M = Sinv * (σ.mat + (r : ℂ) • (1 : Matrix d d ℂ)) * Sinv := by
       have h1 : (1 : Matrix d d ℂ) = Sinv * (ρ.mat + (r : ℂ) • (1 : Matrix d d ℂ)) * Sinv := by
-        rw [← hS_sq, ← Matrix.mul_assoc, hSinv_mul_S, Matrix.one_mul, hSinv_mul_S]
+        calc (1 : Matrix d d ℂ) = (Sinv * S) * (S * Sinv) := by rw [hSinv_mul_S, hS_mul_Sinv, Matrix.mul_one]
+          _ = Sinv * (S * S) * Sinv := by simp [Matrix.mul_assoc]
+          _ = Sinv * (ρ.mat + (r : ℂ) • (1 : Matrix d d ℂ)) * Sinv := by rw [hS_sq]
       conv_lhs => rw [h1]
       simp only [M, ← Matrix.add_mul, ← Matrix.mul_add]
       congr 2; abel
     have h1pM_herm : (1 + M).IsHermitian := Matrix.isHermitian_one.add hM_herm
+    -- Eigenvalues of `1 + M` are `1 + λ_k > 0`
     have h1pM_pos : (1 + M).PosDef := by
       rw [h1pM, Matrix.posDef_iff_dotProduct_mulVec]
-      refine ⟨h1pM_herm.eq ▸ h1pM_herm, fun x hx ↦ ?_⟩
+      refine ⟨h1pM ▸ h1pM_herm, fun x hx ↦ ?_⟩
       have hQ_pos : (σ.mat + (r : ℂ) • (1 : Matrix d d ℂ)).PosDef := by
-        have hrI : ((r : ℂ) • (1 : Matrix d d ℂ)).PosDef := by
-          rw [Matrix.posDef_iff_dotProduct_mulVec]
-          refine ⟨by rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Matrix.conjTranspose_one,
-            Complex.star_def, Complex.conj_ofReal], fun y hy ↦ ?_⟩
-          rw [Matrix.smul_mulVec, Matrix.one_mulVec, dotProduct_smul, smul_eq_mul]
-          have hy_pos : 0 < star y ⬝ᵥ y := by
-            rw [Complex.pos_iff]
-            have hre : (star y ⬝ᵥ y).re = ∑ i : d, ‖y i‖ ^ 2 := by
-              simp only [dotProduct, Pi.star_apply, Complex.re_sum]
-              apply Finset.sum_congr rfl; intro i _
-              rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
-            have him : (star y ⬝ᵥ y).im = 0 := by
-              simp only [dotProduct, Pi.star_apply, Complex.im_sum]
-              apply Finset.sum_eq_zero; intro i _
-              rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.ofReal_im]
-            refine ⟨by rw [hre]; obtain ⟨i, hi⟩ : ∃ i, y i ≠ 0 := by
-                by_contra h; push_neg at h; exact hy (funext h)
-              exact lt_of_lt_of_le (sq_pos_of_pos (norm_pos_iff.mpr hi))
-                (Finset.single_le_sum (fun j _ ↦ sq_nonneg ‖y j‖) (Finset.mem_univ i)), him.symm⟩
-          have hr_c : (0 : ℂ) < (r : ℂ) := by rw [Complex.pos_iff]; exact ⟨hr, rfl⟩
-          exact mul_pos hr_c hy_pos
-        exact hσ.add hrI
+        have hrI_herm : ((r : ℂ) • (1 : Matrix d d ℂ)).IsHermitian := by
+          rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Matrix.conjTranspose_one,
+            Complex.star_def, Complex.conj_ofReal]
+        rw [Matrix.posDef_iff_dotProduct_mulVec]
+        refine ⟨σ.isHermitian.add hrI_herm, fun y hy ↦ ?_⟩
+        rw [Matrix.add_mulVec, Matrix.smul_mulVec, Matrix.one_mulVec, dotProduct_add,
+          dotProduct_smul, smul_eq_mul]
+        have hσ_y := (Matrix.posDef_iff_dotProduct_mulVec.mp hσ).2 y hy
+        have hy_pos : (0 : ℂ) < star y ⬝ᵥ y := by
+          rw [Complex.pos_iff]
+          have hre : (star y ⬝ᵥ y).re = ∑ i : d, ‖y i‖ ^ 2 := by
+            simp only [dotProduct, Pi.star_apply, Complex.re_sum]
+            apply Finset.sum_congr rfl; intro i _
+            rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
+          have him : (star y ⬝ᵥ y).im = 0 := by
+            simp only [dotProduct, Pi.star_apply, Complex.im_sum]
+            apply Finset.sum_eq_zero; intro i _
+            rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.ofReal_im]
+          refine ⟨by rw [hre]; obtain ⟨i, hi⟩ : ∃ i, y i ≠ 0 := by
+              by_contra h; exact hy (funext fun i ↦ by_contra fun hi ↦ h ⟨i, hi⟩)
+            exact lt_of_lt_of_le (sq_pos_of_pos (norm_pos_iff.mpr hi))
+              (Finset.single_le_sum (fun j _ ↦ sq_nonneg ‖y j‖) (Finset.mem_univ i)), him.symm⟩
+        have hr_c : (0 : ℂ) < (r : ℂ) := by rw [Complex.pos_iff]; exact ⟨hr, rfl⟩
+        exact add_pos hσ_y (mul_pos hr_c hy_pos)
       have hSinv_x : Sinv.mulVec x ≠ 0 := by
         intro h0
         have := congr_arg (Matrix.mulVec S) h0
@@ -807,13 +928,20 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
         exact hx this
       have hquad : star x ⬝ᵥ (Sinv * (σ.mat + (r : ℂ) • (1 : Matrix d d ℂ)) * Sinv).mulVec x =
           star (Sinv.mulVec x) ⬝ᵥ (σ.mat + (r : ℂ) • (1 : Matrix d d ℂ)).mulVec (Sinv.mulVec x) := by
-        rw [Matrix.mul_assoc, Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec,
-          ← Matrix.vecMul_conjTranspose, hSinv_herm.eq, Matrix.star_mulVec]
-        simp [Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec]
+        have hstar_Sinv : star (Sinv.mulVec x) = (star x) ᵥ* Sinv := by
+          ext i
+          simp only [Pi.star_apply, Matrix.mulVec, Matrix.vecMul, dotProduct, star_sum, star_mul']
+          apply Finset.sum_congr rfl; intro j _
+          have hji : star (Sinv i j) = Sinv j i := by
+            have := congr_fun (congr_fun hSinv_herm.eq j) i
+            simpa [Matrix.conjTranspose_apply] using this
+          rw [hji]; ring
+        rw [hstar_Sinv, Matrix.dotProduct_mulVec, Matrix.mul_assoc, Matrix.mulVec_mulVec, Matrix.mulVec_mulVec]
       rw [hquad]
       exact (Matrix.posDef_iff_dotProduct_mulVec.mp hQ_pos).2 _ hSinv_x
     have hlam_gt : ∀ k : d, -1 < hM_herm.eigenvalues k := by
       intro k
+      -- `v = U_M e_k` is unit eigenvector of `M`, hence `⟨v, (1 + M) v⟩ = 1 + λ_k > 0`
       let v : d → ℂ := fun i ↦ (hM_herm.eigenvectorUnitary : Matrix d d ℂ) i k
       have hv_ne : v ≠ 0 := by
         intro h0
@@ -844,8 +972,10 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
         linarith
       have hre_pos : 0 < (star v ⬝ᵥ (1 + M).mulVec v).re := (Complex.pos_iff.mp hpos_v).1
       linarith
+    -- Relate `g r` to `∑ k, (log (1 + λ_k) - λ_k / (1 + λ_k))`
     have hg_spectral : g r = ∑ k : d, (Real.log (1 + hM_herm.eigenvalues k) -
         hM_herm.eigenvalues k / (1 + hM_herm.eigenvalues k)) := by
+      -- (a) `∑ k, log (1 + λ_k) = ∑ j, log (β_j + r) - ∑ i, log (α_i + r)` via `det(1 + M) = det(Q) / det(P)`
       have hdet_eq : ∏ k : d, (1 + hM_herm.eigenvalues k) =
           (∏ j : d, (β j + r)) / (∏ i : d, (α i + r)) := by
         have h1 : (1 + M).det = (∏ k : d, ((1 + hM_herm.eigenvalues k : ℝ) : ℂ)) := by
@@ -861,8 +991,9 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
                 star (hM_herm.eigenvectorUnitary : Matrix d d ℂ) := by
               rw [Matrix.diagonal_one, Matrix.mul_one, Unitary.coe_mul_star_self hM_herm.eigenvectorUnitary]
             conv_lhs => rw [hI_spec, hM_spec]
-            rw [← Matrix.add_mul, ← Matrix.mul_add, ← Matrix.diagonal_add]
-            congr 2; ext k; simp [Complex.ofReal_add]
+            rw [← Matrix.add_mul, ← Matrix.mul_add]
+            congr 2; ext i j; simp only [Matrix.add_apply, Matrix.diagonal_apply, Function.comp_apply]
+            split_ifs <;> simp [Complex.ofReal_add]
           conv_lhs => rw [hspec]
           rw [Matrix.det_mul, Matrix.det_mul, mul_right_comm, ← Matrix.det_mul,
             Unitary.coe_mul_star_self hM_herm.eigenvectorUnitary, Matrix.det_one, one_mul,
@@ -881,12 +1012,12 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
               simpa [Uρ, α, DensityOp.eigUnitary, DensityOp.eigvals, Matrix.star_eq_conjTranspose,
                 Unitary.conjStarAlgAut_apply] using ρ.isHermitian.spectral_theorem
             have hI_spec : (r : ℂ) • (1 : Matrix d d ℂ) = Uρ * Matrix.diagonal (fun _ : d ↦ (r : ℂ)) * star Uρ := by
-              rw [← Matrix.smul_one_eq_diagonal, Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_one,
-                Unitary.coe_mul_star_self ρ.eigUnitary]
-            rw [hρ_spec, hI_spec, ← Matrix.add_mul, ← Matrix.mul_add, ← Matrix.diagonal_add]
-            congr 2; ext i; simp [Complex.ofReal_add]
+              rw [hdiag_r, Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_one, hUρ_mul]
+            rw [hρ_spec, hI_spec, ← Matrix.add_mul, ← Matrix.mul_add]
+            congr 2; ext i j; simp only [Matrix.add_apply, Matrix.diagonal_apply, Function.comp_apply]
+            split_ifs <;> simp [Complex.ofReal_add]
           rw [hP_spec, Matrix.det_mul, Matrix.det_mul, mul_right_comm, ← Matrix.det_mul,
-            Unitary.coe_mul_star_self ρ.eigUnitary, Matrix.det_one, one_mul, Matrix.det_diagonal]
+            hUρ_mul, Matrix.det_one, one_mul, Matrix.det_diagonal]
         have hdetQ : (σ.mat + (r : ℂ) • (1 : Matrix d d ℂ)).det = ∏ j : d, ((β j + r : ℝ) : ℂ) := by
           have hQ_spec : σ.mat + (r : ℂ) • (1 : Matrix d d ℂ) =
               Uσ * Matrix.diagonal (fun j ↦ ((β j + r : ℝ) : ℂ)) * star Uσ := by
@@ -894,12 +1025,12 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
               simpa [Uσ, β, DensityOp.eigUnitary, DensityOp.eigvals, Matrix.star_eq_conjTranspose,
                 Unitary.conjStarAlgAut_apply] using σ.isHermitian.spectral_theorem
             have hI_spec : (r : ℂ) • (1 : Matrix d d ℂ) = Uσ * Matrix.diagonal (fun _ : d ↦ (r : ℂ)) * star Uσ := by
-              rw [← Matrix.smul_one_eq_diagonal, Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_one,
-                Unitary.coe_mul_star_self σ.eigUnitary]
-            rw [hσ_spec, hI_spec, ← Matrix.add_mul, ← Matrix.mul_add, ← Matrix.diagonal_add]
-            congr 2; ext j; simp [Complex.ofReal_add]
+              rw [hdiag_r, Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_one, hUσ_mul]
+            rw [hσ_spec, hI_spec, ← Matrix.add_mul, ← Matrix.mul_add]
+            congr 2; ext i j; simp only [Matrix.add_apply, Matrix.diagonal_apply, Function.comp_apply]
+            split_ifs <;> simp [Complex.ofReal_add]
           rw [hQ_spec, Matrix.det_mul, Matrix.det_mul, mul_right_comm, ← Matrix.det_mul,
-            Unitary.coe_mul_star_self σ.eigUnitary, Matrix.det_one, one_mul, Matrix.det_diagonal]
+            hUσ_mul, Matrix.det_one, one_mul, Matrix.det_diagonal]
         rw [h1, hdetP, hdetQ] at h2
         have h2_re := congr_arg Complex.re h2
         simp only [← Complex.ofReal_prod, ← Complex.ofReal_mul, Complex.ofReal_re] at h2_re
@@ -912,6 +1043,7 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
             (ne_of_gt (Finset.prod_pos fun i _ ↦ by linarith [hα_pos i])),
           Real.log_prod (fun j _ ↦ ne_of_gt (by linarith [hβ_pos j])),
           Real.log_prod (fun i _ ↦ ne_of_gt (by linarith [hα_pos i]))]
+      -- (b) `∑ k, (1 + λ_k)⁻¹ = ∑ i, ∑ j, ‖V j i‖² * (α_i + r) / (β_j + r)` via `Tr((1 + M)⁻¹) = Tr(P Q⁻¹)`
       have htr_inv : ∑ k : d, (1 + hM_herm.eigenvalues k)⁻¹ =
           ∑ i : d, ∑ j : d, ‖V j i‖ ^ 2 * ((α i + r) / (β j + r)) := by
         let inv1pM : Matrix d d ℂ := (hM_herm.eigenvectorUnitary : Matrix d d ℂ) *
@@ -931,8 +1063,9 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
                   star (hM_herm.eigenvectorUnitary : Matrix d d ℂ) := by
                 rw [Matrix.diagonal_one, Matrix.mul_one, Unitary.coe_mul_star_self hM_herm.eigenvectorUnitary]
               conv_lhs => rw [hI_spec, hM_spec]
-              rw [← Matrix.add_mul, ← Matrix.mul_add, ← Matrix.diagonal_add]
-              congr 2; ext k; simp [Complex.ofReal_add]
+              rw [← Matrix.add_mul, ← Matrix.mul_add]
+              congr 2; ext i j; simp only [Matrix.add_apply, Matrix.diagonal_apply, Function.comp_apply]
+              split_ifs <;> simp [Complex.ofReal_add]
             rw [hspec]
             simp only [inv1pM, Matrix.mul_assoc]
             rw [← Matrix.mul_assoc (star (hM_herm.eigenvectorUnitary : Matrix d d ℂ)),
@@ -949,7 +1082,8 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
                 = S * Qinv * (S * Sinv) * (σ.mat + (r : ℂ) • 1) * Sinv := by simp [Matrix.mul_assoc]
               _ = S * (Qinv * (σ.mat + (r : ℂ) • 1)) * Sinv := by rw [hS_mul_Sinv, Matrix.mul_one]; simp [Matrix.mul_assoc]
               _ = S * 1 * Sinv := by
-                  have hQinv_Q : Qinv * (σ.mat + (r : ℂ) • 1) = 1 := Matrix.mul_eq_one_comm.mp hQ_mul_Qinv
+                  have hQinv_Q : Qinv * (σ.mat + (r : ℂ) • 1) = 1 := by
+                    exact Matrix.mul_eq_one_comm.mp hQ_mul_Qinv
                   rw [hQinv_Q]
               _ = 1 := by rw [Matrix.mul_one, hS_mul_Sinv]
           calc inv1pM = 1 * inv1pM := (Matrix.one_mul _).symm
@@ -969,12 +1103,13 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
               simpa [Uρ, α, DensityOp.eigUnitary, DensityOp.eigvals, Matrix.star_eq_conjTranspose,
                 Unitary.conjStarAlgAut_apply] using ρ.isHermitian.spectral_theorem
             have hI_spec : (r : ℂ) • (1 : Matrix d d ℂ) = Uρ * Matrix.diagonal (fun _ : d ↦ (r : ℂ)) * star Uρ := by
-              rw [← Matrix.smul_one_eq_diagonal, Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_one,
-                Unitary.coe_mul_star_self ρ.eigUnitary]
-            rw [hρ_spec, hI_spec, ← Matrix.add_mul, ← Matrix.mul_add, ← Matrix.diagonal_add]
-            congr 2; ext i; simp [Complex.ofReal_add]
+              rw [hdiag_r, Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_one, hUρ_mul]
+            rw [hρ_spec, hI_spec, ← Matrix.add_mul, ← Matrix.mul_add]
+            congr 2; ext i j; simp only [Matrix.add_apply, Matrix.diagonal_apply, Function.comp_apply]
+            split_ifs <;> simp [Complex.ofReal_add]
           rw [hP_spec]
           simp only [Qinv]
+          -- `Tr(Uρ D_P Uρᴴ Uσ D_{Q⁻¹} Uσᴴ) = Tr(D_P Vᴴ D_{Q⁻¹} V)`
           have hcyc : (Uρ * Matrix.diagonal (fun i ↦ ((α i + r : ℝ) : ℂ)) * star Uρ *
               (Uσ * Matrix.diagonal (fun j ↦ (((β j + r)⁻¹ : ℝ) : ℂ)) * star Uσ)).trace =
               (Matrix.diagonal (fun i ↦ ((α i + r : ℝ) : ℂ)) * (star V) *
@@ -1016,6 +1151,7 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
         field_simp [ne_of_gt hpos]; ring
       simp_rw [hterm_eq, Finset.sum_sub_distrib, Finset.sum_const, Finset.card_univ, nsmul_eq_mul, mul_one]
       ring
+    -- Nonnegativity of `g r`
     have hg_nn : 0 ≤ g r := by
       rw [hg_spectral]
       apply Finset.sum_nonneg; intro k _
@@ -1026,6 +1162,7 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
         field_simp [ne_of_gt hpos]; ring
       linarith
     refine ⟨hg_nn, ?_⟩
+    -- Congruence `(1 - t) ρ + t σ + r I = S (I + t M) S` ⇒ `negEigCount = #{k | 1 + t λ_k < 0}`
     have hneg_eq : ∀ t : ℝ,
         (negEigCount (isHermitian_pencil ρ σ r t) : ℝ≥0∞) =
           ∑ k : d, if 1 + t * hM_herm.eigenvalues k < 0 then (1 : ℝ≥0∞) else 0 := by
@@ -1047,6 +1184,7 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
         rw [← negEigCount_eq_of_eq (isHermitian_pencil ρ σ r t)
           (by rw [hcong_mat]; exact isHermitian_pencil ρ σ r t) hcong_mat.symm]
         exact negEigCount_congruence h1ptM_herm S Sinv hS_mul_Sinv hSinv_mul_S
+      -- Eigenvalues of `1 + t M` are `1 + t λ_k` (via unitary conjugation by `U_M`)
       let D : Matrix d d ℂ := Matrix.diagonal (fun k ↦ ((1 + t * hM_herm.eigenvalues k : ℝ) : ℂ))
       have hD_herm : D.IsHermitian := by
         rw [Matrix.IsHermitian, Matrix.diagonal_conjTranspose]; congr 1; ext k; simp
@@ -1085,6 +1223,7 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
         exact Nat.cast_injective (α := ℝ) (by rw [← hcard1, hsum_ind, ← hcard2]; rfl)
       rw [hneg1, hneg2, hneg3]
       simp [Finset.sum_boole]
+    -- Integrate over `t` and apply `lintegral_indicator_inv_abs_mul_sq_sub_one`
     have hlhs : ∫⁻ t : ℝ, (negEigCount (isHermitian_pencil ρ σ r t) : ℝ≥0∞) *
         ENNReal.ofReal (1 / (|t| * (t - 1) ^ 2)) ∂volume =
         ∑ k : d, ENNReal.ofReal (Real.log (1 + hM_herm.eigenvalues k) -
@@ -1113,6 +1252,7 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
     have h1 : 1 - (1 + hM_herm.eigenvalues k)⁻¹ = hM_herm.eigenvalues k / (1 + hM_herm.eigenvalues k) := by
       field_simp [ne_of_gt hpos]; ring
     linarith
+  -- Step 5: `∫⁻ r in Ioi 0, ENNReal.ofReal (g r) = ENNReal.ofReal (F 0)` via FTC + MCT
   have hint_g : ∫⁻ r in Ioi (0 : ℝ), ENNReal.ofReal (g r) ∂volume = ENNReal.ofReal (F 0) := by
     have hunion : Ioi (0 : ℝ) = ⋃ n : ℕ, Ioc (0 : ℝ) ((n : ℝ) + 1) := by
       ext r; simp only [mem_Ioi, mem_iUnion, mem_Ioc]
@@ -1126,7 +1266,17 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
         ENNReal.ofReal (g r) ∂volume) atTop
         (𝓝 (∫⁻ r in Ioi (0 : ℝ), ENNReal.ofReal (g r) ∂volume)) := by
       rw [hunion]
-      exact tendsto_lintegral_iUnion_of_monotone hmono_sets
+      have hg_meas : Measurable (fun r : ℝ ↦ ENNReal.ofReal (g r)) := by
+        apply ENNReal.measurable_ofReal.comp
+        have h1 : Measurable (fun r : ℝ ↦ ∑ j : d, Real.log (β j + r)) :=
+          Finset.measurable_sum _ fun j _ ↦ Real.measurable_log.comp (measurable_const.add measurable_id)
+        have h2 : Measurable (fun r : ℝ ↦ ∑ i : d, Real.log (α i + r)) :=
+          Finset.measurable_sum _ fun i _ ↦ Real.measurable_log.comp (measurable_const.add measurable_id)
+        have h3 : Measurable (fun r : ℝ ↦ ∑ i : d, ∑ j : d, ‖V j i‖ ^ 2 * ((α i + r) / (β j + r))) :=
+          Finset.measurable_sum _ fun i _ ↦ Finset.measurable_sum _ fun j _ ↦
+            measurable_const.mul ((measurable_const.add measurable_id).div (measurable_const.add measurable_id))
+        exact ((h1.sub h2).sub measurable_const).add h3
+      exact tendsto_setLIntegral_monotone hmono_sets (fun _ ↦ measurableSet_Ioc) hg_meas
     have hval_n : ∀ n : ℕ, ∫⁻ r in Ioc (0 : ℝ) ((n : ℝ) + 1), ENNReal.ofReal (g r) ∂volume =
         ENNReal.ofReal (F 0 - F ((n : ℝ) + 1)) := by
       intro n
@@ -1147,9 +1297,11 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
     have hlim_rhs : Tendsto (fun n : ℕ ↦ ENNReal.ofReal (F 0 - F ((n : ℝ) + 1))) atTop
         (𝓝 (ENNReal.ofReal (F 0 - 0))) := by
       apply ENNReal.continuous_ofReal.continuousAt.tendsto.comp
-      exact tendsto_const_nhds.sub (hF_tendsto.comp (tendsto_natCast_atTop_atTop.atTop_add tendsto_const_nhds))
+      exact tendsto_const_nhds.sub
+        (hF_tendsto.comp (Filter.tendsto_atTop_add_const_right atTop (1 : ℝ) tendsto_natCast_atTop_atTop))
     simp_rw [hval_n] at hlim_int
     simpa using tendsto_nhds_unique hlim_int hlim_rhs
+  -- Step 6: Swap integrals via Tonelli (`lintegral_lintegral_swap`) and apply layer-cake!
   rw [← hF0_eq, ← hint_g]
   have h1 : ∫⁻ r in Ioi (0 : ℝ), ENNReal.ofReal (g r) ∂volume =
       ∫⁻ r in Ioi (0 : ℝ), ∫⁻ t : ℝ,
