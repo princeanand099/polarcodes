@@ -269,13 +269,13 @@ theorem theta0_gt : (5673 : ℝ) / 100000 < theta0 := by
     have hu_hi := log_one_sub_le_poly3 (x := (1715728 : ℝ) / 21715728) (by norm_num) (by norm_num)
     norm_num at hu_lo hu_hi hlog4q0 hlogq0
     have hq0_simp : q0 = 732233 / 2500000 := by simp only [q0]; norm_num
-    have hlogq0_lb : (-122795 : ℝ) / 100000 < Real.log q0 := by rw [hq0_simp]; linarith
-    have hlogp2_ge : (-122795 : ℝ) / 100000 < Real.log p2 :=
+    have hlogq0_lb : (-122796 : ℝ) / 100000 < Real.log q0 := by rw [hq0_simp]; linarith
+    have hlogp2_ge : (-122796 : ℝ) / 100000 < Real.log p2 :=
       lt_of_lt_of_le hlogq0_lb (Real.log_le_log (by simp only [q0]; norm_num) (le_of_lt hp2_lo))
     rw [h2_eq_negMulLog, div_lt_iff₀ (by linarith : 0 < Real.log 2)]
     unfold Real.negMulLog
     have hp2_pos : 0 < p2 := by linarith
-    have hterm1 : -p2 * Real.log p2 < (2928933 / 10000000) * (122795 / 100000) := by nlinarith
+    have hterm1 : -p2 * Real.log p2 < (2928933 / 10000000) * (122796 / 100000) := by nlinarith
     have hterm2 : -(1 - p2) * Real.log (1 - p2) = (1 - p2) * (Real.log 2 / 2) := by
       rw [hlog1mp2]; ring
     nlinarith
