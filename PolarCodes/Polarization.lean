@@ -47,6 +47,42 @@ lemma treeProb_nonneg (n : ℕ) (P : (Fin n → Bool) → Prop) : 0 ≤ treeProb
   unfold treeProb
   positivity
 
+lemma treeProb_mono (n : ℕ) {P Q : (Fin n → Bool) → Prop} (h : ∀ b, P b → Q b) :
+    treeProb n P ≤ treeProb n Q := by
+  classical
+  unfold treeProb
+  apply div_le_div_of_nonneg_right _ (by positivity)
+  exact_mod_cast Finset.card_le_card (Finset.filter_subset_filter _ h)
+
+lemma treeProb_union (n : ℕ) (P Q : (Fin n → Bool) → Prop) :
+    treeProb n (fun b ↦ P b ∨ Q b) ≤ treeProb n P + treeProb n Q := by
+  classical
+  unfold treeProb
+  rw [← add_div]
+  apply div_le_div_of_nonneg_right _ (by positivity)
+  have hsub : Finset.univ.filter (fun b ↦ P b ∨ Q b) ⊆
+      Finset.univ.filter P ∪ Finset.univ.filter Q := by
+    intro b hb
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_union] at hb ⊢
+    exact hb
+  exact_mod_cast le_trans (Finset.card_le_card hsub) (Finset.card_union_le _ _)
+
+lemma treeProb_compl (n : ℕ) (P : (Fin n → Bool) → Prop) :
+    treeProb n (fun b ↦ ¬ P b) = 1 - treeProb n P := by
+  classical
+  unfold treeProb
+  have hcard : (Finset.univ.filter (fun b ↦ ¬ P b)).card + (Finset.univ.filter P).card = 2 ^ n := by
+    have h := Finset.filter_card_add_filter_neg_card_eq_card (s := (Finset.univ : Finset (Fin n → Bool)))
+      (p := P)
+    simp only [Finset.card_univ, Fintype.card_fun, Fintype.card_bool, Fintype.card_fin] at h
+    omega
+  have hcast : ((Finset.univ.filter (fun b ↦ ¬ P b)).card : ℝ) +
+      ((Finset.univ.filter P).card : ℝ) = (2 : ℝ) ^ n := by
+    exact_mod_cast hcard
+  have hpos : (2 : ℝ) ^ n ≠ 0 := pow_ne_zero n (by norm_num)
+  field_simp [hpos]
+  linarith
+
 lemma treeAvg_const (n : ℕ) (c : ℝ) : treeAvg n (fun _ ↦ c) = c := by
   unfold treeAvg
   rw [Finset.sum_const, Finset.card_univ, Fintype.card_fun, Fintype.card_bool, Fintype.card_fin,
@@ -175,55 +211,78 @@ theorem tree_doob_maximal :
             refine Fin.cases ?_ ?_ i
             · simp [Fin.snoc]
             · intro j
-              simp only [Fin.cons_succ, Fin.snoc]
-              split_ifs with h1 h2
-              · rfl
-              · omega
-              · omega
-              · rfl
+              simp only [Fin.cons_succ, Fin.snoc, Fin.val_succ, Nat.add_lt_add_iff_right]
+              split_ifs <;> rfl
           simp only [Mbranch, hcons_snoc]
           exact hsuper (t + 1) (Nat.succ_le_succ ht) (Fin.cons (α := fun _ ↦ Bool) a b)
         · exact hc
-      rw [treeProb_eq_avg, treeAvg_succ]
-      have hbranch_eq : ∀ a : Bool,
-          treeAvg m (fun b ↦ by
-            classical
-            exact if (∃ t : Fin (m + 2), c ≤ M t.val (Nat.le_of_lt_succ t.isLt)
-              (pathPrefix (Nat.le_of_lt_succ t.isLt) (Fin.cons (α := fun _ ↦ Bool) a b)))
-            then (1 : ℝ) else 0) =
-          treeProb m (fun b ↦ ∃ t : Fin (m + 1),
-            c ≤ Mbranch a t.val (Nat.le_of_lt_succ t.isLt)
+      have hprob_split :
+          treeProb (m + 1) (fun b ↦ ∃ t : Fin (m + 2),
+            c ≤ M t.val (Nat.le_of_lt_succ t.isLt) (pathPrefix (Nat.le_of_lt_succ t.isLt) b)) =
+          (treeProb m (fun b ↦ ∃ t : Fin (m + 1),
+              c ≤ Mbranch false t.val (Nat.le_of_lt_succ t.isLt)
+                (pathPrefix (Nat.le_of_lt_succ t.isLt) b)) +
+            treeProb m (fun b ↦ ∃ t : Fin (m + 1),
+              c ≤ Mbranch true t.val (Nat.le_of_lt_succ t.isLt)
+                (pathPrefix (Nat.le_of_lt_succ t.isLt) b))) / 2 := by
+        rw [treeProb_eq_avg, treeAvg_succ]
+        congr 1
+        have hbranch : ∀ a : Bool,
+            treeAvg m (fun b ↦ by
+              classical
+              exact if (∃ t : Fin (m + 2), c ≤ M t.val (Nat.le_of_lt_succ t.isLt)
+                (pathPrefix (Nat.le_of_lt_succ t.isLt) (Fin.cons (α := fun _ ↦ Bool) a b)))
+              then (1 : ℝ) else 0) =
+            treeProb m (fun b ↦ ∃ t : Fin (m + 1),
+              c ≤ Mbranch a t.val (Nat.le_of_lt_succ t.isLt)
+                (pathPrefix (Nat.le_of_lt_succ t.isLt) b)) := by
+          intro a
+          rw [treeProb_eq_avg]
+          congr 1; ext b
+          have hiff : (∃ t : Fin (m + 2), c ≤ M t.val (Nat.le_of_lt_succ t.isLt)
+              (pathPrefix (Nat.le_of_lt_succ t.isLt) (Fin.cons (α := fun _ ↦ Bool) a b))) ↔
+            (∃ t : Fin (m + 1), c ≤ Mbranch a t.val (Nat.le_of_lt_succ t.isLt)
               (pathPrefix (Nat.le_of_lt_succ t.isLt) b)) := by
-        intro a
-        rw [treeProb_eq_avg]
-        congr 1; ext b
-        classical
-        congr 1; apply propext
-        constructor
-        · rintro ⟨t, ht⟩
-          refine Fin.cases ?_ ?_ t ht
-          · intro ht0
-            exfalso; apply h0
-            have hp : pathPrefix (Nat.zero_le (m + 1)) (Fin.cons (α := fun _ ↦ Bool) a b) =
-                Fin.elim0 := by ext i; exact Fin.elim0 i
-            simpa [hp] using ht0
-          · intro t' ht'
-            refine ⟨t', ?_⟩
-            have hp : pathPrefix (Nat.le_of_lt_succ t'.succ.isLt)
-                (Fin.cons (α := fun _ ↦ Bool) a b) =
-                Fin.cons (α := fun _ ↦ Bool) a (pathPrefix (Nat.le_of_lt_succ t'.isLt) b) := by
-              ext i
-              refine Fin.cases ?_ ?_ i <;> simp [pathPrefix]
-            simpa [Mbranch, hp] using ht'
-        · rintro ⟨t', ht'⟩
-          refine ⟨t'.succ, ?_⟩
-          have hp : pathPrefix (Nat.le_of_lt_succ t'.succ.isLt)
-              (Fin.cons (α := fun _ ↦ Bool) a b) =
-              Fin.cons (α := fun _ ↦ Bool) a (pathPrefix (Nat.le_of_lt_succ t'.isLt) b) := by
-            ext i
-            refine Fin.cases ?_ ?_ i <;> simp [pathPrefix]
-          simpa [Mbranch, hp] using ht'
-      rw [hbranch_eq false, hbranch_eq true]
+            constructor
+            · rintro ⟨t, ht⟩
+              refine Fin.cases ?_ ?_ t ht
+              · intro ht0
+                exfalso; apply h0
+                have hp : pathPrefix (Nat.zero_le (m + 1)) (Fin.cons (α := fun _ ↦ Bool) a b) =
+                    Fin.elim0 := by ext i; exact Fin.elim0 i
+                simpa [hp] using ht0
+              · intro t' ht'
+                refine ⟨t', ?_⟩
+                have hp : pathPrefix (Nat.le_of_lt_succ t'.succ.isLt)
+                    (Fin.cons (α := fun _ ↦ Bool) a b) =
+                    Fin.cons (α := fun _ ↦ Bool) a (pathPrefix (Nat.le_of_lt_succ t'.isLt) b) := by
+                  ext i
+                  refine Fin.cases ?_ ?_ i
+                  · simp [pathPrefix]
+                  · intro j
+                    change Fin.cons (α := fun _ ↦ Bool) a b (Fin.succ ⟨j.val, lt_of_lt_of_le j.isLt (Nat.le_of_lt_succ t'.isLt)⟩) =
+                      b ⟨j.val, lt_of_lt_of_le j.isLt (Nat.le_of_lt_succ t'.isLt)⟩
+                    exact Fin.cons_succ _ _ _
+                simpa [Mbranch, hp] using ht'
+            · rintro ⟨t', ht'⟩
+              refine ⟨t'.succ, ?_⟩
+              have hp : pathPrefix (Nat.le_of_lt_succ t'.succ.isLt)
+                  (Fin.cons (α := fun _ ↦ Bool) a b) =
+                  Fin.cons (α := fun _ ↦ Bool) a (pathPrefix (Nat.le_of_lt_succ t'.isLt) b) := by
+                ext i
+                refine Fin.cases ?_ ?_ i
+                · simp [pathPrefix]
+                · intro j
+                  change Fin.cons (α := fun _ ↦ Bool) a b (Fin.succ ⟨j.val, lt_of_lt_of_le j.isLt (Nat.le_of_lt_succ t'.isLt)⟩) =
+                    b ⟨j.val, lt_of_lt_of_le j.isLt (Nat.le_of_lt_succ t'.isLt)⟩
+                  exact Fin.cons_succ _ _ _
+              simpa [Mbranch, hp] using ht'
+          by_cases h : ∃ t : Fin (m + 1), c ≤ Mbranch a t.val (Nat.le_of_lt_succ t.isLt)
+              (pathPrefix (Nat.le_of_lt_succ t.isLt) b)
+          · simp [hiff.mpr h, h]
+          · simp [mt hiff.mp h, h]
+        rw [hbranch false, hbranch true]
+      rw [hprob_split]
       have hstep0 := hsuper 0 (Nat.succ_le_succ (Nat.zero_le m)) Fin.elim0
       have hsnoc0 : ∀ a : Bool,
           Fin.snoc (α := fun _ ↦ Bool) (Fin.elim0 : Fin 0 → Bool) a =
@@ -315,7 +374,7 @@ lemma cosh_le_exp_half_sq (u : ℝ) :
               convert ha.fun_sub hb using 1; ring
             exact (((hasDerivAt_id' s).fun_mul h1).fun_sub h2).differentiableAt.differentiableWithinAt
           · intro s hs
-            rw [interior_Ici] at hs
+            rw [interior_Ici, Set.mem_Ioi] at hs
             have h1 : HasDerivAt (fun r : ℝ ↦ Real.exp r + Real.exp (-r))
                 (Real.exp s - Real.exp (-s)) s := by
               have ha := Real.hasDerivAt_exp s
@@ -332,7 +391,7 @@ lemma cosh_le_exp_half_sq (u : ℝ) :
               convert ((hasDerivAt_id' s).fun_mul h1).fun_sub h2 using 1; ring
             rw [hd.deriv]
             have hexp : Real.exp (-s) ≤ Real.exp s := Real.exp_le_exp.mpr (by linarith)
-            nlinarith
+            exact mul_nonneg (le_of_lt hs) (sub_nonneg.mpr hexp)
         have hgt := hgmono (Set.mem_Ici.mpr le_rfl) (Set.mem_Ici.mpr (le_of_lt ht)) (le_of_lt ht)
         simp only [g] at hgt hg0
         linarith
