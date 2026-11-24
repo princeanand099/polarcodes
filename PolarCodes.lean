@@ -4,6 +4,7 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Prince Anand
 -/
 import PolarCodes.BinaryEntropy
+import PolarCodes.QuantumStates
 
 /-!
 # Polynomial-Blocklength Quantum Polar Codes via Nonlinear Dephasing Contraction
