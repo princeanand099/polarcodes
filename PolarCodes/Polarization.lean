@@ -40,7 +40,6 @@ lemma treeAvg_zero (f : (Fin 0 → Bool) → ℝ) : treeAvg 0 f = f Fin.elim0 :=
   unfold treeAvg
   rw [pow_zero, div_one, Finset.univ_unique, Finset.sum_singleton]
   congr 1
-  exact Subsingleton.elim _ _
 
 lemma treeAvg_const (n : ℕ) (c : ℝ) : treeAvg n (fun _ ↦ c) = c := by
   unfold treeAvg
@@ -167,7 +166,28 @@ lemma treeProb_succ (n : ℕ) (P : (Fin (n + 1) → Bool) → Prop) :
       (treeProb n (fun b ↦ P (Fin.cons (α := fun _ ↦ Bool) false b)) +
         treeProb n (fun b ↦ P (Fin.cons (α := fun _ ↦ Bool) true b))) / 2 := by
   rw [treeProb_eq_avg, treeAvg_succ, treeProb_eq_avg, treeProb_eq_avg]
-  congr 1
+
+lemma fin_append_snoc {m₁ m₂ : ℕ} (b₁ : Fin m₁ → Bool) (b₂ : Fin m₂ → Bool) (a : Bool) :
+    Fin.snoc (α := fun _ ↦ Bool) (Fin.append b₁ b₂) a =
+      Fin.append b₁ (Fin.snoc (α := fun _ ↦ Bool) b₂ a) := by
+  ext i
+  refine Fin.lastCases ?_ ?_ i
+  · simp only [Fin.snoc_last, Fin.append, Fin.addCases]
+    split_ifs with h
+    · omega
+    · have hlast : Fin.subNat m₁ (Fin.cast (Nat.add_comm m₁ (m₂ + 1)) (Fin.last (m₁ + m₂)))
+          (by omega) = Fin.last m₂ := by
+        ext; simp
+      rw [hlast, Fin.snoc_last]
+  · intro j
+    simp only [Fin.snoc_castSucc, Fin.append, Fin.addCases]
+    by_cases hj : j.val < m₁
+    · simp only [hj, ↓reduceDIte, Fin.val_castSucc]
+      rfl
+    · have hsub : j.val - m₁ < m₂ := by omega
+      simp only [hj, ↓reduceDIte, Fin.val_castSucc, Fin.snoc, Fin.val_subNat, Fin.coe_cast, hsub,
+        cast_eq]
+      congr 1; ext; simp
 
 /-- Tower property for `treeAvg` over concatenated binary paths `Fin (m₁ + m₂) → Bool`. -/
 lemma treeAvg_append (m₁ m₂ : ℕ) (f : (Fin (m₁ + m₂) → Bool) → ℝ) :
@@ -185,21 +205,9 @@ lemma treeAvg_append (m₁ m₂ : ℕ) (f : (Fin (m₁ + m₂) → Bool) → ℝ
   | succ m₂ ih =>
     change treeAvg ((m₁ + m₂) + 1) f = _
     rw [treeAvg_snoc (m₁ + m₂)]
-    have hsnoc : ∀ (a : Bool) (b₁ : Fin m₁ → Bool) (b₂ : Fin m₂ → Bool),
-        Fin.snoc (α := fun _ ↦ Bool) (Fin.append b₁ b₂) a =
-        Fin.append b₁ (Fin.snoc (α := fun _ ↦ Bool) b₂ a) := by
-      intro a b₁ b₂; ext i
-      refine Fin.lastCases ?_ ?_ i
-      · simp [Fin.snoc_last, Fin.append, Fin.addCases]
-      · intro j
-        simp only [Fin.snoc_castSucc]
-        by_cases hj : j.val < m₁
-        · simp [Fin.append, Fin.addCases, hj]
-        · have hsub : j.val - m₁ < m₂ := by omega
-          simp [Fin.append, Fin.addCases, hj, Fin.snoc, hsub]
     rw [ih (fun b ↦ f (Fin.snoc (α := fun _ ↦ Bool) b false)),
         ih (fun b ↦ f (Fin.snoc (α := fun _ ↦ Bool) b true))]
-    simp_rw [hsnoc]
+    simp_rw [fin_append_snoc]
     rw [← treeAvg_add]
     have hdiv : ∀ (g : (Fin m₁ → Bool) → ℝ), treeAvg m₁ g / 2 = treeAvg m₁ (fun b ↦ g b / 2) := by
       intro g; unfold treeAvg; rw [← Finset.sum_div, div_div, div_div, mul_comm]
@@ -238,6 +246,14 @@ lemma treeProb_markov (n : ℕ) {f : (Fin n → Bool) → ℝ} (hf : ∀ b, 0 �
 /-- Prefix of length `t ≤ m` of a binary path `b : Fin m → Bool`. -/
 def pathPrefix {t m : ℕ} (ht : t ≤ m) (b : Fin m → Bool) : Fin t → Bool :=
   fun i ↦ b ⟨i.val, lt_of_lt_of_le i.isLt ht⟩
+
+lemma pathPrefix_pathPrefix {s t m : ℕ} (hs : s ≤ t) (ht : t ≤ m) (b : Fin m → Bool) :
+    pathPrefix hs (pathPrefix ht b) = pathPrefix (le_trans hs ht) b := rfl
+
+lemma pathPrefix_snoc {t : ℕ} (b : Fin t → Bool) (a : Bool) :
+    pathPrefix (Nat.le_succ t) (Fin.snoc (α := fun _ ↦ Bool) b a) = b := by
+  ext i
+  exact Fin.snoc_castSucc (α := fun _ ↦ Bool) b a i
 
 /-- Binary-tree supermartingale Doob maximal inequality:
 if `M` is a nonnegative supermartingale along a binary tree of depth `m`, then for any `c > 0`,
@@ -747,7 +763,13 @@ theorem lemma_5_2_stage1 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
         treeProb m₁ (fun b ↦ η < P.H m₁ b ∧ P.H m₁ b < 1 - η) + η := by
     have hcap : P.symCap = treeAvg m₁ (fun b ↦ 1 - P.H m₁ b) := by
       rw [treeAvg_sub, treeAvg_const, P.avg_H]; rfl
-    rw [hcap, treeProb_eq_avg, treeProb_eq_avg, ← treeAvg_add, ← treeAvg_const m₁ η, ← treeAvg_add]
+    have hrhs : treeProb m₁ (fun b ↦ P.H m₁ b ≤ η) +
+        treeProb m₁ (fun b ↦ η < P.H m₁ b ∧ P.H m₁ b < 1 - η) + η =
+        treeAvg m₁ (fun b ↦
+          ((by classical exact if P.H m₁ b ≤ η then (1 : ℝ) else 0) +
+           (by classical exact if η < P.H m₁ b ∧ P.H m₁ b < 1 - η then (1 : ℝ) else 0)) + η) := by
+      rw [treeAvg_add, treeAvg_add, treeAvg_const, treeProb_eq_avg, treeProb_eq_avg]
+    rw [hcap, hrhs]
     apply treeAvg_mono
     intro b; classical
     have hH := P.H_mem m₁ b
@@ -801,31 +823,25 @@ theorem lemma_5_3_stage2 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
     1 - ε / 4 ≤ treeProb (stage2Depth ε)
       (fun b ↦ P.Z (stage1Depth ε + stage2Depth ε) (Fin.append w b) ≤
         (2 : ℝ) ^ (-(stage2Y0 ε : ℝ))) := by
-  set m₁ := stage1Depth ε
+  let m₁ := stage1Depth ε
   set m₂ := stage2Depth ε
   set Y₀ := stage2Y0 ε
   set Z₀ := stage1Z0 ε
   have ⟨_, _, hZ0_lt, h4sqrtZ0⟩ := lemma_5_2_stage1 P hε0 hε1
   let Z' : (t : ℕ) → (Fin t → Bool) → ℝ := fun t b ↦ P.Z (m₁ + t) (Fin.append w b)
   have hZ'_nn : ∀ t b, 0 ≤ Z' t b := fun t b ↦ (P.Z_mem (m₁ + t) (Fin.append w b)).1
-  have hZ'_snoc : ∀ (t : ℕ) (b : Fin t → Bool) (a : Bool),
-      Fin.append w (Fin.snoc (α := fun _ ↦ Bool) b a) =
-        Fin.snoc (α := fun _ ↦ Bool) (Fin.append w b) a := by
-    intro t b a; ext i
-    refine Fin.lastCases ?_ ?_ i
-    · simp [Fin.snoc_last, Fin.append, Fin.addCases]
-    · intro j
-      simp only [Fin.snoc_castSucc]
-      by_cases hj : j.val < m₁
-      · simp [Fin.append, Fin.addCases, hj]
-      · have hsub : j.val - m₁ < t := by omega
-        simp [Fin.append, Fin.addCases, hj, Fin.snoc, hsub]
   have hZ'_plus : ∀ (t : ℕ) (b : Fin t → Bool),
       Z' (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b true) = (Z' t b) ^ 2 := by
-    intro t b; simp only [Z', hZ'_snoc]; exact P.Z_plus (m₁ + t) (Fin.append w b)
+    intro t b
+    change P.Z (m₁ + (t + 1)) (Fin.append w (Fin.snoc (α := fun _ ↦ Bool) b true)) = _
+    rw [← fin_append_snoc]
+    exact P.Z_plus (m₁ + t) (Fin.append w b)
   have hZ'_minus : ∀ (t : ℕ) (b : Fin t → Bool),
       Z' (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b false) ≤ 2 * Z' t b := by
-    intro t b; simp only [Z', hZ'_snoc]; exact P.Z_minus (m₁ + t) (Fin.append w b)
+    intro t b
+    change P.Z (m₁ + (t + 1)) (Fin.append w (Fin.snoc (α := fun _ ↦ Bool) b false)) ≤ _
+    rw [← fin_append_snoc]
+    exact P.Z_minus (m₁ + t) (Fin.append w b)
   have hZ'0 : Z' 0 Fin.elim0 = P.Z m₁ w := by
     simp only [Z']
     congr 1; ext i; simp [Fin.append, Fin.addCases]; rfl
@@ -861,11 +877,9 @@ theorem lemma_5_3_stage2 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
         rintro ⟨s, hs⟩
         apply hnot
         refine ⟨s.castSucc, ?_⟩
-        simpa [pathPrefix] using hs
+        rw [pathPrefix_pathPrefix] at hs
+        exact hs
       simp [hnot_prev]
-  have hpref_snoc : ∀ (t : ℕ) (b : Fin t → Bool) (a : Bool),
-      pathPrefix (Nat.le_succ t) (Fin.snoc (α := fun _ ↦ Bool) b a) = b := by
-    intro t b a; ext i; simp [pathPrefix, Fin.snoc_castSucc]
   have hM_step_not_hit : ∀ t b, ¬ hit16 t b →
       (M (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b false) +
         M (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b true)) / 2 ≤ gamma2 * M t b := by
@@ -880,10 +894,10 @@ theorem lemma_5_3_stage2 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
     have hM_eq : M t b = Real.sqrt (Z' t b) := hM_not_hit t b hnot
     have hM_f : M (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b false) =
         Real.sqrt (Z' (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b false)) := by
-      simp only [M]; classical simp [hpref_snoc, hnot]
+      simp only [M]; classical simp [pathPrefix_snoc, hnot]
     have hM_t : M (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b true) =
         Real.sqrt (Z' (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b true)) := by
-      simp only [M]; classical simp [hpref_snoc, hnot]
+      simp only [M]; classical simp [pathPrefix_snoc, hnot]
     rw [hM_f, hM_t, hM_eq, hZ'_plus]
     have hsqrt_sq : Real.sqrt ((Z' t b) ^ 2) = Z' t b := Real.sqrt_sq (hZ'_nn t b)
     rw [hsqrt_sq]
@@ -906,9 +920,9 @@ theorem lemma_5_3_stage2 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
     intro t b
     by_cases hhit : hit16 t b
     · have hf : M (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b false) = M t b := by
-        simp only [M]; classical simp [hpref_snoc, hhit]
+        simp only [M]; classical simp [pathPrefix_snoc, hhit]
       have ht : M (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b true) = M t b := by
-        simp only [M]; classical simp [hpref_snoc, hhit]
+        simp only [M]; classical simp [pathPrefix_snoc, hhit]
       rw [hf, ht]; linarith
     · have h1 := hM_step_not_hit t b hhit
       have h2 := gamma2_lt_one
@@ -929,41 +943,38 @@ theorem lemma_5_3_stage2 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
       let k₀ := Nat.find hex
       have hk₀ : ∃ hk : k₀ ≤ m₂, (1 / 16 : ℝ) < Z' k₀ (pathPrefix hk b) := Nat.find_spec hex
       rcases hk₀ with ⟨hk₀_le, hk₀_gt⟩
-      refine ⟨⟨k₀, Nat.lt_succ_of_le hk₀_le⟩, ?_⟩
-      cases hk₀_eq : k₀ with
-      | zero =>
-        exfalso
-        have hpre0 : pathPrefix hk₀_le b = (by subst hk₀_eq; exact Fin.elim0) := by
-          subst hk₀_eq; ext i; exact Fin.elim0 i
-        subst hk₀_eq
-        simp only [hpre0, hZ'0] at hk₀_gt
-        linarith
-      | succ k =>
-        have hnot_prev : ¬ hit16 k (pathPrefix (Nat.le_of_succ_le (hk₀_eq ▸ hk₀_le)) b) := by
-          rintro ⟨s, hs⟩
-          have hs_lt : s.val < k₀ := by omega
-          have hmin := Nat.find_min hex hs_lt
-          apply hmin
-          refine ⟨le_trans (Nat.le_of_lt_succ s.isLt) (Nat.le_of_succ_le (hk₀_eq ▸ hk₀_le)), ?_⟩
-          simpa [pathPrefix] using hs
-        have hMeq : M (k + 1) (pathPrefix (hk₀_eq ▸ hk₀_le) b) =
-            Real.sqrt (Z' (k + 1) (pathPrefix (hk₀_eq ▸ hk₀_le) b)) := by
-          simp only [M]; classical
-          have hpre_eq : pathPrefix (Nat.le_succ k) (pathPrefix (hk₀_eq ▸ hk₀_le) b) =
-              pathPrefix (Nat.le_of_succ_le (hk₀_eq ▸ hk₀_le)) b := by
-            ext i; rfl
-          simp [hpre_eq, hnot_prev]
-        have hgt' : (1 / 16 : ℝ) < Z' (k + 1) (pathPrefix (hk₀_eq ▸ hk₀_le) b) := by
-          simpa [hk₀_eq] using hk₀_gt
-        have hsqrt_gt : (1 / 4 : ℝ) ≤ Real.sqrt (Z' (k + 1) (pathPrefix (hk₀_eq ▸ hk₀_le) b)) := by
-          calc (1 / 4 : ℝ) = Real.sqrt ((1 / 4) ^ 2) := (Real.sqrt_sq (by norm_num)).symm
-            _ ≤ Real.sqrt (Z' (k + 1) (pathPrefix (hk₀_eq ▸ hk₀_le) b)) :=
-                Real.sqrt_le_sqrt (by linarith)
-        simpa [hk₀_eq, hMeq] using hsqrt_gt
+      have hk₀_bound : (1 / 4 : ℝ) ≤ M k₀ (pathPrefix hk₀_le b) := by
+        have hstep : ∀ (k : ℕ) (hk : k ≤ m₂), k = k₀ →
+            (1 / 16 : ℝ) < Z' k (pathPrefix hk b) → (1 / 4 : ℝ) ≤ M k (pathPrefix hk b) := by
+          intro k hk hkeq hgt
+          cases k with
+          | zero =>
+            exfalso
+            have hpre0 : pathPrefix hk b = Fin.elim0 := by ext i; exact Fin.elim0 i
+            rw [hpre0, hZ'0] at hgt
+            linarith
+          | succ k' =>
+            have hnot_prev : ¬ hit16 k' (pathPrefix (Nat.le_of_succ_le hk) b) := by
+              rintro ⟨s, hs⟩
+              have hs_lt : s.val < k₀ := by omega
+              have hmin := Nat.find_min hex hs_lt
+              apply hmin
+              refine ⟨le_trans (Nat.le_of_lt_succ s.isLt) (Nat.le_of_succ_le hk), ?_⟩
+              rw [pathPrefix_pathPrefix] at hs
+              exact hs
+            have hMeq : M (k' + 1) (pathPrefix hk b) = Real.sqrt (Z' (k' + 1) (pathPrefix hk b)) := by
+              simp only [M]; classical
+              rw [pathPrefix_pathPrefix]
+              simp [hnot_prev]
+            rw [hMeq]
+            calc (1 / 4 : ℝ) = Real.sqrt ((1 / 4) ^ 2) := (Real.sqrt_sq (by norm_num)).symm
+              _ ≤ Real.sqrt (Z' (k' + 1) (pathPrefix hk b)) := Real.sqrt_le_sqrt (by linarith)
+        exact hstep k₀ hk₀_le rfl hk₀_gt
+      exact ⟨⟨k₀, Nat.lt_succ_of_le hk₀_le⟩, hk₀_bound⟩
     have hM0_le : M 0 Fin.elim0 / (1 / 4) ≤ 4 * Real.sqrt Z₀ := by
       have hM0 : M 0 Fin.elim0 = Real.sqrt (P.Z m₁ w) := by simp [M, hZ'0]
       rw [hM0]
-      have hsq := Real.sqrt_le_sqrt hw
+      have hsq : Real.sqrt (P.Z m₁ w) ≤ Real.sqrt Z₀ := Real.sqrt_le_sqrt hw
       linarith
     linarith
   have hdecay : ∀ t : ℕ,
@@ -974,7 +985,9 @@ theorem lemma_5_3_stage2 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
     | zero =>
       rw [treeAvg_zero, pow_zero, one_mul]; classical
       split_ifs
-      · simp only [M, hZ'0]; exact Real.sqrt_le_sqrt hw
+      · have hM0 : M 0 Fin.elim0 = Real.sqrt (P.Z m₁ w) := by simp [M, hZ'0]
+        rw [hM0]
+        exact Real.sqrt_le_sqrt hw
       · exact Real.sqrt_nonneg _
     | succ t ih =>
       rw [treeAvg_snoc, ← treeAvg_add]
@@ -983,9 +996,9 @@ theorem lemma_5_3_stage2 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
       rw [hdiv]
       have hstep : treeAvg t (fun b ↦
           ((by classical exact if ¬ hit16 (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b false)
-              then M (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b false) else 0) +
+              then (M (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b false)) else 0) +
            (by classical exact if ¬ hit16 (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b true)
-              then M (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b true) else 0)) / 2) ≤
+              then (M (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b true)) else 0)) / 2) ≤
           gamma2 * treeAvg t (fun b ↦ by classical exact if ¬ hit16 t b then M t b else 0) := by
         rw [← treeAvg_mul_const]
         apply treeAvg_mono
@@ -997,7 +1010,7 @@ theorem lemma_5_3_stage2 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
             have hpre : pathPrefix (Nat.le_of_lt_succ s.castSucc.isLt)
                 (Fin.snoc (α := fun _ ↦ Bool) b false) =
                 pathPrefix (Nat.le_of_lt_succ s.isLt) b := by
-              ext i; simp [pathPrefix, Fin.snoc_castSucc]
+              ext i; exact Fin.snoc_castSucc (α := fun _ ↦ Bool) b false _
             simpa [hpre] using hs
           have ht : hit16 (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b true) := by
             rcases hhit with ⟨s, hs⟩
@@ -1005,7 +1018,7 @@ theorem lemma_5_3_stage2 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
             have hpre : pathPrefix (Nat.le_of_lt_succ s.castSucc.isLt)
                 (Fin.snoc (α := fun _ ↦ Bool) b true) =
                 pathPrefix (Nat.le_of_lt_succ s.isLt) b := by
-              ext i; simp [pathPrefix, Fin.snoc_castSucc]
+              ext i; exact Fin.snoc_castSucc (α := fun _ ↦ Bool) b true _
             simpa [hpre] using hs
           simp [hhit, hf, ht]
         · simp only [hhit, not_false_eq_true, ↓reduceIte]
