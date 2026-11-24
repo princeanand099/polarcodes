@@ -12,7 +12,7 @@ import PolarCodes.GramDephasing
 
 This module establishes:
 - The trace norm `traceNorm M = ∑ i, √(λ_i(Mᴴ M))`
-- Polar decomposition (`exists_unitary_polar`): every square matrix `M` admits a unitary `U`
+- Polar decomposition (`exists_polar_decomp`): every square matrix `M` admits a unitary `U`
   such that `M = U * |M|` and `Re Tr(Uᴴ M) = ‖M‖₁`
 - Variational upper bound (`re_trace_unitary_mul_le_traceNorm`): `Re Tr(Uᴴ M) ≤ ‖M‖₁` for all
   unitary `U`
@@ -41,13 +41,12 @@ lemma traceNorm_nonneg (M : Matrix d d ℂ) : 0 ≤ traceNorm M :=
 /-- For density operators `ρ, σ`, `‖√ρ √σ‖₁ = F(ρ, σ)`. -/
 lemma traceNorm_sqrt_mul_sqrt (ρ σ : DensityOp d) :
     traceNorm (ρ.sqrtMat * σ.sqrtMat) = rootFidelity ρ σ := by
+  rw [← rootFidelity_symm]
   unfold traceNorm rootFidelity
   have h1 : (ρ.sqrtMat * σ.sqrtMat)ᴴ * (ρ.sqrtMat * σ.sqrtMat) = σ.sqrtMat * ρ.mat * σ.sqrtMat := by
     rw [Matrix.conjTranspose_mul, ρ.sqrtMat_isHermitian.eq, σ.sqrtMat_isHermitian.eq,
       ← ρ.sqrtMat_mul_self]
     simp only [Matrix.mul_assoc]
-  rw [← rootFidelity_symm]
-  unfold rootFidelity
   apply spectral_sum_eq_of_charpoly_mul_X_pow
     (Matrix.posSemidef_conjTranspose_mul_self (ρ.sqrtMat * σ.sqrtMat)).isHermitian
     (posSemidef_sqrt_mul_sqrt σ ρ).isHermitian (k := 0) (l := 0)
@@ -77,10 +76,10 @@ theorem exists_polar_decomp (M : Matrix d d ℂ) :
     calc Nᴴ * N = star V * (Mᴴ * M) * V := by
           simp only [N, Matrix.conjTranspose_mul, Matrix.star_eq_conjTranspose, Matrix.mul_assoc]
       _ = (star V * V) * Matrix.diagonal (Complex.ofReal ∘ hA.eigenvalues) * (star V * V) := by
-          rw [hspec]; simp only [Matrix.mul_assoc]
+          conv_lhs => rw [hspec]
+          simp only [Matrix.mul_assoc]
       _ = Matrix.diagonal (Complex.ofReal ∘ hA.eigenvalues) := by
           rw [hV_star_mul, Matrix.one_mul, Matrix.mul_one]
-  -- Columns of `N` as vectors in `E := EuclideanSpace ℂ d`
   let E := EuclideanSpace ℂ d
   let colN : d → E := fun j ↦ WithLp.toLp 2 (fun i ↦ N i j)
   have hinner_N : ∀ j₁ j₂ : d, ⟪colN j₁, colN j₂⟫_ℂ =
@@ -91,7 +90,6 @@ theorem exists_polar_decomp (M : Matrix d d ℂ) :
       Function.comp_apply] at h
     rw [EuclideanSpace.inner_eq_star_dotProduct, dotProduct]
     simpa [colN, mul_comm] using h
-  -- Positive singular value indices `S`
   let S : Finset d := Finset.univ.filter (fun j ↦ 0 < σ j)
   let u : {j : d // j ∈ S} → E := fun j ↦ ((σ j.1 : ℂ)⁻¹) • colN j.1
   have hu_ortho : Orthonormal ℂ u := by
@@ -109,7 +107,6 @@ theorem exists_polar_decomp (M : Matrix d d ℂ) :
       field_simp [hne]
     · have hne : j₁.1 ≠ j₂.1 := fun h ↦ heq (Subtype.ext h)
       simp [heq, hne]
-  -- Span `K` of `{u j}` and its orthogonal complement `Kᗮ`
   let K : Submodule ℂ E := Submodule.span ℂ (Set.range u)
   have hlin : LinearIndependent ℂ u := hu_ortho.linearIndependent
   have hcard_K : Module.finrank ℂ K = Fintype.card {j : d // j ∈ S} := by
@@ -167,7 +164,6 @@ theorem exists_polar_decomp (M : Matrix d d ℂ) :
     have h := (orthonormal_iff_ite.mp hcolW_ortho) j₁ j₂
     rw [EuclideanSpace.inner_eq_star_dotProduct, dotProduct] at h
     simpa [W, Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply, mul_comm] using h
-  -- Verify `W * diag(σ) = N`
   have hWN : W * Matrix.diagonal (Complex.ofReal ∘ σ) = N := by
     ext i j
     simp only [W, Matrix.mul_apply, Matrix.diagonal_apply, Matrix.of_apply, Function.comp_apply,
@@ -186,7 +182,6 @@ theorem exists_polar_decomp (M : Matrix d d ℂ) :
       have hnorm0 : ⟪colN j, colN j⟫_ℂ = 0 := by rw [hinner_N j j]; simp [hlam0]
       have hcol0 : colN j = 0 := inner_self_eq_zero.mp hnorm0
       exact (congr_fun (congr_arg WithLp.ofLp hcol0) i).symm
-  -- Set `U := W * star V ∈ unitaryGroup d ℂ`
   let U_unit : Matrix.unitaryGroup d ℂ := ⟨W, hW_mem⟩ * star hA.eigenvectorUnitary
   refine ⟨U_unit, ?_⟩
   show M = (W * star V) * (V * Matrix.diagonal (Complex.ofReal ∘ σ) * star V)
@@ -256,10 +251,10 @@ theorem re_trace_unitary_mul_le_traceNorm (U' : Matrix.unitaryGroup d ℂ) (M : 
     simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply_eq] at hcol
     have hsum_sq : ∑ i : d, ‖Q i j‖ ^ 2 = 1 := by
       have hre_col := congr_arg Complex.re hcol
+      rw [Complex.re_sum, Complex.one_re] at hre_col
       have hterm : ∀ i : d, (star (Q i j) * Q i j).re = ‖Q i j‖ ^ 2 := by
         intro i
         rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
-      rw [Complex.re_sum] at hre_col
       rw [← hre_col]; apply Finset.sum_congr rfl; intro i _; exact (hterm i).symm
     have hdiag_sq : ‖Q j j‖ ^ 2 ≤ 1 := by
       rw [← hsum_sq]
@@ -299,10 +294,6 @@ def partialTrace₂ (ρ : DensityOp (d₁ × d₂)) : DensityOp d₁ where
           simp_rw [Finset.sum_mul, Finset.mul_sum]
           conv_lhs => arg 2; ext i; rw [Finset.sum_comm]
           rw [Finset.sum_comm]
-          apply Finset.sum_congr rfl; intro k _
-          apply Finset.sum_congr rfl; intro i _
-          apply Finset.sum_congr rfl; intro j _
-          ring
         · apply Finset.sum_congr rfl; intro k _
           simp only [dotProduct, Matrix.mulVec, Pi.star_apply, Fintype.sum_prod_type]
           apply Finset.sum_congr rfl; intro i _
@@ -367,12 +358,11 @@ theorem exists_uhlmann_purification (ρ σ : DensityOp d) :
         Unitary.coe_star_mul_self U, Matrix.one_mul, σ.sqrtMat_mul_self]
     have h := congr_fun (congr_fun hprod i) j
     rw [← h]; simp only [Matrix.mul_apply, Matrix.conjTranspose_apply]
-    apply Finset.sum_congr rfl; intro k _; congr 1; apply Finset.sum_congr rfl; intro x _; ring
   · have hinner' : ∑ p : d × d, star (ψ₀ p) * ψ₁ p =
         ((U : Matrix d d ℂ)ᴴ * (ρ.sqrtMat * σ.sqrtMat)).trace := by
       have hcyc : ((U : Matrix d d ℂ)ᴴ * (ρ.sqrtMat * σ.sqrtMat)).trace =
           (ρ.sqrtMatᴴ * (σ.sqrtMat * (U : Matrix d d ℂ)ᴴ)).trace := by
-        rw [ρ.sqrtMat_isHermitian.eq, ← Matrix.mul_assoc, Matrix.trace_mul_comm]
+        rw [ρ.sqrtMat_isHermitian.eq, Matrix.trace_mul_comm, Matrix.mul_assoc]
       rw [hcyc]
       simp only [Fintype.sum_prod_type, Matrix.trace, Matrix.diag, Matrix.mul_apply,
         Matrix.conjTranspose_apply, ψ₀, ψ₁]
@@ -430,15 +420,16 @@ private lemma traceNorm_half_smul (M : Matrix d d ℂ) :
     rw [Matrix.IsHermitian, Matrix.diagonal_conjTranspose]; congr 1; ext i; simp
   have hcp : ((((1 / 2 : ℝ) : ℂ) • M)ᴴ * (((1 / 2 : ℝ) : ℂ) • M)).charpoly =
       (Matrix.diagonal (Complex.ofReal ∘ lam)).charpoly := by
-    rw [hmul]
-    conv_lhs => rw [hspec]
-    rw [Matrix.smul_mul, Matrix.smul_mul, Matrix.charpoly_mul_comm, ← Matrix.mul_assoc,
+    have h4 : ((1 / 4 : ℝ) : ℂ) • (U * Matrix.diagonal (Complex.ofReal ∘ hA.eigenvalues) * star U) =
+        U * Matrix.diagonal (Complex.ofReal ∘ lam) * star U := by
+      rw [← Matrix.smul_mul, ← Matrix.mul_smul]
+      congr 2; ext i j
+      simp only [Matrix.smul_apply, Matrix.diagonal_apply, Function.comp_apply, smul_eq_mul, lam]
+      split_ifs
+      · push_cast; ring
+      · simp
+    rw [hmul, hspec, h4, Matrix.charpoly_mul_comm, ← Matrix.mul_assoc,
       Unitary.coe_star_mul_self hA.eigenvectorUnitary, Matrix.one_mul]
-    congr 1; ext i j
-    simp only [Matrix.smul_apply, Matrix.diagonal_apply, Function.comp_apply, smul_eq_mul, lam]
-    split_ifs
-    · push_cast; ring
-    · simp
   unfold traceNorm
   trans ∑ i : d, Real.sqrt (lam i)
   · trans ∑ i : d, Real.sqrt (hD_herm.eigenvalues i)
