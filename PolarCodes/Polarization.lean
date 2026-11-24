@@ -12,7 +12,7 @@ import PolarCodes.SplittingBounds
 
 This module formalizes the binary-tree probability space on `Fin n → Bool`, discrete-time
 supermartingale Doob maximal inequality, Hoeffding's inequality for i.i.d. Bernoulli(1/2) sums,
-and Stages 1–2 of the three-stage polarization analysis (**Lemmas 5.2 and 5.3**).
+and the three-stage polarization lemmas (**Lemmas 5.2, 5.3, 5.4**) that drive **Theorem 1.1**.
 -/
 
 open BigOperators Real Finset Set
@@ -894,7 +894,7 @@ theorem lemma_5_2_stage1 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
       intro b
       have hH := P.H_mem m₁ b
       by_cases h1 : P.H m₁ b ≤ η
-      · rw [ind_pos h1, ind_neg (by linarith)]; linarith [hH.1, hη_pos]
+      · rw [ind_pos h1, ind_neg (fun h ↦ by linarith [h.1])]; linarith [hH.1, hη_pos]
       · by_cases h2 : P.H m₁ b < 1 - η
         · rw [ind_neg h1, ind_pos ⟨lt_of_not_ge h1, h2⟩]; linarith [hH.1, hη_pos]
         · rw [ind_neg h1, ind_neg (fun h ↦ h2 h.2)]; linarith
@@ -978,6 +978,7 @@ theorem lemma_5_3_stage2 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
       refine ⟨Fin.last t, ?_⟩
       have hpre : pathPrefix (Nat.le_of_lt_succ (Fin.last t).isLt) b = b := by ext i; rfl
       simpa [hpre] using lt_of_not_ge hgt
+    simp only [M]
     rw [stoppedTransform_snoc_not_hit Z' (1 / 16) Real.sqrt hnot false,
         stoppedTransform_snoc_not_hit Z' (1 / 16) Real.sqrt hnot true,
         stoppedTransform_not_hit Z' (1 / 16) Real.sqrt t b hnot, hZ'_plus]
@@ -1000,7 +1001,8 @@ theorem lemma_5_3_stage2 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
         M (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b true)) / 2 ≤ M t b := by
     intro t b
     by_cases hhit : hitAbove Z' (1 / 16) t b
-    · rw [stoppedTransform_snoc_hit Z' (1 / 16) Real.sqrt hhit false,
+    · simp only [M]
+      rw [stoppedTransform_snoc_hit Z' (1 / 16) Real.sqrt hhit false,
           stoppedTransform_snoc_hit Z' (1 / 16) Real.sqrt hhit true]
       linarith
     · have h1 := hM_step_not_hit t b hhit
@@ -1083,6 +1085,7 @@ theorem lemma_5_3_stage2 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
       hc_pos
       (P := fun b ↦ ¬ hitAbove Z' (1 / 16) m₂ b ∧ (2 : ℝ) ^ (-(Y₀ : ℝ)) < Z' m₂ b)
       (fun b ⟨hnot, hgt⟩ ↦ by
+        simp only [M]
         rw [ind_pos hnot, one_mul, stoppedTransform_not_hit Z' (1 / 16) Real.sqrt m₂ b hnot]
         have hsq : ((2 : ℝ) ^ (-(Y₀ : ℝ) / 2)) ^ 2 = (2 : ℝ) ^ (-(Y₀ : ℝ)) := by
           rw [← Real.rpow_natCast, ← Real.rpow_mul (by norm_num : (0 : ℝ) ≤ 2)]
