@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+title: "Polynomial-Blocklength Quantum Polar Codes via Nonlinear Dephasing Contraction (Lean 4 Formalization)"
+message: "If you use this formalization, please cite it as below."
+type: software
+authors:
+  - family-names: "Anand"
+    given-names: "Prince"
+license: Apache-2.0
+repository-code: "https://github.com/princeanand099/polarcodes"
+date-released: "2026-11-24"
