@@ -57,9 +57,10 @@ lemma treeAvg_nonneg (n : ℕ) {f : (Fin n → Bool) → ℝ} (h : ∀ b, 0 ≤ 
   exact div_nonneg (Finset.sum_nonneg fun b _ ↦ h b) (by positivity)
 
 lemma treeProb_le_one (n : ℕ) (P : (Fin n → Bool) → Prop) : treeProb n P ≤ 1 := by
-  rw [treeProb_eq_avg, ← treeAvg_const n 1]
-  apply treeAvg_mono
-  intro b; classical split_ifs <;> norm_num
+  calc treeProb n P
+      = treeAvg n (fun b ↦ by classical exact if P b then (1 : ℝ) else 0) := treeProb_eq_avg n P
+    _ ≤ treeAvg n (fun _ ↦ 1) := treeAvg_mono n (fun b ↦ by classical split_ifs <;> norm_num)
+    _ = 1 := treeAvg_const n 1
 
 lemma treeProb_nonneg (n : ℕ) (P : (Fin n → Bool) → Prop) : 0 ≤ treeProb n P := by
   rw [treeProb_eq_avg]
@@ -95,9 +96,13 @@ lemma treeProb_union (n : ℕ) (P Q : (Fin n → Bool) → Prop) :
 lemma treeProb_compl (n : ℕ) (P : (Fin n → Bool) → Prop) :
     treeProb n (fun b ↦ ¬ P b) = 1 - treeProb n P := by
   have hsum : treeProb n (fun b ↦ ¬ P b) + treeProb n P = 1 := by
-    rw [treeProb_eq_avg, treeProb_eq_avg, ← treeAvg_add, ← treeAvg_const n 1]
-    congr 1; ext b; classical
-    by_cases hp : P b <;> simp [hp]
+    calc treeProb n (fun b ↦ ¬ P b) + treeProb n P
+        = treeAvg n (fun b ↦ (by classical exact if ¬ P b then (1 : ℝ) else 0) +
+            (by classical exact if P b then (1 : ℝ) else 0)) := by
+          rw [treeProb_eq_avg, treeProb_eq_avg, treeAvg_add]
+      _ = treeAvg n (fun _ ↦ 1) := by
+          congr 1; ext b; classical by_cases hp : P b <;> simp [hp]
+      _ = 1 := treeAvg_const n 1
   linarith
 
 /-- One-step splitting of `treeAvg (n + 1)` by the first coordinate `b 0`. -/
@@ -127,7 +132,9 @@ lemma treeProb_succ (n : ℕ) (P : (Fin (n + 1) → Bool) → Prop) :
       (treeProb n (fun b ↦ P (Fin.cons (α := fun _ ↦ Bool) false b)) +
         treeProb n (fun b ↦ P (Fin.cons (α := fun _ ↦ Bool) true b))) / 2 := by
   rw [treeProb_eq_avg, treeAvg_succ, treeProb_eq_avg, treeProb_eq_avg]
-  congr 1; congr 1
+  have hf : treeAvg n (fun b ↦ by classical exact if P (Fin.cons (α := fun _ ↦ Bool) false b) then (1 : ℝ) else 0) =
+      treeAvg n (fun b ↦ by classical exact if P (Fin.cons (α := fun _ ↦ Bool) false b) then (1 : ℝ) else 0) := rfl
+  congr 1; apply congrArg₂ (· + ·)
   · congr 1; ext b; classical by_cases h : P (Fin.cons (α := fun _ ↦ Bool) false b) <;> simp [h]
   · congr 1; ext b; classical by_cases h : P (Fin.cons (α := fun _ ↦ Bool) true b) <;> simp [h]
 
