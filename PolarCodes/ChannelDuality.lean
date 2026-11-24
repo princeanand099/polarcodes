@@ -416,7 +416,7 @@ theorem checkCombine_duality (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
       (simp only [↓reduceIte, Bool.true_eq_false, Bool.false_eq_true, and_self, and_true, and_false,
         true_and, false_and, mul_one, mul_neg, neg_mul, star_mul', star_neg, star_one, hstar_s,
         one_mul, zero_mul, mul_zero, add_zero, zero_add];
-       push_cast; ring_nf; rw [hu2]; ring)
+       push_cast; ring_nf; try (rw [hu2]; ring))
   have hS_dual0 : vonNeumannEntropy ((CQChannel.checkCombine W₁.dual W₂.dual).out false) =
       1 + (vonNeumannEntropy ((CQChannel.checkCombine W₁ W₂).out false) +
         vonNeumannEntropy ((CQChannel.checkCombine W₁ W₂).out true)) / 2 := by
