@@ -425,7 +425,7 @@ private lemma traceNorm_half_smul (M : Matrix d d ℂ) :
       (Matrix.diagonal (Complex.ofReal ∘ lam)).charpoly := by
     rw [hmul]
     conv_lhs => rw [hspec]
-    rw [← Matrix.smul_mul, Matrix.charpoly_mul_comm, ← Matrix.mul_assoc, ← Matrix.mul_smul,
+    rw [← Matrix.smul_mul, Matrix.charpoly_mul_comm, Matrix.mul_smul, ← Matrix.mul_assoc,
       Unitary.coe_star_mul_self hA.eigenvectorUnitary, Matrix.one_mul]
     congr 1; ext i j
     simp only [Matrix.smul_apply, Matrix.diagonal_apply, Function.comp_apply, smul_eq_mul, lam]

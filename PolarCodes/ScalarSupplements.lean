@@ -259,7 +259,6 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
         rw [inv_div]
         simp only [q, r]
         field_simp [hlog2, hlogq]
-        ring
       have hanti_ratio : AntitoneOn
           (fun x : ℝ ↦ Real.log ((1 + α * x) / (1 - α * x)) / Real.log ((1 + x) / (1 - x)))
           (Ioo 0 1) := by
@@ -365,9 +364,7 @@ theorem convexOn_gc {u : ℝ} (hu : u ∈ Icc (0 : ℝ) 1) :
             have hne_x : 1 - x ^ 2 ≠ 0 := ne_of_gt h2
             have hne_α : α ≠ 0 := ne_of_gt hα0
             have hne_x0 : x ≠ 0 := ne_of_gt hx.1
-            have hne_ax : 1 - α ^ 2 * x ^ 2 ≠ 0 := by convert hne_a using 1; ring
             field_simp [hne_a, hne_x, hne_α, hne_x0]
-            rw [mul_div_cancel_left₀ _ (mul_ne_zero hne_x0 hne_ax)]
           linarith
       let f' : ℝ → ℝ := fun v ↦
         α * Real.log ((1 - binConv p (h2Inv v)) / binConv p (h2Inv v)) /

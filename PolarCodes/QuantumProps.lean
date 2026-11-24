@@ -641,7 +641,7 @@ theorem rootFidelity_block_midpoint {d : Type*} [Fintype d] [DecidableEq d]
         U * Matrix.diagonal (Complex.ofReal ∘ hA.eigenvalues) * star U := by
       simpa [U, Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply] using hA.spectral_theorem
     conv_lhs => rw [hspec]
-    rw [← Matrix.smul_mul, Matrix.charpoly_mul_comm, ← Matrix.mul_assoc, ← Matrix.mul_smul,
+    rw [← Matrix.smul_mul, Matrix.charpoly_mul_comm, Matrix.mul_smul, ← Matrix.mul_assoc,
       Unitary.coe_star_mul_self hA.eigenvectorUnitary, Matrix.one_mul]
     congr 1
     ext i j
@@ -666,6 +666,7 @@ theorem rootFidelity_block_midpoint {d : Type*} [Fintype d] [DecidableEq d]
       rw [Real.sqrt_div' x (by norm_num : (0 : ℝ) ≤ 4), show Real.sqrt 4 = 2 by
         rw [show (4 : ℝ) = 2 ^ 2 by norm_num, Real.sqrt_sq (by norm_num)]]
     simp_rw [h4, ← Finset.sum_div, add_div]
+    rw [add_comm]
 
 /-- **Lemma 5.1(b) (plus channel)**: `Z(W⁺) = Z(W)²` for every binary-input c-q channel `W`. -/
 theorem fidelityParam_plusChannel {d : Type*} [Fintype d] [DecidableEq d] (W : CQChannel d) :
