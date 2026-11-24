@@ -46,7 +46,7 @@ def pauliZTensorI (d : Type*) [Fintype d] [DecidableEq d] :
       apply Finset.sum_eq_zero
       intro r _
       by_cases h1 : p = r
-      · subst h1; simp [hpq]
+      · subst h1; simp [Ne.symm hpq]
       · simp [h1]⟩
 
 /-- Qubit dephasing channel `(Z_p ⊗ id)(Ψ) = (1 - p) Ψ + p (Z ⊗ I) Ψ (Z ⊗ I)` for `p ∈ [0, 1]`. -/
@@ -64,7 +64,7 @@ lemma dephaseState_apply (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1)
   have hconj :
       (∑ x : Bool × d, (∑ y : Bool × d,
           (if (b₁, i) = y then (if b₁ = false then (1 : ℂ) else -1) else 0) * Ψ.mat y x) *
-        star (if x = (b₂, j) then (if x.1 = false then (1 : ℂ) else -1) else 0)) =
+        star (if (b₂, j) = x then (if b₂ = false then (1 : ℂ) else -1) else 0)) =
       (if b₁ = false then (1 : ℂ) else -1) * Ψ.mat (b₁, i) (b₂, j) *
         (if b₂ = false then (1 : ℂ) else -1) := by
     rw [Finset.sum_eq_single (b₂, j)]
@@ -72,7 +72,7 @@ lemma dephaseState_apply (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1)
       · cases b₂ <;> simp
       · intro y _ hy; simp [Ne.symm hy]
       · intro h; exact absurd (Finset.mem_univ _) h
-    · intro x _ hx; simp [hx]
+    · intro x _ hx; simp [Ne.symm hx]
     · intro h; exact absurd (Finset.mem_univ _) h
   rw [hconj]
   cases b₁ <;> cases b₂ <;> simp <;> push_cast <;> ring
@@ -173,8 +173,7 @@ noncomputable def gramState (ρ₀ ρ₁ : DensityOp d) : DensityOp (Bool × d) 
         rw [Finset.mul_sum]
         apply Finset.sum_congr rfl; intro k _
         rw [star_mul']
-        calc star (M k i) * star ((Real.sqrt 2 : ℂ)⁻¹) * (((Real.sqrt 2 : ℂ)⁻¹) * M k j)
-            = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) * (star (M k i) * M k j) := by ring
+        calc _ = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) * (star (M k i) * M k j) := by ring
           _ = (1 / 2 : ℂ) * (star (M k i) * M k j) := by rw [hsq2]
       rw [hrew ρ₀.sqrtMat, hrew ρ₁.sqrtMat, h0, h1]
       push_cast; ring
@@ -248,8 +247,7 @@ theorem lemma_4_1_gram_dephasing
         rw [Finset.mul_sum]
         apply Finset.sum_congr rfl; intro k _
         rw [star_mul']
-        calc star (M k i) * star ((Real.sqrt 2 : ℂ)⁻¹) * (((Real.sqrt 2 : ℂ)⁻¹) * M k j)
-            = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) * (star (M k i) * M k j) := by ring
+        calc _ = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) * (star (M k i) * M k j) := by ring
           _ = (1 / 2 : ℂ) * (star (M k i) * M k j) := by rw [hsq2]
       rw [hrew ρ₀.sqrtMat, hrew ρ₁.sqrtMat, h0, h1]; push_cast; ring
     have hcp := charpoly_mul_conjTranspose_eq (gramFactor ρ₀ ρ₁)
@@ -281,8 +279,7 @@ theorem lemma_4_1_gram_dephasing
             (1 / 2 : ℂ) * ∑ k : d₁, ρ₀.sqrtMat i k * star (ρ₀.sqrtMat j k) := by
           rw [Finset.mul_sum]; apply Finset.sum_congr rfl; intro k _
           rw [star_mul']
-          calc ((Real.sqrt 2 : ℂ)⁻¹) * ρ₀.sqrtMat i k * (star (ρ₀.sqrtMat j k) * star ((Real.sqrt 2 : ℂ)⁻¹))
-              = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) *
+          calc _ = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) *
                   (ρ₀.sqrtMat i k * star (ρ₀.sqrtMat j k)) := by ring
             _ = (1 / 2 : ℂ) * (ρ₀.sqrtMat i k * star (ρ₀.sqrtMat j k)) := by rw [hsq2']
         rw [hrew, h0]; push_cast; ring
@@ -300,8 +297,7 @@ theorem lemma_4_1_gram_dephasing
             (1 / 2 : ℂ) * ∑ k : d₁, ρ₁.sqrtMat i k * star (ρ₁.sqrtMat j k) := by
           rw [Finset.mul_sum]; apply Finset.sum_congr rfl; intro k _
           rw [star_mul']
-          calc ((Real.sqrt 2 : ℂ)⁻¹) * ρ₁.sqrtMat i k * (star (ρ₁.sqrtMat j k) * star ((Real.sqrt 2 : ℂ)⁻¹))
-              = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) *
+          calc _ = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) *
                   (ρ₁.sqrtMat i k * star (ρ₁.sqrtMat j k)) := by ring
             _ = (1 / 2 : ℂ) * (ρ₁.sqrtMat i k * star (ρ₁.sqrtMat j k)) := by rw [hsq2']
         rw [hrew, h1]; push_cast; ring
@@ -344,7 +340,7 @@ theorem lemma_4_1_gram_dephasing
     rw [star_sum, Complex.star_def, Complex.conj_ofReal] at h
     rw [← h]
     apply Finset.sum_congr rfl; intro k _
-    rw [star_mul', star_star]
+    simp only [Complex.star_def, map_mul, starRingEnd_self_apply]; ring
   have hφ₀_inner : ∑ k : d₂, star (φ₀ k) * φ₀ k = 1 := by
     have h : ∀ k : d₂, star (φ₀ k) * φ₀ k = ((‖φ₀ k‖ ^ 2 : ℝ) : ℂ) := by
       intro k; rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
@@ -433,9 +429,7 @@ theorem lemma_4_1_gram_dephasing
       rw [← h0, Finset.sum_mul, Finset.mul_sum]
       apply Finset.sum_congr rfl; intro x _
       simp only [star_mul', star_star]
-      calc star ((Real.sqrt 2 : ℂ)⁻¹) * (star (ρ₀.sqrtMat x i₁) * φ₀ k₁) *
-            (((Real.sqrt 2 : ℂ)⁻¹) * (ρ₀.sqrtMat x i₂ * star (φ₀ k₂)))
-          = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) *
+      calc _ = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) *
               (star (ρ₀.sqrtMat x i₁) * ρ₀.sqrtMat x i₂ * (φ₀ k₁ * star (φ₀ k₂))) := by ring
         _ = (1 / 2 : ℂ) * (star (ρ₀.sqrtMat x i₁) * ρ₀.sqrtMat x i₂ * (φ₀ k₁ * star (φ₀ k₂))) := by
               rw [hsq2]
@@ -445,9 +439,7 @@ theorem lemma_4_1_gram_dephasing
       rw [← h1, ← hψ₁_ketbra k₁ k₂, Finset.sum_mul, Finset.mul_sum]
       apply Finset.sum_congr rfl; intro x _
       simp only [star_mul', star_star]
-      calc star ((Real.sqrt 2 : ℂ)⁻¹) * (star (ρ₁.sqrtMat x i₁) * ψ₁ k₁) *
-            (((Real.sqrt 2 : ℂ)⁻¹) * (ρ₁.sqrtMat x i₂ * star (ψ₁ k₂)))
-          = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) *
+      calc _ = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) *
               (star (ρ₁.sqrtMat x i₁) * ρ₁.sqrtMat x i₂ * (ψ₁ k₁ * star (ψ₁ k₂))) := by ring
         _ = (1 / 2 : ℂ) * (star (ρ₁.sqrtMat x i₁) * ρ₁.sqrtMat x i₂ * (ψ₁ k₁ * star (ψ₁ k₂))) := by
               rw [hsq2]
