@@ -7,12 +7,13 @@ import PolarCodes.BinaryEntropy
 import PolarCodes.QuantumStates
 import PolarCodes.Channels
 import PolarCodes.SplittingBounds
+import PolarCodes.ScalarSupplements
 import PolarCodes.Polarization
 import PolarCodes.PolarizationFine
 
 /-!
 # Polynomial-Blocklength Quantum Polar Codes via Nonlinear Dephasing Contraction
 
-Root module for the Lean 4 formalization of *Polynomial-Blocklength Quantum Polar Codes
-via Nonlinear Dephasing Contraction* (Prince Anand, November 2026).
+Root library entry point for the Lean 4 formalization of
+*Polynomial-Blocklength Quantum Polar Codes via Nonlinear Dephasing Contraction* (Prince Anand, 2026).
 -/

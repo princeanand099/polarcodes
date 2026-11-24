@@ -62,15 +62,22 @@ lemma phiPot_two_rpow_neg (y : ℝ) : phiPot ((2 : ℝ) ^ (-y)) = phiGold ^ (200
     rw [← Real.rpow_mul (by norm_num : (0 : ℝ) ≤ 2), mul_comm,
       Real.rpow_mul (by norm_num : (0 : ℝ) ≤ 2), two_rpow_alphaGold]
   rw [hpow, ← Real.rpow_natCast phiGold 200, ← Real.rpow_add hφ]
-  congr 1; push_cast; ring
+  push_cast; rw [sub_eq_add_neg]
 
 lemma stage3_exponent_ineq :
     (495376 / 1000000 : ℝ) * Real.log 2 ≤
       (499 / 1000 : ℝ) * Real.log 2 + (501 / 1000 : ℝ) * Real.log (199 / 200) := by
-  have hlog2 := Real.log_two_gt_d9
-  have h199 : (199 / 200 : ℝ) = 1 - 1 / 200 := by norm_num
-  rw [h199]
-  have hlb := log_one_sub_ge (x := 1 / 200) (by norm_num) (by norm_num)
+  have hlog2_gt := Real.log_two_gt_d9
+  have hlog2_lt := Real.log_two_lt_d9
+  have hexp : (200 / 199 : ℝ) ≤ Real.exp (5013 / 1000000) := by
+    have hsum := Real.sum_le_exp_of_nonneg (show (0 : ℝ) ≤ 5013 / 1000000 by norm_num) 3
+    simp only [Finset.sum_range_succ, Finset.sum_range_zero, Nat.factorial] at hsum
+    norm_num at hsum ⊢
+    linarith
+  have hlog_ub : Real.log (200 / 199 : ℝ) ≤ 5013 / 1000000 :=
+    (Real.log_le_iff_le_exp (by norm_num)).mpr hexp
+  have hlog_inv : Real.log (199 / 200 : ℝ) = -Real.log (200 / 199 : ℝ) := by
+    rw [show (199 / 200 : ℝ) = (200 / 199 : ℝ)⁻¹ by norm_num, Real.log_inv]
   linarith
 
 /-- **Lemma 5.4 (Stage 3: Fine Polarization via Golden-Ratio Supermartingale)**:
@@ -151,7 +158,9 @@ theorem lemma_5_4_stage3 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
                 Real.rpow_le_rpow_of_exponent_le (by norm_num) (by norm_num)
             _ = 1 / 4 := by norm_num
         have hplus_le : phiPot ((Z' t b) ^ 2) ≤ phiGold ^ (-2 : ℤ) * phiPot (Z' t b) := by
-          have hsq_le : (Z' t b) ^ 2 ≤ (1 / 4) * Z' t b := by nlinarith
+          have hsq_le : (Z' t b) ^ 2 ≤ (1 / 4) * Z' t b := by
+            rw [sq]
+            exact mul_le_mul_of_nonneg_right (le_trans hZle hthr_le) (le_of_lt hzpos)
           calc phiPot ((Z' t b) ^ 2)
               ≤ phiPot ((1 / 4) * Z' t b) := phiPot_mono (sq_nonneg _) hsq_le
             _ = phiGold ^ (-2 : ℤ) * phiPot (Z' t b) := by
@@ -213,7 +222,7 @@ theorem lemma_5_4_stage3 (P : PolarProcess) {ε : ℝ} (hε0 : 0 < ε) (hε1 : �
                 Real.log (16 / ε) := by field_simp [ne_of_gt hlogφ]
             linarith
     rw [div_one] at hdoob
-    linarith only [hsub, hdoob, hN0_le]
+    exact le_trans hsub (le_trans hdoob hN0_le)
   -- Step 2: Hoeffding gives `P(S < 0.499 m₃) ≤ ε / 16`
   have hm₃_hoeff : (500000 : ℝ) * Real.log (16 / ε) ≤ (m₃ : ℝ) := by
     have h1 : Nat.ceil (500000 * Real.log (16 / ε)) ≤ m₃ := le_trans (le_max_right _ _) hm₃
@@ -447,6 +456,7 @@ theorem polar_error_exponent_bound {n : ℕ} (hn : 1 ≤ n) :
     have hlogN_eq : Real.log N = (n : ℝ) * Real.log 2 := by
       simp only [N, Real.log_pow]
     have hlog2_gt : (1 / 2 : ℝ) < Real.log 2 := lt_trans (by norm_num) Real.log_two_gt_d9
+    have hn_nn : (0 : ℝ) ≤ (n : ℝ) := Nat.cast_nonneg n
     nlinarith
   have hexp : 1 + (n : ℝ) / 2 - 100 * N ^ (49047 / 100000 : ℝ) ≤ -N ^ (49 / 100 : ℝ) := by
     linarith
@@ -458,9 +468,10 @@ theorem polar_error_exponent_bound {n : ℕ} (hn : 1 ≤ n) :
       rw [← Real.rpow_natCast (2 : ℝ) n, ← Real.rpow_add (by norm_num : (0 : ℝ) < 2)]
       congr 1; ring
     rw [hprod, Real.sqrt_eq_rpow, ← Real.rpow_mul (by norm_num : (0 : ℝ) ≤ 2)]
-    have h2eq : (2 : ℝ) = (2 : ℝ) ^ (1 : ℝ) := (Real.rpow_one 2).symm
-    conv_lhs => rw [h2eq]
-    rw [← Real.rpow_add (by norm_num : (0 : ℝ) < 2)]
+    rw [show (2 : ℝ) * (2 : ℝ) ^ (((n : ℝ) - 200 * N ^ (49047 / 100000 : ℝ)) * (1 / 2)) =
+        (2 : ℝ) ^ (1 : ℝ) * (2 : ℝ) ^ (((n : ℝ) - 200 * N ^ (49047 / 100000 : ℝ)) * (1 / 2)) by
+          rw [Real.rpow_one],
+      ← Real.rpow_add (by norm_num : (0 : ℝ) < 2)]
     congr 1; ring
   rw [hLHS_eq]
   exact Real.rpow_le_rpow_of_exponent_le (by norm_num) hexp
@@ -510,7 +521,8 @@ theorem polar_process_poly_blocklength :
         show (64 : ℝ) = (2 : ℝ) ^ (6 : ℕ) by norm_num, Real.logb_pow,
         Real.logb_self_eq_one (by norm_num)]
       push_cast; ring
-    rw [h64_eq] at hceil
+    unfold stage1Depth
+    rw [h64_eq] at hceil ⊢
     have : A₁ * L + B₁ = (8 / Real.logb 2 (1 / Lambda0)) * (6 + L) + 1 := by
       simp only [A₁, B₁]; ring
     linarith
@@ -524,7 +536,7 @@ theorem polar_process_poly_blocklength :
       push_cast; ring
     have hYeq : (stage2Y0 ε : ℝ) = 200 + (Nat.ceil (Real.log (16 / ε) / Real.log phiGold) : ℝ) := by
       simp only [stage2Y0]; push_cast; rfl
-    rw [h16_eq] at hceil
+    rw [h16_eq] at hceil hYeq
     have : AY * L + BY = 200 + ((4 * Real.log 2 + L * Real.log 2) / Real.log phiGold + 1) := by
       simp only [AY, BY]; ring
     linarith
@@ -538,7 +550,8 @@ theorem polar_process_poly_blocklength :
     have harg_nn : 0 ≤ ((stage2Y0 ε : ℝ) / 2 + Real.logb 2 (8 / ε)) / Real.logb 2 (1 / gamma2) := by
       rw [h8_eq]; positivity
     have hceil := Nat.ceil_lt_add_one harg_nn
-    rw [h8_eq] at hceil
+    unfold stage2Depth
+    rw [h8_eq] at hceil ⊢
     have hdiv_le : ((stage2Y0 ε : ℝ) / 2 + (3 + L)) / Real.logb 2 (1 / gamma2) ≤
         ((AY * L + BY) / 2 + (3 + L)) / Real.logb 2 (1 / gamma2) :=
       div_le_div_of_nonneg_right (by linarith) (le_of_lt hlogg)
@@ -559,7 +572,7 @@ theorem polar_process_poly_blocklength :
           Real.log_mul (by norm_num) (by positivity),
           show (16 : ℝ) = (2 : ℝ) ^ (4 : ℕ) by norm_num, Real.log_pow, hlog_inv]
         push_cast; ring
-      rw [h16_eq] at hceil
+      rw [h16_eq] at hceil ⊢
       linarith
   have hn_ge_real : μ * L + B ≤ (n : ℝ) := by
     have hLHS_pos : 0 < (2 : ℝ) ^ B * (1 / ε) ^ μ :=
@@ -625,7 +638,14 @@ theorem polar_process_poly_blocklength :
     have hcap_le : P.symCap ≤ 1 := by
       unfold PolarProcess.symCap; linarith [(P.H_mem 0 Fin.elim0).1]
     have hprod_ge : P.symCap - ε ≤ (1 - ε / 8) * ((1 - ε / 4) * (P.symCap - ε / 4)) := by
-      nlinarith
+      have hcap_pos : 0 < P.symCap - ε / 4 := by linarith
+      have h1 : 1 - 3 * ε / 8 ≤ (1 - ε / 8) * (1 - ε / 4) := by nlinarith
+      have h2 : (1 - 3 * ε / 8) * (P.symCap - ε / 4) ≤
+          (1 - ε / 8) * ((1 - ε / 4) * (P.symCap - ε / 4)) := by
+        have := mul_le_mul_of_nonneg_right h1 (le_of_lt hcap_pos)
+        linarith
+      have h3 : P.symCap - ε ≤ (1 - 3 * ε / 8) * (P.symCap - ε / 4) := by nlinarith
+      linarith
     have hchain : (1 - ε / 8) * ((1 - ε / 4) * (P.symCap - ε / 4)) ≤
         (1 - ε / 8) * ((1 - ε / 4) * treeProb m₁ (fun w ↦ P.H m₁ w ≤ stage1Eta ε)) := by
       apply mul_le_mul_of_nonneg_left _ (by linarith)
