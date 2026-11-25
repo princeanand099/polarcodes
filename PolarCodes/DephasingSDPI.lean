@@ -538,7 +538,7 @@ private lemma dephaseState_semigroup_sub (Ψ : DensityOp (Bool × d)) {t h : ℝ
     simp only [DensityOp.conjUnitary, dephaseState, DensityOp.mix, hZeq, Matrix.mul_add, Matrix.add_mul,
       Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_assoc, hZ_star]
     rw [← Matrix.mul_assoc (Z : Matrix (Bool × d) (Bool × d) ℂ) (Z : Matrix (Bool × d) (Bool × d) ℂ),
-      hZ_self, Matrix.one_mul, hZ_self, Matrix.mul_one, add_comm]
+      hZ_self, Matrix.one_mul, Matrix.mul_one, add_comm]
     ext i j; simp [Complex.real_smul]
   have hdiff_u : ∀ (u : ℝ) (hu0 : 0 ≤ u),
       (dephaseState (dephaseP u) (dephaseP_nonneg hu0) (dephaseP_le_one u) Ψ).mat -
@@ -682,9 +682,9 @@ private lemma ode_log_contraction (C : ℝ → ℝ) (T L : ℝ) (hT_nn : 0 ≤ T
         simpa using h1.div_const (2 : ℝ)
       have hcomp : HasDerivAt (fun v : ℝ ↦ 1 - h2 ((1 - v) / 2))
           (0 - Real.logb 2 ((1 - (1 - u) / 2) / ((1 - u) / 2)) * (-1 / 2)) u := by
-        have h1 : HasDerivAt (fun v : ℝ ↦ h2 ((1 - v) / 2))
+        have h1 : HasDerivAt (h2 ∘ fun v : ℝ ↦ (1 - v) / 2)
             (Real.logb 2 ((1 - (1 - u) / 2) / ((1 - u) / 2)) * (-1 / 2)) u :=
-          hd_h2.comp u hd_lin
+          HasDerivAt.comp u hd_h2 hd_lin
         exact (hasDerivAt_const u (1 : ℝ)).sub h1
       have hderiv_eq : 0 - Real.logb 2 ((1 - (1 - u) / 2) / ((1 - u) / 2)) * (-1 / 2) = cDeriv u := by
         unfold cDeriv
@@ -1011,7 +1011,7 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
           simp only [dotProduct, Pi.star_apply, Complex.re_sum] at hre
           convert hre using 1 <;>
             (apply Finset.sum_congr rfl; intro k _
-             have hsq : star _ * _ = ((‖_‖ ^ 2 : ℝ) : ℂ) := by
+             have hsq : ∀ z : ℂ, star z * z = ((‖z‖ ^ 2 : ℝ) : ℂ) := fun z ↦ by
                rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
              rw [hsq, Complex.ofReal_re])
         rw [← hnorm, Finset.mul_sum]
@@ -1221,7 +1221,7 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
         rw [h3] at hre
         simp only [dotProduct, Pi.star_apply, Complex.re_sum] at hre
         rw [← hre]; apply Finset.sum_congr rfl; intro k _
-        have hsq : star _ * _ = ((‖_‖ ^ 2 : ℝ) : ℂ) := by
+        have hsq : ∀ z : ℂ, star z * z = ((‖z‖ ^ 2 : ℝ) : ℂ) := fun z ↦ by
           rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
         rw [hsq, Complex.ofReal_re]
       calc lam_min = lam_min * ∑ k, ‖((star ((Ψt t ht).eigUnitary : Matrix (Bool × d) (Bool × d) ℂ)).mulVec w) k‖ ^ 2 := by
