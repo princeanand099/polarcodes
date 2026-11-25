@@ -32,6 +32,102 @@ namespace PolarCodes
 
 variable {d : Type*} [Fintype d] [DecidableEq d]
 
+private lemma conjUnitary_posDef {α : Type*} [Fintype α] [DecidableEq α]
+    {ρ : DensityOp α} (hρ : ρ.mat.PosDef) (U : Matrix.unitaryGroup α ℂ) :
+    (DensityOp.conjUnitary U ρ).mat.PosDef := by
+  have hU : Function.Injective (fun v : α → ℂ ↦ v ᵥ* (U : Matrix α α ℂ)) := by
+    intro v w hvw
+    have h1 := congr_arg (fun x ↦ x ᵥ* star (U : Matrix α α ℂ)) hvw
+    have hUmul : (U : Matrix α α ℂ) * star (U : Matrix α α ℂ) = 1 := Unitary.coe_mul_star_self U
+    simp only [Matrix.vecMul_vecMul, hUmul, Matrix.vecMul_one] at h1
+    exact h1
+  simpa [DensityOp.conjUnitary, Matrix.star_eq_conjTranspose] using
+    hρ.mul_mul_conjTranspose_same hU
+
+private lemma maxMixedState_posDef' (α : Type*) [Fintype α] [DecidableEq α] [Nonempty α] :
+    (maxMixedState α).mat.PosDef := by
+  have hpos : (0 : ℝ) < ((Fintype.card α : ℝ)⁻¹) := inv_pos.mpr (Nat.cast_pos.mpr Fintype.card_pos)
+  simpa [maxMixedState, Complex.real_smul] using (Matrix.PosDef.one (n := α) (R := ℂ)).smul hpos
+
+private lemma dephaseP_le_one (t : ℝ) : (1 - Real.exp (-t)) / 2 ≤ 1 := by
+  have hpos : 0 < Real.exp (-t) := Real.exp_pos _
+  linarith
+
+private lemma qjs_lt_one_posDef {α : Type*} [Fintype α] [DecidableEq α]
+    {ρ σ : DensityOp α} (hρ : ρ.mat.PosDef) (hσ : σ.mat.PosDef) :
+    qjs ρ σ < 1 := by
+  obtain ⟨a, b, μ, ha, hab, hprob, hsuppμ, _, hmean, _, _, hEq36⟩ :=
+    lemma_3_2_hockeyStick_measure hρ hσ
+  have hlt_pt : ∀ s ∈ Icc a b,
+      s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s)) < (1 + s) / 2 := by
+    intro s hs
+    have hs0 : 0 < s := lt_of_lt_of_le ha hs.1
+    have h1 : Real.logb 2 (2 * s / (1 + s)) < 1 := by
+      rw [Real.logb_lt_iff_lt_rpow (by norm_num : (1 : ℝ) < 2) (by positivity), Real.rpow_one,
+        div_lt_iff₀ (by linarith)]; linarith
+    have h2 : Real.logb 2 (2 / (1 + s)) < 1 := by
+      rw [Real.logb_lt_iff_lt_rpow (by norm_num : (1 : ℝ) < 2) (by positivity), Real.rpow_one,
+        div_lt_iff₀ (by linarith)]; linarith
+    nlinarith
+  have hcont_diff : ContinuousOn (fun s : ℝ ↦
+      (1 + s) / 2 - (s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s)))) (Icc a b) := by
+    refine ContinuousOn.sub (by fun_prop) (ContinuousOn.add ?_ ?_)
+    · refine (continuousOn_id.div_const 2).mul (ContinuousOn.div_const ?_ _)
+      refine Real.continuousOn_log.comp ?_ ?_
+      · exact (continuousOn_const.mul continuousOn_id).div (continuousOn_const.add continuousOn_id)
+          fun s hs ↦ ne_of_gt (by linarith [lt_of_lt_of_le ha hs.1])
+      · intro s hs; exact ne_of_gt (div_pos (by linarith [lt_of_lt_of_le ha hs.1])
+          (by linarith [lt_of_lt_of_le ha hs.1]))
+    · refine continuousOn_const.mul (ContinuousOn.div_const ?_ _)
+      refine Real.continuousOn_log.comp ?_ ?_
+      · exact continuousOn_const.div (continuousOn_const.add continuousOn_id)
+          fun s hs ↦ ne_of_gt (by linarith [lt_of_lt_of_le ha hs.1])
+      · intro s hs; exact ne_of_gt (div_pos two_pos (by linarith [lt_of_lt_of_le ha hs.1]))
+  obtain ⟨t₀, ht₀, hmin⟩ := isCompact_Icc.exists_isMinOn ⟨a, left_mem_Icc.mpr hab⟩ hcont_diff
+  set δ := (1 + t₀) / 2 - (t₀ / 2 * Real.logb 2 (2 * t₀ / (1 + t₀)) + 1 / 2 * Real.logb 2 (2 / (1 + t₀)))
+  have hδ_pos : 0 < δ := sub_pos.mpr (hlt_pt t₀ ht₀)
+  have hI_lhs : MeasureTheory.Integrable (fun s : ℝ ↦
+      s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s))) μ := by
+    have hcont : ContinuousOn (fun s : ℝ ↦
+        s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s))) (Icc a b) := by
+      have := (show ContinuousOn (fun s : ℝ ↦ (1 + s) / 2) (Icc a b) by fun_prop).sub hcont_diff
+      exact this.congr fun s _ ↦ by dsimp only [Pi.sub_apply]; ring
+    obtain ⟨M, hM⟩ := isCompact_Icc.exists_bound_of_continuousOn hcont
+    have hm : MeasureTheory.AEStronglyMeasurable (fun s : ℝ ↦
+        s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s))) μ := by
+      have hrest : μ.restrict (Icc a b) = μ :=
+        MeasureTheory.Measure.restrict_eq_self_of_ae_mem (MeasureTheory.ae_iff.mpr hsuppμ)
+      rw [← hrest]; exact hcont.aestronglyMeasurable measurableSet_Icc
+    refine MeasureTheory.Integrable.mono' (MeasureTheory.integrable_const M) hm ?_
+    filter_upwards [MeasureTheory.ae_iff.mpr hsuppμ] with s hs
+    exact hM s hs
+  have hI_rhs : MeasureTheory.Integrable (fun s : ℝ ↦ (1 + s) / 2) μ := by
+    have hcont : ContinuousOn (fun s : ℝ ↦ (1 + s) / 2) (Icc a b) := by fun_prop
+    obtain ⟨M, hM⟩ := isCompact_Icc.exists_bound_of_continuousOn hcont
+    refine MeasureTheory.Integrable.mono' (MeasureTheory.integrable_const M) (by fun_prop) ?_
+    filter_upwards [MeasureTheory.ae_iff.mpr hsuppμ] with s hs
+    exact hM s hs
+  have hint_le : ∫ s, (s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s))) ∂μ ≤
+      ∫ s, ((1 + s) / 2 - δ) ∂μ := by
+    apply MeasureTheory.integral_mono_ae hI_lhs (hI_rhs.sub (MeasureTheory.integrable_const δ))
+    filter_upwards [MeasureTheory.ae_iff.mpr hsuppμ] with s hs
+    have hle : δ ≤ (1 + s) / 2 - (s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s))) := hmin hs
+    dsimp only [Pi.sub_apply]; linarith
+  have hrhs_val : ∫ s, ((1 + s) / 2 - δ) ∂μ = 1 - δ := by
+    have hint_s : MeasureTheory.Integrable (fun s : ℝ ↦ s) μ := by
+      refine MeasureTheory.Integrable.mono' (MeasureTheory.integrable_const b)
+        (continuous_id : Continuous (fun s : ℝ ↦ s)).aestronglyMeasurable ?_
+      filter_upwards [MeasureTheory.ae_iff.mpr hsuppμ] with s hs
+      rw [Real.norm_of_nonneg (by linarith [hs.1])]; exact hs.2
+    rw [MeasureTheory.integral_sub hI_rhs (MeasureTheory.integrable_const δ),
+      MeasureTheory.integral_div, MeasureTheory.integral_add (MeasureTheory.integrable_const 1) hint_s,
+      MeasureTheory.integral_const, smul_eq_mul, hmean,
+      show μ.real univ = 1 by simp [MeasureTheory.Measure.real],
+      MeasureTheory.integral_const, smul_eq_mul,
+      show μ.real univ = 1 by simp [MeasureTheory.Measure.real]]
+    ring
+  linarith
+
 /-! ### Part 1: Matrix Logarithm Trace and Klein's Inequality for Positive Definite States -/
 
 /-- Natural matrix logarithm `log(σ) = U_σ diag(log σ_j) U_σ†` for a density operator `σ`. -/
@@ -61,14 +157,24 @@ private lemma re_trace_mul_natLogMat (ρ σ : DensityOp d) :
     rw [hstarW]
     calc (Uρ * Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) * star Uρ *
             (Uσ * Matrix.diagonal (fun j ↦ (Real.log (σ.eigvals j) : ℂ)) * star Uσ)).trace
-        = (Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) *
+        = (Uρ * (Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) * star Uρ *
+            (Uσ * Matrix.diagonal (fun j ↦ (Real.log (σ.eigvals j) : ℂ)) * star Uσ))).trace := by
+          simp only [Matrix.mul_assoc]
+      _ = (Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) *
             (star Uρ * Uσ * Matrix.diagonal (fun j ↦ (Real.log (σ.eigvals j) : ℂ)) * (star Uσ * Uρ))).trace := by
           rw [Matrix.trace_mul_comm Uρ]; simp only [Matrix.mul_assoc]
       _ = _ := rfl
   rw [htr]
-  simp only [Matrix.trace, Matrix.diag, Matrix.mul_apply, Matrix.diagonal_apply,
-    Function.comp_apply, ite_mul, zero_mul, mul_ite, mul_zero, Finset.sum_ite_eq,
-    Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte, Complex.re_sum, Finset.mul_sum]
+  have htr_simp : (Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) *
+      (star W * Matrix.diagonal (fun j ↦ (Real.log (σ.eigvals j) : ℂ)) * W)).trace =
+      ∑ i : d, ∑ j : d, (ρ.eigvals i : ℂ) * (star (W j i) * (Real.log (σ.eigvals j) : ℂ) * W j i) := by
+    simp only [Matrix.trace, Matrix.diag, Matrix.mul_apply, Matrix.diagonal_apply,
+      Function.comp_apply, ite_mul, zero_mul, mul_ite, mul_zero, Finset.sum_ite_eq,
+      Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte, Finset.mul_sum, Matrix.star_apply]
+    apply Finset.sum_congr rfl; intro i _
+    rw [Finset.sum_comm]
+    simp only [Finset.sum_ite_eq, Finset.mem_univ, ↓reduceIte]
+  rw [htr_simp, Complex.re_sum]
   apply Finset.sum_congr rfl; intro i _
   rw [Complex.re_sum]
   apply Finset.sum_congr rfl; intro j _
@@ -78,7 +184,6 @@ private lemma re_trace_mul_natLogMat (ρ σ : DensityOp d) :
       ((‖W j i‖ ^ 2 * (ρ.eigvals i * Real.log (σ.eigvals j)) : ℝ) : ℂ) := by
     calc _ = (ρ.eigvals i : ℂ) * (Real.log (σ.eigvals j) : ℂ) * (star (W j i) * W j i) := by ring
       _ = _ := by rw [hsq]; push_cast; ring
-  simp only [Matrix.star_apply]
   rw [hcalc, Complex.ofReal_re]
 
 /-- For any positive definite `ρ, σ`,
@@ -93,11 +198,13 @@ private lemma relEntropy_toReal_mul_log2 {ρ σ : DensityOp d}
   set W : Matrix d d ℂ := star (σ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ)
   have hcol1 : ∀ i : d, ∑ j : d, ‖W j i‖ ^ 2 = 1 := by
     intro i
+    have hσU : (σ.eigUnitary : Matrix d d ℂ) * star (σ.eigUnitary : Matrix d d ℂ) = 1 :=
+      Unitary.coe_mul_star_self σ.eigUnitary
+    have hρU : star (ρ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ) = 1 :=
+      Unitary.coe_star_mul_self ρ.eigUnitary
     have hU : star W * W = 1 := by
       simp only [W, Matrix.star_mul, star_star, Matrix.mul_assoc]
-      rw [← Matrix.mul_assoc (σ.eigUnitary : Matrix d d ℂ),
-        Unitary.coe_mul_star_self σ.eigUnitary, Matrix.one_mul,
-        Unitary.coe_star_mul_self ρ.eigUnitary]
+      rw [← Matrix.mul_assoc (σ.eigUnitary : Matrix d d ℂ), hσU, Matrix.one_mul, hρU]
     have hii := congr_arg Complex.re (congr_fun (congr_fun hU i) i)
     simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply_eq, Complex.one_re,
       Complex.re_sum] at hii
@@ -108,11 +215,13 @@ private lemma relEntropy_toReal_mul_log2 {ρ σ : DensityOp d}
     rw [hsq, Complex.ofReal_re]
   have hrow1 : ∀ j : d, ∑ i : d, ‖W j i‖ ^ 2 = 1 := by
     intro j
+    have hρU : (ρ.eigUnitary : Matrix d d ℂ) * star (ρ.eigUnitary : Matrix d d ℂ) = 1 :=
+      Unitary.coe_mul_star_self ρ.eigUnitary
+    have hσU : star (σ.eigUnitary : Matrix d d ℂ) * (σ.eigUnitary : Matrix d d ℂ) = 1 :=
+      Unitary.coe_star_mul_self σ.eigUnitary
     have hU : W * star W = 1 := by
       simp only [W, Matrix.star_mul, star_star, Matrix.mul_assoc]
-      rw [← Matrix.mul_assoc (ρ.eigUnitary : Matrix d d ℂ),
-        Unitary.coe_mul_star_self ρ.eigUnitary, Matrix.one_mul,
-        Unitary.coe_star_mul_self σ.eigUnitary]
+      rw [← Matrix.mul_assoc (ρ.eigUnitary : Matrix d d ℂ), hρU, Matrix.one_mul, hσU]
     have hjj := congr_arg Complex.re (congr_fun (congr_fun hU j) j)
     simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply_eq, Complex.one_re,
       Complex.re_sum] at hjj
@@ -167,8 +276,8 @@ private lemma relEntropy_toReal_mul_log2 {ρ σ : DensityOp d}
   rw [hval, div_mul_cancel₀ _ (ne_of_gt hlog2), re_trace_mul_natLogMat]
   have hS : -(Real.log 2) * vonNeumannEntropy ρ = ∑ i : d, ρ.eigvals i * Real.log (ρ.eigvals i) := by
     unfold vonNeumannEntropy Real.negMulLog
-    rw [← mul_div_assoc, mul_div_cancel_left₀ _ (ne_of_gt hlog2)]
-    simp only [Finset.sum_neg_distrib, neg_neg]
+    field_simp [ne_of_gt hlog2]
+    simp only [neg_mul, Finset.sum_neg_distrib, neg_neg]
   rw [hS]
   have hsplit : (∑ i : d, ∑ j : d, ‖W j i‖ ^ 2 *
       (ρ.eigvals i * (Real.log (ρ.eigvals i) - Real.log (σ.eigvals j)))) =
@@ -178,9 +287,8 @@ private lemma relEntropy_toReal_mul_log2 {ρ σ : DensityOp d}
     congr 1
     apply Finset.sum_congr rfl; intro i _
     rw [Finset.sum_mul]
-    apply Finset.sum_congr rfl; intro j _; ring
   rw [hsplit]
-  simp_rw [hcol1, one_mul]
+  simp_rw [hcol1, one_mul]; rfl
 
 /-- `Re Tr(σ log σ) = -(log 2) * S(σ)` for any density operator `σ`. -/
 private lemma re_trace_self_mul_natLogMat (σ : DensityOp d) :
@@ -197,8 +305,8 @@ private lemma re_trace_self_mul_natLogMat (σ : DensityOp d) :
     · intro h; exact absurd (Finset.mem_univ _) h
   rw [hsum]
   unfold vonNeumannEntropy Real.negMulLog
-  rw [← mul_div_assoc, mul_div_cancel_left₀ _ hlog2]
-  simp [Finset.sum_neg_distrib]
+  field_simp [hlog2]
+  simp [neg_mul, Finset.sum_neg_distrib]
 
 /-- **Klein's First-Order Entropy Difference Identity**: for positive definite `ρ, σ`,
 `(S(σ) - S(ρ)) * log 2 = ((ρ - σ) * log σ).trace.re + D(ρ ‖ σ) * log 2`,
@@ -223,12 +331,7 @@ private lemma conjUnitary_natLogMat {ρ : DensityOp d} (hρ : ρ.mat.PosDef)
     (U : Matrix d d ℂ) * natLogMat ρ * star (U : Matrix d d ℂ) =
       natLogMat (DensityOp.conjUnitary U ρ) := by
   set σ := DensityOp.conjUnitary U ρ
-  have hσ_pd : σ.mat.PosDef := by
-    simpa [σ, DensityOp.conjUnitary, Matrix.star_eq_conjTranspose] using
-      hρ.mul_mul_conjTranspose_same (U : Matrix d d ℂ) (by
-        rw [Matrix.mulVec_injective_iff_isUnit]
-        exact ⟨⟨(U : Matrix d d ℂ), star (U : Matrix d d ℂ),
-          Unitary.coe_mul_star_self U, Unitary.coe_star_mul_self U⟩, rfl⟩)
+  have hσ_pd : σ.mat.PosDef := conjUnitary_posDef hρ U
   set Uρ : Matrix d d ℂ := (ρ.eigUnitary : Matrix d d ℂ)
   set Uσ : Matrix d d ℂ := (σ.eigUnitary : Matrix d d ℂ)
   have hspecρ : ρ.mat = Uρ * Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) * star Uρ := by
@@ -260,9 +363,12 @@ private lemma conjUnitary_natLogMat {ρ : DensityOp d} (hρ : ρ.mat.PosDef)
     set w : d → ℂ := (star (U : Matrix d d ℂ)).mulVec (fun r ↦ Uσ r j)
     have hρ_eig : ρ.mat.mulVec w = (σ.eigvals j : ℂ) • w := by
       have h1 := congr_arg (star (U : Matrix d d ℂ)).mulVec hσ_eig
-      simp only [σ, DensityOp.conjUnitary, Matrix.mulVec_mulVec, ← Matrix.mul_assoc (star (U : Matrix d d ℂ)),
-        Unitary.coe_star_mul_self U, Matrix.one_mul, Matrix.mulVec_smul] at h1
-      simpa [w, Matrix.mulVec_mulVec] using h1
+      have hσ_mat : σ.mat = (U : Matrix d d ℂ) * ρ.mat * star (U : Matrix d d ℂ) := rfl
+      have hU_smul : star (U : Matrix d d ℂ) * (U : Matrix d d ℂ) = 1 := Unitary.coe_star_mul_self U
+      rw [hσ_mat, Matrix.mulVec_mulVec, ← Matrix.mul_assoc (star (U : Matrix d d ℂ)),
+        ← Matrix.mul_assoc (star (U : Matrix d d ℂ)), hU_smul, Matrix.one_mul,
+        ← Matrix.mulVec_mulVec, Matrix.mulVec_smul] at h1
+      exact h1
     set y : d → ℂ := (star Uρ).mulVec w
     have hy_coord : ∀ k : d, ρ.eigvals k ≠ σ.eigvals j → y k = 0 := by
       intro k hk
@@ -289,15 +395,17 @@ private lemma conjUnitary_natLogMat {ρ : DensityOp d} (hρ : ρ.mat.PosDef)
       have hUρ_mul : Uρ * star Uρ = 1 := Unitary.coe_mul_star_self ρ.eigUnitary
       rw [hdiag, Matrix.mulVec_smul, show Uρ.mulVec y = w by
         simp only [y, Matrix.mulVec_mulVec, hUρ_mul, Matrix.one_mulVec]]
+    have hU_mul : (U : Matrix d d ℂ) * star (U : Matrix d d ℂ) = 1 := Unitary.coe_mul_star_self U
     rw [← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec, hlog_w, Matrix.mulVec_smul]
-    simp only [w, Matrix.mulVec_mulVec, Unitary.coe_mul_star_self U, Matrix.one_mulVec]
+    simp only [w, Matrix.mulVec_mulVec, hU_mul, Matrix.one_mulVec]
   have hmulU : ((U : Matrix d d ℂ) * natLogMat ρ * star (U : Matrix d d ℂ)) * Uσ = natLogMat σ * Uσ := by
     ext r j; exact congr_fun (hcol_eq j) r
+  have hUσ_mul : Uσ * star Uσ = 1 := Unitary.coe_mul_star_self σ.eigUnitary
   calc (U : Matrix d d ℂ) * natLogMat ρ * star (U : Matrix d d ℂ)
       = ((U : Matrix d d ℂ) * natLogMat ρ * star (U : Matrix d d ℂ) * Uσ) * star Uσ := by
-        rw [Matrix.mul_assoc, Unitary.coe_mul_star_self σ.eigUnitary, Matrix.mul_one]
+        rw [Matrix.mul_assoc, hUσ_mul, Matrix.mul_one]
     _ = (natLogMat σ * Uσ) * star Uσ := by rw [hmulU]
-    _ = natLogMat σ := by rw [Matrix.mul_assoc, Unitary.coe_mul_star_self σ.eigUnitary, Matrix.mul_one]
+    _ = natLogMat σ := by rw [Matrix.mul_assoc, hUσ_mul, Matrix.mul_one]
 
 /-- Symmetrized trace identity for a pair `(ρ, Z ρ Z)` with `Z = pauliZTensorI d`:
 `Re Tr((ρ - ρ̃) log ρ) = ½ (D(ρ ‖ ρ̃) + D(ρ̃ ‖ ρ)) * log 2`. -/
@@ -308,13 +416,13 @@ private lemma trace_diff_log_pauliZ {ρ : DensityOp (Bool × d)} (hρ : ρ.mat.P
   set Z := pauliZTensorI d
   set ρ' := DensityOp.conjUnitary Z ρ
   have hZ_self : (Z : Matrix (Bool × d) (Bool × d) ℂ) * (Z : Matrix (Bool × d) (Bool × d) ℂ) = 1 := by
-    ext p q
+    ext ⟨b, x⟩ ⟨c, y⟩
     simp only [Z, pauliZTensorI, Matrix.mul_apply, Matrix.diagonal_apply, Matrix.one_apply]
-    by_cases hpq : p = q
-    · subst hpq; simp only [↓reduceIte, Finset.sum_ite_eq', Finset.mem_univ]; cases p.1 <;> simp
+    by_cases hpq : (b, x) = (c, y)
+    · subst hpq; simp only [↓reduceIte, Finset.sum_ite_eq', Finset.mem_univ]; cases b <;> simp
     · simp only [hpq, ↓reduceIte]
       apply Finset.sum_eq_zero; intro r _
-      by_cases h : p = r
+      by_cases h : (b, x) = r
       · subst h; simp [hpq]
       · simp [h]
   have hZ_star : star (Z : Matrix (Bool × d) (Bool × d) ℂ) = (Z : Matrix (Bool × d) (Bool × d) ℂ) := by
@@ -323,16 +431,11 @@ private lemma trace_diff_log_pauliZ {ρ : DensityOp (Bool × d)} (hρ : ρ.mat.P
     by_cases hpq : q = p
     · subst hpq; cases q.1 <;> simp
     · simp [hpq, Ne.symm hpq]
-  have hρ'_pd : ρ'.mat.PosDef := by
-    simpa [ρ', DensityOp.conjUnitary, Matrix.star_eq_conjTranspose] using
-      hρ.mul_mul_conjTranspose_same (Z : Matrix (Bool × d) (Bool × d) ℂ) (by
-        rw [Matrix.mulVec_injective_iff_isUnit]
-        exact ⟨⟨(Z : Matrix (Bool × d) (Bool × d) ℂ), star (Z : Matrix (Bool × d) (Bool × d) ℂ),
-          Unitary.coe_mul_star_self Z, Unitary.coe_star_mul_self Z⟩, rfl⟩)
+  have hρ'_pd : ρ'.mat.PosDef := conjUnitary_posDef hρ Z
   have hZρ'Z : (Z : Matrix (Bool × d) (Bool × d) ℂ) * ρ'.mat * star (Z : Matrix (Bool × d) (Bool × d) ℂ) = ρ.mat := by
     simp only [ρ', DensityOp.conjUnitary, hZ_star, Matrix.mul_assoc]
     rw [← Matrix.mul_assoc (Z : Matrix (Bool × d) (Bool × d) ℂ) (Z : Matrix (Bool × d) (Bool × d) ℂ),
-      hZ_self, Matrix.one_mul, hZ_self, Matrix.mul_one]
+      hZ_self, Matrix.one_mul, Matrix.mul_one]
   have hlog_conj : (Z : Matrix (Bool × d) (Bool × d) ℂ) * natLogMat ρ *
       star (Z : Matrix (Bool × d) (Bool × d) ℂ) = natLogMat ρ' :=
     conjUnitary_natLogMat hρ Z
@@ -341,10 +444,18 @@ private lemma trace_diff_log_pauliZ {ρ : DensityOp (Bool × d)} (hρ : ρ.mat.P
     have htr_cyc : ((ρ.mat - ρ'.mat) * natLogMat ρ).trace =
         (((Z : Matrix (Bool × d) (Bool × d) ℂ) * (ρ.mat - ρ'.mat) * star (Z : Matrix (Bool × d) (Bool × d) ℂ)) *
           ((Z : Matrix (Bool × d) (Bool × d) ℂ) * natLogMat ρ * star (Z : Matrix (Bool × d) (Bool × d) ℂ))).trace := by
-      simp only [Matrix.mul_assoc]
-      rw [← Matrix.mul_assoc (star (Z : Matrix (Bool × d) (Bool × d) ℂ)) (Z : Matrix (Bool × d) (Bool × d) ℂ),
-        Unitary.coe_star_mul_self Z, Matrix.one_mul, Matrix.trace_mul_cycle,
-        Unitary.coe_star_mul_self Z, Matrix.one_mul]
+      have hZs : star (Z : Matrix (Bool × d) (Bool × d) ℂ) * (Z : Matrix (Bool × d) (Bool × d) ℂ) = 1 :=
+        Unitary.coe_star_mul_self Z
+      calc ((ρ.mat - ρ'.mat) * natLogMat ρ).trace
+          = ((ρ.mat - ρ'.mat) * natLogMat ρ * (star (Z : Matrix (Bool × d) (Bool × d) ℂ) * (Z : Matrix (Bool × d) (Bool × d) ℂ))).trace := by
+              rw [hZs, Matrix.mul_one]
+        _ = (((Z : Matrix (Bool × d) (Bool × d) ℂ) * ((ρ.mat - ρ'.mat) * natLogMat ρ * star (Z : Matrix (Bool × d) (Bool × d) ℂ)))).trace := by
+              rw [← Matrix.mul_assoc ((ρ.mat - ρ'.mat) * natLogMat ρ), Matrix.trace_mul_comm]
+        _ = (((Z : Matrix (Bool × d) (Bool × d) ℂ) * (ρ.mat - ρ'.mat) * star (Z : Matrix (Bool × d) (Bool × d) ℂ)) *
+              ((Z : Matrix (Bool × d) (Bool × d) ℂ) * natLogMat ρ * star (Z : Matrix (Bool × d) (Bool × d) ℂ))).trace := by
+              simp only [Matrix.mul_assoc]
+              rw [← Matrix.mul_assoc (star (Z : Matrix (Bool × d) (Bool × d) ℂ)) (Z : Matrix (Bool × d) (Bool × d) ℂ),
+                hZs, Matrix.one_mul]
     rw [htr_cyc, hlog_conj, Matrix.mul_sub, Matrix.sub_mul, hZρ'Z,
       show (Z : Matrix (Bool × d) (Bool × d) ℂ) * ρ.mat * star (Z : Matrix (Bool × d) (Bool × d) ℂ) = ρ'.mat from rfl]
     rw [show ρ'.mat - ρ.mat = -(ρ.mat - ρ'.mat) by abel, Matrix.neg_mul, Matrix.trace_neg]
@@ -384,25 +495,19 @@ private lemma dephaseP_lt_half (t : ℝ) : dephaseP t < 1 / 2 := by
 /-- For `Ψ ≻ 0` and `p ∈ [0, 1/2]`, `dephaseState p Ψ ≻ 0`. -/
 private lemma dephaseState_posDef {Ψ : DensityOp (Bool × d)} (hΨ : Ψ.mat.PosDef)
     {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) :
-    (dephaseState p hp0 hp1 Ψ).mat.PosDef := by
-  have hconj : (DensityOp.conjUnitary (pauliZTensorI d) Ψ).mat.PosDef := by
-    simpa [DensityOp.conjUnitary, Matrix.star_eq_conjTranspose] using
-      hΨ.mul_mul_conjTranspose_same (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ) (by
-        rw [Matrix.mulVec_injective_iff_isUnit]
-        exact ⟨⟨(pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ),
-          star (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ),
-          Unitary.coe_mul_star_self _, Unitary.coe_star_mul_self _⟩, rfl⟩)
-  have h1 : (((1 - p : ℝ) : ℂ) • Ψ.mat).PosDef := by
-    simpa [Complex.real_smul] using hΨ.smul (by linarith : (0 : ℝ) < 1 - p)
-  have h2 : ((p : ℂ) • (DensityOp.conjUnitary (pauliZTensorI d) Ψ).mat).PosSemidef := by
-    simpa [Complex.real_smul] using hconj.posSemidef.smul hp0
-  exact h1.add_posSemidef h2
+    (dephaseState p hp0 (le_trans hp1 (by norm_num)) Ψ).mat.PosDef := by
+  have hconj : (DensityOp.conjUnitary (pauliZTensorI d) Ψ).mat.PosDef :=
+    conjUnitary_posDef hΨ (pauliZTensorI d)
+  have h1 : ((1 - p : ℝ) • Ψ.mat).PosDef := hΨ.smul (by linarith : (0 : ℝ) < 1 - p)
+  have h2 : (p • (DensityOp.conjUnitary (pauliZTensorI d) Ψ).mat).PosSemidef :=
+    hconj.posSemidef.smul hp0
+  simpa [dephaseState, DensityOp.mix, Complex.real_smul] using h1.add_posSemidef h2
 
 /-- Semigroup difference identities along `t ↦ Ψ_t = dephaseState (dephaseP t) Ψ`. -/
 private lemma dephaseState_semigroup_sub (Ψ : DensityOp (Bool × d)) {t h : ℝ}
     (ht : 0 ≤ t) (hh : 0 ≤ h) :
-    let Ψt := dephaseState (dephaseP t) (dephaseP_nonneg ht) (le_of_lt (dephaseP_lt_half t)) Ψ
-    let Ψth := dephaseState (dephaseP (t + h)) (dephaseP_nonneg (by linarith)) (le_of_lt (dephaseP_lt_half (t + h))) Ψ
+    let Ψt := dephaseState (dephaseP t) (dephaseP_nonneg ht) (dephaseP_le_one t) Ψ
+    let Ψth := dephaseState (dephaseP (t + h)) (dephaseP_nonneg (by linarith)) (dephaseP_le_one (t + h)) Ψ
     let Ψt' := DensityOp.conjUnitary (pauliZTensorI d) Ψt
     let Ψth' := DensityOp.conjUnitary (pauliZTensorI d) Ψth
     Ψt.mat - Ψth.mat = (((Real.exp h - 1) / 2 : ℝ) : ℂ) • (Ψth.mat - Ψth'.mat) ∧
@@ -410,13 +515,13 @@ private lemma dephaseState_semigroup_sub (Ψ : DensityOp (Bool × d)) {t h : ℝ
   intro Ψt Ψth Ψt' Ψth'
   set Z := pauliZTensorI d
   have hZ_self : (Z : Matrix (Bool × d) (Bool × d) ℂ) * (Z : Matrix (Bool × d) (Bool × d) ℂ) = 1 := by
-    ext p q
+    ext ⟨b, x⟩ ⟨c, y⟩
     simp only [Z, pauliZTensorI, Matrix.mul_apply, Matrix.diagonal_apply, Matrix.one_apply]
-    by_cases hpq : p = q
-    · subst hpq; simp only [↓reduceIte, Finset.sum_ite_eq', Finset.mem_univ]; cases p.1 <;> simp
+    by_cases hpq : (b, x) = (c, y)
+    · subst hpq; simp only [↓reduceIte, Finset.sum_ite_eq', Finset.mem_univ]; cases b <;> simp
     · simp only [hpq, ↓reduceIte]
       apply Finset.sum_eq_zero; intro r _
-      by_cases h1 : p = r
+      by_cases h1 : (b, x) = r
       · subst h1; simp [hpq]
       · simp [h1]
   have hZ_star : star (Z : Matrix (Bool × d) (Bool × d) ℂ) = (Z : Matrix (Bool × d) (Bool × d) ℂ) := by
@@ -426,16 +531,18 @@ private lemma dephaseState_semigroup_sub (Ψ : DensityOp (Bool × d)) {t h : ℝ
     · subst hpq; cases q.1 <;> simp
     · simp [hpq, Ne.symm hpq]
   have hconj_dephase : ∀ (u : ℝ) (hu0 : 0 ≤ u),
-      (DensityOp.conjUnitary Z (dephaseState (dephaseP u) (dephaseP_nonneg hu0) (le_of_lt (dephaseP_lt_half u)) Ψ)).mat =
+      (DensityOp.conjUnitary Z (dephaseState (dephaseP u) (dephaseP_nonneg hu0) (dephaseP_le_one u) Ψ)).mat =
         ((dephaseP u : ℝ) : ℂ) • Ψ.mat + (((1 - dephaseP u : ℝ) : ℂ) • (DensityOp.conjUnitary Z Ψ).mat) := by
     intro u hu0
     simp only [DensityOp.conjUnitary, dephaseState, DensityOp.mix, Matrix.mul_add, Matrix.add_mul,
-      Matrix.mul_smul, Matrix.smul_mul, hZ_star, Matrix.mul_assoc]
-    rw [← Matrix.mul_assoc (Z : Matrix (Bool × d) (Bool × d) ℂ) (Z : Matrix (Bool × d) (Bool × d) ℂ),
-      hZ_self, Matrix.one_mul, hZ_self, Matrix.mul_one, add_comm]
+      Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_assoc, Complex.real_smul]
+    change (1 - dephaseP u : ℂ) • ((Z : Matrix _ _ ℂ) * (Ψ.mat * star (Z : Matrix _ _ ℂ))) +
+      (dephaseP u : ℂ) • ((Z : Matrix _ _ ℂ) * ((Z : Matrix _ _ ℂ) * (Ψ.mat * (star (Z : Matrix _ _ ℂ) * star (Z : Matrix _ _ ℂ))))) = _
+    rw [hZ_star, ← Matrix.mul_assoc (Z : Matrix _ _ ℂ) (Z : Matrix _ _ ℂ), hZ_self, Matrix.one_mul,
+      hZ_self, Matrix.mul_one, add_comm]
   have hdiff_u : ∀ (u : ℝ) (hu0 : 0 ≤ u),
-      (dephaseState (dephaseP u) (dephaseP_nonneg hu0) (le_of_lt (dephaseP_lt_half u)) Ψ).mat -
-      (DensityOp.conjUnitary Z (dephaseState (dephaseP u) (dephaseP_nonneg hu0) (le_of_lt (dephaseP_lt_half u)) Ψ)).mat =
+      (dephaseState (dephaseP u) (dephaseP_nonneg hu0) (dephaseP_le_one u) Ψ).mat -
+      (DensityOp.conjUnitary Z (dephaseState (dephaseP u) (dephaseP_nonneg hu0) (dephaseP_le_one u) Ψ)).mat =
         ((Real.exp (-u) : ℝ) : ℂ) • (Ψ.mat - (DensityOp.conjUnitary Z Ψ).mat) := by
     intro u hu0
     rw [hconj_dephase u hu0]
@@ -469,11 +576,11 @@ private lemma dephaseState_semigroup_sub (Ψ : DensityOp (Bool × d)) {t h : ℝ
 /-- **Theorem 1.3 for Full-Rank States** (`Ψ ≻ 0`). -/
 private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (hΨ : Ψ.mat.PosDef)
     {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) :
-    dephaseCoherence p hp0 hp1 Ψ ≤
+    dephaseCoherence p hp0 (le_trans hp1 (by norm_num)) Ψ ≤
       1 - h2 (binConv (h2Inv (1 - dephaseCoherence 0 le_rfl (by norm_num) Ψ)) p) := by
   -- Boundary case `p = 1/2`: LHS = 0, RHS = 1 - h2(1/2) = 0
   rcases eq_or_lt_of_le hp1 with rfl | hp_lt
-  · have hC : dephaseCoherence (1 / 2) hp0 le_rfl Ψ = 0 := by
+  · have hC : dephaseCoherence (1 / 2) hp0 (by norm_num) Ψ = 0 := by
       unfold dephaseCoherence; ring
     have hbc : binConv (h2Inv (1 - dephaseCoherence 0 le_rfl (by norm_num) Ψ)) (1 / 2) = 1 / 2 := by
       unfold binConv; ring
@@ -489,26 +596,26 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
     simp only [dephaseP, T, neg_neg, Real.exp_log h12p_pos]; ring
   -- Define `C(t) = dephaseCoherence (dephaseP t) Ψ` for `t ≥ 0`
   let Ψt : ∀ t : ℝ, 0 ≤ t → DensityOp (Bool × d) :=
-    fun t ht ↦ dephaseState (dephaseP t) (dephaseP_nonneg ht) (le_of_lt (dephaseP_lt_half t)) Ψ
+    fun t ht ↦ dephaseState (dephaseP t) (dephaseP_nonneg ht) (dephaseP_le_one t) Ψ
   let C : ℝ → ℝ := fun t ↦
-    if ht : 0 ≤ t then dephaseCoherence (dephaseP t) (dephaseP_nonneg ht) (le_of_lt (dephaseP_lt_half t)) Ψ
+    if ht : 0 ≤ t then dephaseCoherence (dephaseP t) (dephaseP_nonneg ht) (dephaseP_le_one t) Ψ
     else 0
   have hC_eq : ∀ t (ht : 0 ≤ t),
-      C t = dephaseCoherence (dephaseP t) (dephaseP_nonneg ht) (le_of_lt (dephaseP_lt_half t)) Ψ := by
+      C t = dephaseCoherence (dephaseP t) (dephaseP_nonneg ht) (dephaseP_le_one t) Ψ := by
     intro t ht; simp [C, ht]
   have hC0 : C 0 = dephaseCoherence 0 le_rfl (by norm_num) Ψ := by
     rw [hC_eq 0 le_rfl]
     unfold dephaseCoherence
     have h0 : dephaseP 0 = 0 := by simp [dephaseP]
-    have hmat : (dephaseState (dephaseP 0) (dephaseP_nonneg le_rfl) (le_of_lt (dephaseP_lt_half 0)) Ψ).mat =
+    have hmat : (dephaseState (dephaseP 0) (dephaseP_nonneg le_rfl) (dephaseP_le_one 0) Ψ).mat =
         (dephaseState 0 le_rfl (by norm_num) Ψ).mat := by
       simp [dephaseState, DensityOp.mix, h0]
     rw [vonNeumannEntropy_eq_of_mat_eq hmat]
-  have hCT : C T = dephaseCoherence p hp0 hp1 Ψ := by
+  have hCT : C T = dephaseCoherence p hp0 (le_trans hp1 (by norm_num)) Ψ := by
     rw [hC_eq T hT_nn]
     unfold dephaseCoherence
-    have hmat : (dephaseState (dephaseP T) (dephaseP_nonneg hT_nn) (le_of_lt (dephaseP_lt_half T)) Ψ).mat =
-        (dephaseState p hp0 hp1 Ψ).mat := by
+    have hmat : (dephaseState (dephaseP T) (dephaseP_nonneg hT_nn) (dephaseP_le_one T) Ψ).mat =
+        (dephaseState p hp0 (le_trans hp1 (by norm_num)) Ψ).mat := by
       simp [dephaseState, DensityOp.mix, hpT]
     rw [vonNeumannEntropy_eq_of_mat_eq hmat]
   -- Bounds on `C(t)`: `0 ≤ C(t) < 1` for all `t ≥ 0`
@@ -516,103 +623,17 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
     intro t ht
     rw [hC_eq t ht, dephaseCoherence_eq_qjs]
     have hpd1 := dephaseState_posDef hΨ (dephaseP_nonneg ht) (le_of_lt (dephaseP_lt_half t))
-    have hpd2 : (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht)).mat.PosDef := by
-      simpa [DensityOp.conjUnitary, Matrix.star_eq_conjTranspose] using
-        hpd1.mul_mul_conjTranspose_same (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ) (by
-          rw [Matrix.mulVec_injective_iff_isUnit]
-          exact ⟨⟨(pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ),
-            star (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ),
-            Unitary.coe_mul_star_self _, Unitary.coe_star_mul_self _⟩, rfl⟩)
-    -- `qjs ≥ 0` from `prop_3_3_qjjs_posDef` or `qjs_eq_half_relEntropy_midpoint`
-    have hnn : 0 ≤ qjs (Ψt t ht) (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht)) :=
-      (qjs_eq_half_relEntropy_midpoint hpd1 hpd2).1
-    -- `qjs < 1` from `lemma_3_2_hockeyStick_measure`
-    have hlt1 : qjs (Ψt t ht) (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht)) < 1 := by
-      obtain ⟨a, b, μ, ha, hab, hprob, hsuppμ, _, hmean, _, _, hEq36⟩ :=
-        lemma_3_2_hockeyStick_measure hpd1 hpd2
-      have hlt_pt : ∀ s ∈ Icc a b,
-          s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s)) < (1 + s) / 2 := by
-        intro s hs
-        have hs0 : 0 < s := lt_of_lt_of_le ha hs.1
-        have h1 : Real.logb 2 (2 * s / (1 + s)) < 1 := by
-          rw [Real.logb_lt_iff_lt_rpow (by norm_num : (1 : ℝ) < 2) (by positivity), Real.rpow_one,
-            div_lt_iff₀ (by linarith)]; linarith
-        have h2 : Real.logb 2 (2 / (1 + s)) < 1 := by
-          rw [Real.logb_lt_iff_lt_rpow (by norm_num : (1 : ℝ) < 2) (by positivity), Real.rpow_one,
-            div_lt_iff₀ (by linarith)]; linarith
-        nlinarith
-      have hcont_diff : ContinuousOn (fun s : ℝ ↦
-          (1 + s) / 2 - (s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s)))) (Icc a b) := by
-        refine ContinuousOn.sub (by fun_prop) (ContinuousOn.add ?_ ?_)
-        · refine (continuousOn_id.div_const 2).mul (ContinuousOn.div_const ?_ _)
-          refine Real.continuousOn_log.comp ?_ ?_
-          · exact (continuousOn_const.mul continuousOn_id).div (continuousOn_const.add continuousOn_id)
-              fun s hs ↦ ne_of_gt (by linarith [lt_of_lt_of_le ha hs.1])
-          · intro s hs; exact ne_of_gt (div_pos (by linarith [lt_of_lt_of_le ha hs.1])
-              (by linarith [lt_of_lt_of_le ha hs.1]))
-        · refine continuousOn_const.mul (ContinuousOn.div_const ?_ _)
-          refine Real.continuousOn_log.comp ?_ ?_
-          · exact continuousOn_const.div (continuousOn_const.add continuousOn_id)
-              fun s hs ↦ ne_of_gt (by linarith [lt_of_lt_of_le ha hs.1])
-          · intro s hs; exact ne_of_gt (div_pos two_pos (by linarith [lt_of_lt_of_le ha hs.1]))
-      obtain ⟨t₀, ht₀, hmin⟩ := isCompact_Icc.exists_isMinOn ⟨a, left_mem_Icc.mpr hab⟩ hcont_diff
-      set δ := (1 + t₀) / 2 - (t₀ / 2 * Real.logb 2 (2 * t₀ / (1 + t₀)) + 1 / 2 * Real.logb 2 (2 / (1 + t₀)))
-      have hδ_pos : 0 < δ := sub_pos.mpr (hlt_pt t₀ ht₀)
-      have hI_lhs : MeasureTheory.Integrable (fun s : ℝ ↦
-          s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s))) μ := by
-        have hcont : ContinuousOn (fun s : ℝ ↦
-            s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s))) (Icc a b) := by
-          have := (show ContinuousOn (fun s : ℝ ↦ (1 + s) / 2) (Icc a b) by fun_prop).sub hcont_diff
-          exact this.congr fun s _ ↦ by dsimp only [Pi.sub_apply]; ring
-        obtain ⟨M, hM⟩ := isCompact_Icc.exists_bound_of_continuousOn hcont
-        have hm : MeasureTheory.AEStronglyMeasurable (fun s : ℝ ↦
-            s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s))) μ := by
-          have hrest : μ.restrict (Icc a b) = μ :=
-            MeasureTheory.Measure.restrict_eq_self_of_ae_mem (MeasureTheory.ae_iff.mpr hsuppμ)
-          rw [← hrest]; exact hcont.aestronglyMeasurable measurableSet_Icc
-        refine MeasureTheory.Integrable.mono' (MeasureTheory.integrable_const M) hm ?_
-        filter_upwards [MeasureTheory.ae_iff.mpr hsuppμ] with s hs
-        exact hM s hs
-      have hI_rhs : MeasureTheory.Integrable (fun s : ℝ ↦ (1 + s) / 2) μ := by
-        have hcont : ContinuousOn (fun s : ℝ ↦ (1 + s) / 2) (Icc a b) := by fun_prop
-        obtain ⟨M, hM⟩ := isCompact_Icc.exists_bound_of_continuousOn hcont
-        refine MeasureTheory.Integrable.mono' (MeasureTheory.integrable_const M) (by fun_prop) ?_
-        filter_upwards [MeasureTheory.ae_iff.mpr hsuppμ] with s hs
-        exact hM s hs
-      have hint_le : ∫ s, (s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s))) ∂μ ≤
-          ∫ s, ((1 + s) / 2 - δ) ∂μ := by
-        apply MeasureTheory.integral_mono_ae hI_lhs (hI_rhs.sub (MeasureTheory.integrable_const δ))
-        filter_upwards [MeasureTheory.ae_iff.mpr hsuppμ] with s hs
-        have hle : δ ≤ (1 + s) / 2 - (s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s))) := hmin hs
-        dsimp only [Pi.sub_apply]; linarith
-      have hrhs_val : ∫ s, ((1 + s) / 2 - δ) ∂μ = 1 - δ := by
-        have hint_s : MeasureTheory.Integrable (fun s : ℝ ↦ s) μ := by
-          refine MeasureTheory.Integrable.mono' (MeasureTheory.integrable_const b)
-            continuous_id.aestronglyMeasurable ?_
-          filter_upwards [MeasureTheory.ae_iff.mpr hsuppμ] with s hs
-          dsimp only [id]; rw [Real.norm_of_nonneg (by linarith [hs.1])]; exact hs.2
-        rw [MeasureTheory.integral_sub hI_rhs (MeasureTheory.integrable_const δ),
-          MeasureTheory.integral_div, MeasureTheory.integral_add (MeasureTheory.integrable_const 1) hint_s,
-          MeasureTheory.integral_const, smul_eq_mul, hmean,
-          show μ.real univ = 1 by simp [MeasureTheory.Measure.real],
-          MeasureTheory.integral_const, smul_eq_mul,
-          show μ.real univ = 1 by simp [MeasureTheory.Measure.real]]
-        ring
-      linarith
-    exact ⟨hnn, hlt1⟩
+    have hpd2 : (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht)).mat.PosDef :=
+      conjUnitary_posDef hpd1 (pauliZTensorI d)
+    exact ⟨(qjs_eq_half_relEntropy_midpoint hpd1 hpd2).1, qjs_lt_one_posDef hpd1 hpd2⟩
   -- Key finite-step lower bound: `C(t) - C(t+h) ≥ (exp h - 1) * phi (C(t+h))`
   have hstep_lower : ∀ t h, 0 ≤ t → 0 ≤ h → (Real.exp h - 1) * phi (C (t + h)) ≤ C t - C (t + h) := by
     intro t h ht hh
     have hth : 0 ≤ t + h := by linarith
     have hpd_t := dephaseState_posDef hΨ (dephaseP_nonneg ht) (le_of_lt (dephaseP_lt_half t))
     have hpd_th := dephaseState_posDef hΨ (dephaseP_nonneg hth) (le_of_lt (dephaseP_lt_half (t + h)))
-    have hpd_th' : (DensityOp.conjUnitary (pauliZTensorI d) (Ψt (t + h) hth)).mat.PosDef := by
-      simpa [DensityOp.conjUnitary, Matrix.star_eq_conjTranspose] using
-        hpd_th.mul_mul_conjTranspose_same (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ) (by
-          rw [Matrix.mulVec_injective_iff_isUnit]
-          exact ⟨⟨(pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ),
-            star (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ),
-            Unitary.coe_mul_star_self _, Unitary.coe_star_mul_self _⟩, rfl⟩)
+    have hpd_th' : (DensityOp.conjUnitary (pauliZTensorI d) (Ψt (t + h) hth)).mat.PosDef :=
+      conjUnitary_posDef hpd_th (pauliZTensorI d)
     have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
     have hklein := entropy_sub_ge_trace_log hpd_t hpd_th
     have hsemi := (dephaseState_semigroup_sub Ψ ht hh).1
@@ -627,23 +648,23 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
         Complex.ofReal_re, Complex.ofReal_im]; ring
     rw [htr_eq, hsym, ← hdiff_C] at hklein
     have hqjjs := prop_3_3_qjjs_posDef hpd_th hpd_th'
-    rw [← dephaseCoherence_eq_qjs (dephaseP (t + h)) (dephaseP_nonneg hth) (le_of_lt (dephaseP_lt_half (t + h))) Ψ,
+    rw [← dephaseCoherence_eq_qjs (dephaseP (t + h)) (dephaseP_nonneg hth) (dephaseP_le_one (t + h)) Ψ,
       ← hC_eq (t + h) hth] at hqjjs
     have hexp_nn : 0 ≤ Real.exp h - 1 := by linarith [Real.add_one_le_exp h]
     nlinarith
   -- Key finite-step upper bound (Lipschitz): `C(t) - C(t+h) ≤ L * h`
   obtain ⟨L, hL_nn, hstep_upper⟩ : ∃ L : ℝ, 0 ≤ L ∧
       ∀ t h, 0 ≤ t → 0 ≤ h → C t - C (t + h) ≤ L * h := by
-    -- Lower bound all eigenvalues of `Ψ_t` by `λ_min = min_i Ψ.eigvals i > 0`
+    -- Lower bound all eigenvalues of `Ψ_t` by `lam_min = min_i Ψ.eigvals i > 0`
     have hne : Nonempty (Bool × d) := by
       by_contra h0
       haveI : IsEmpty (Bool × d) := not_nonempty_iff.mp h0
       have htr := Ψ.trace_one
       simp [Matrix.trace] at htr
     obtain ⟨i₀, _, hi₀_min⟩ := Finset.exists_min_image Finset.univ Ψ.eigvals Finset.univ_nonempty
-    set λ_min := Ψ.eigvals i₀
-    have hλ_pos : 0 < λ_min := hΨ.eigenvalues_pos i₀
-    have hλ_le1 : λ_min ≤ 1 := by
+    set lam_min := Ψ.eigvals i₀
+    have hlam_pos : 0 < lam_min := hΨ.eigenvalues_pos i₀
+    have hlam_le1 : lam_min ≤ 1 := by
       have htr : ∑ i : Bool × d, Ψ.eigvals i = 1 := by
         have hspec : Ψ.mat = (Ψ.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *
             Matrix.diagonal (Complex.ofReal ∘ Ψ.eigvals) * star (Ψ.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) := by
@@ -655,11 +676,11 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
         simpa [Complex.re_sum] using h1.symm
       have hle := Finset.single_le_sum (f := Ψ.eigvals) (fun i _ ↦ Ψ.eigvals_nonneg i) (Finset.mem_univ i₀)
       linarith
-    -- Every eigenvalue of `Ψ_t` is `≥ λ_min`
-    have heig_ge : ∀ (t : ℝ) (ht : 0 ≤ t) (j : Bool × d), λ_min ≤ (Ψt t ht).eigvals j := by
+    -- Every eigenvalue of `Ψ_t` is `≥ lam_min`
+    have heig_ge : ∀ (t : ℝ) (ht : 0 ≤ t) (j : Bool × d), lam_min ≤ (Ψt t ht).eigvals j := by
       intro t ht j
-      -- `⟨v, Ψ_t v⟩ ≥ λ_min ‖v‖²` for every unit vector `v` (here the `j`-th eigenvector of `Ψ_t`)
-      have hΨ_lb : ∀ v : Bool × d → ℂ, λ_min * (∑ k, ‖v k‖ ^ 2) ≤ (star v ⬝ᵥ Ψ.mat.mulVec v).re := by
+      -- `⟨v, Ψ_t v⟩ ≥ lam_min ‖v‖²` for every unit vector `v` (here the `j`-th eigenvector of `Ψ_t`)
+      have hΨ_lb : ∀ v : Bool × d → ℂ, lam_min * (∑ k, ‖v k‖ ^ 2) ≤ (star v ⬝ᵥ Ψ.mat.mulVec v).re := by
         intro v
         rw [re_quadForm_spectral Ψ.isHermitian v]
         have hnorm : ∑ k : Bool × d, ‖((star (Ψ.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ)).mulVec v) k‖ ^ 2 =
@@ -737,19 +758,14 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
       have hp0' := dephaseP_nonneg ht
       have hp1' := le_of_lt (dephaseP_lt_half t)
       nlinarith
-    refine ⟨-Real.log λ_min / Real.log 2, div_nonneg (neg_nonneg.mpr (Real.log_nonpos (le_of_lt hλ_pos) hλ_le1))
+    refine ⟨-Real.log lam_min / Real.log 2, div_nonneg (neg_nonneg.mpr (Real.log_nonpos (le_of_lt hlam_pos) hlam_le1))
       (le_of_lt (Real.log_pos (by norm_num))), ?_⟩
     intro t h ht hh
     have hth : 0 ≤ t + h := by linarith
     have hpd_t := dephaseState_posDef hΨ (dephaseP_nonneg ht) (le_of_lt (dephaseP_lt_half t))
     have hpd_th := dephaseState_posDef hΨ (dephaseP_nonneg hth) (le_of_lt (dephaseP_lt_half (t + h)))
-    have hpd_t' : (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht)).mat.PosDef := by
-      simpa [DensityOp.conjUnitary, Matrix.star_eq_conjTranspose] using
-        hpd_t.mul_mul_conjTranspose_same (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ) (by
-          rw [Matrix.mulVec_injective_iff_isUnit]
-          exact ⟨⟨(pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ),
-            star (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ),
-            Unitary.coe_mul_star_self _, Unitary.coe_star_mul_self _⟩, rfl⟩)
+    have hpd_t' : (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht)).mat.PosDef :=
+      conjUnitary_posDef hpd_t (pauliZTensorI d)
     have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
     -- Apply Klein's inequality in the reverse direction: `(S(Ψ_t) - S(Ψ_{t+h})) log 2 ≥ ((Ψ_{t+h} - Ψ_t) log Ψ_t).trace.re`
     have hklein := entropy_sub_ge_trace_log hpd_th hpd_t
@@ -765,9 +781,9 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
       rw [hneg_sub, hsemi, Matrix.neg_mul, Matrix.smul_mul, Matrix.trace_neg, Matrix.trace_smul,
         Complex.neg_re, Complex.real_smul, Complex.mul_re, Complex.ofReal_re, Complex.ofReal_im]; ring
     rw [htr_eq, hsym] at hklein
-    -- Bound `D(Ψ_t ‖ Ψ̃_t) + D(Ψ̃_t ‖ Ψ_t) ≤ 2 * (-log λ_min / log 2)`
+    -- Bound `D(Ψ_t ‖ Ψ̃_t) + D(Ψ̃_t ‖ Ψ_t) ≤ 2 * (-log lam_min / log 2)`
     have hD_ub : ∀ (A B : DensityOp (Bool × d)), A.mat.PosDef → B.mat.PosDef →
-        (∀ j, λ_min ≤ B.eigvals j) → (relEntropy A B).toReal * Real.log 2 ≤ -Real.log λ_min := by
+        (∀ j, lam_min ≤ B.eigvals j) → (relEntropy A B).toReal * Real.log 2 ≤ -Real.log lam_min := by
       intro A B hA hB hB_lb
       rw [(relEntropy_toReal_mul_log2 hA hB).2]
       have hSA_nn : 0 ≤ vonNeumannEntropy A := by
@@ -786,17 +802,19 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
             simpa [Complex.re_sum] using h1.symm
           linarith [Finset.single_le_sum (f := A.eigvals) (fun k _ ↦ A.eigvals_nonneg k) (Finset.mem_univ i)]
         exact Real.negMulLog_nonneg (A.eigvals_nonneg i) h1
-      have hlogB_lb : Real.log λ_min ≤ (A.mat * natLogMat B).trace.re := by
+      have hlogB_lb : Real.log lam_min ≤ (A.mat * natLogMat B).trace.re := by
         rw [re_trace_mul_natLogMat]
         set W : Matrix (Bool × d) (Bool × d) ℂ :=
           star (B.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) * (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ)
         have hcol1 : ∀ i : Bool × d, ∑ j : Bool × d, ‖W j i‖ ^ 2 = 1 := by
           intro i
+          have hBU : (B.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) * star (B.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) = 1 :=
+            Unitary.coe_mul_star_self B.eigUnitary
+          have hAU : star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) * (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) = 1 :=
+            Unitary.coe_star_mul_self A.eigUnitary
           have hU : star W * W = 1 := by
             simp only [W, Matrix.star_mul, star_star, Matrix.mul_assoc]
-            rw [← Matrix.mul_assoc (B.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ),
-              Unitary.coe_mul_star_self B.eigUnitary, Matrix.one_mul,
-              Unitary.coe_star_mul_self A.eigUnitary]
+            rw [← Matrix.mul_assoc (B.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ), hBU, Matrix.one_mul, hAU]
           have hii := congr_arg Complex.re (congr_fun (congr_fun hU i) i)
           simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply_eq, Complex.one_re,
             Complex.re_sum] at hii
@@ -813,17 +831,17 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
           rw [A.trace_one, Complex.one_re, Matrix.trace_mul_cycle,
             Unitary.coe_star_mul_self A.eigUnitary, Matrix.one_mul, Matrix.trace_diagonal] at h1
           simpa [Complex.re_sum] using h1.symm
-        calc Real.log λ_min = ∑ i : Bool × d, (∑ j : Bool × d, ‖W j i‖ ^ 2) * (A.eigvals i * Real.log λ_min) := by
+        calc Real.log lam_min = ∑ i : Bool × d, (∑ j : Bool × d, ‖W j i‖ ^ 2) * (A.eigvals i * Real.log lam_min) := by
               simp_rw [hcol1, one_mul, ← Finset.sum_mul, htrA, one_mul]
-          _ = ∑ i : Bool × d, ∑ j : Bool × d, ‖W j i‖ ^ 2 * (A.eigvals i * Real.log λ_min) := by
+          _ = ∑ i : Bool × d, ∑ j : Bool × d, ‖W j i‖ ^ 2 * (A.eigvals i * Real.log lam_min) := by
               apply Finset.sum_congr rfl; intro i _; rw [Finset.sum_mul]
           _ ≤ ∑ i : Bool × d, ∑ j : Bool × d, ‖W j i‖ ^ 2 * (A.eigvals i * Real.log (B.eigvals j)) := by
               apply Finset.sum_le_sum; intro i _
               apply Finset.sum_le_sum; intro j _
               exact mul_le_mul_of_nonneg_left
-                (mul_le_mul_of_nonneg_left (Real.log_le_log hλ_pos (hB_lb j)) (A.eigvals_nonneg i)) (sq_nonneg _)
+                (mul_le_mul_of_nonneg_left (Real.log_le_log hlam_pos (hB_lb j)) (A.eigvals_nonneg i)) (sq_nonneg _)
       nlinarith
-    have heig_ge' : ∀ j, λ_min ≤ (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht)).eigvals j := by
+    have heig_ge' : ∀ j, lam_min ≤ (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht)).eigvals j := by
       intro j
       -- Same eigenvalues as `Ψt t ht`, or quadratic form lower bound directly via `hΨ`!
       set τ := DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht)
@@ -884,17 +902,17 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
         have hsq : star _ * _ = ((‖_‖ ^ 2 : ℝ) : ℂ) := by
           rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
         rw [hsq, Complex.ofReal_re]
-      calc λ_min = λ_min * ∑ k, ‖((star ((Ψt t ht).eigUnitary : Matrix (Bool × d) (Bool × d) ℂ)).mulVec w) k‖ ^ 2 := by
+      calc lam_min = lam_min * ∑ k, ‖((star ((Ψt t ht).eigUnitary : Matrix (Bool × d) (Bool × d) ℂ)).mulVec w) k‖ ^ 2 := by
             rw [hw_norm, mul_one]
-        _ = ∑ k, λ_min * ‖((star ((Ψt t ht).eigUnitary : Matrix (Bool × d) (Bool × d) ℂ)).mulVec w) k‖ ^ 2 :=
+        _ = ∑ k, lam_min * ‖((star ((Ψt t ht).eigUnitary : Matrix (Bool × d) (Bool × d) ℂ)).mulVec w) k‖ ^ 2 :=
             Finset.mul_sum _ _ _
         _ ≤ _ := Finset.sum_le_sum fun k _ ↦ mul_le_mul_of_nonneg_right (heig_ge t ht k) (sq_nonneg _)
     have hD1 := hD_ub (Ψt t ht) (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht)) hpd_t hpd_t' heig_ge'
     have hD2 := hD_ub (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht)) (Ψt t ht) hpd_t' hpd_t (heig_ge t ht)
     have h1me : 1 - Real.exp (-h) ≤ h := by linarith [Real.add_one_le_exp (-h)]
     have h1me_nn : 0 ≤ 1 - Real.exp (-h) := by linarith [Real.exp_le_one_iff.mpr (by linarith : -h ≤ 0)]
-    have hlogλ_nn : 0 ≤ -Real.log λ_min := neg_nonneg.mpr (Real.log_nonpos (le_of_lt hλ_pos) hλ_le1)
-    have hmul : (C t - C (t + h)) * Real.log 2 ≤ (-Real.log λ_min) * h := by
+    have hloglam_nn : 0 ≤ -Real.log lam_min := neg_nonneg.mpr (Real.log_nonpos (le_of_lt hlam_pos) hlam_le1)
+    have hmul : (C t - C (t + h)) * Real.log 2 ≤ (-Real.log lam_min) * h := by
       have hA : (C t - C (t + h)) * Real.log 2 ≤
           ((1 - Real.exp (-h)) / 4) *
             ((relEntropy (Ψt t ht) (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht))).toReal * Real.log 2 +
@@ -902,7 +920,7 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
         linarith
       have hB : ((relEntropy (Ψt t ht) (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht))).toReal * Real.log 2 +
              (relEntropy (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht)) (Ψt t ht)).toReal * Real.log 2) ≤
-            2 * (-Real.log λ_min) := by linarith
+            2 * (-Real.log lam_min) := by linarith
       nlinarith
     rw [div_mul_eq_mul_div, le_div_iff₀ hlog2]
     exact hmul
@@ -922,14 +940,7 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
       unfold cParam; simp only [x]
       have harg : (1 - (1 - 2 * h2Inv (1 - C t))) / 2 = h2Inv (1 - C t) := by ring
       rw [harg, hh2_inv]; ring
-    have hphi_eq : phi (C t) = phiParam (x t) := by
-      unfold phi phiParam
-      have harg : (1 + (1 - 2 * h2Inv (1 - C t))) / (1 - (1 - 2 * h2Inv (1 - C t))) =
-          (1 - h2Inv (1 - C t)) / h2Inv (1 - C t) := by
-        by_cases h0 : h2Inv (1 - C t) = 0
-        · simp [h0]
-        · field_simp [h0]; ring
-      simp only [x, harg]
+    have hphi_eq : phi (C t) = phiParam (x t) := rfl
     exact ⟨⟨hx0, hx1⟩, hC_eq_c, hphi_eq⟩
   have hx_main : x T ≤ Real.exp (-T) * x 0 := by
     by_cases hCT0 : C T = 0
@@ -1210,7 +1221,7 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
     unfold binConv; ring
   rw [hconv_id] at hx_main
   have hinv_ge : binConv (h2Inv (1 - dephaseCoherence 0 le_rfl (by norm_num) Ψ)) p ≤
-      h2Inv (1 - dephaseCoherence p hp0 hp1 Ψ) := by linarith
+      h2Inv (1 - dephaseCoherence p hp0 (le_trans hp1 (by norm_num)) Ψ) := by linarith
   have hconv_mem : binConv (h2Inv (1 - dephaseCoherence 0 le_rfl (by norm_num) Ψ)) p ∈ Icc (0 : ℝ) (1 / 2) := by
     have h0m := h2Inv_mem_Icc ⟨by linarith [(hC_bounds 0 le_rfl).2, hC0], by linarith [(hC_bounds 0 le_rfl).1, hC0]⟩
     unfold binConv; constructor <;> nlinarith
@@ -1226,7 +1237,7 @@ For every bipartite density operator `Ψ ∈ D(ℂ² ⊗ H_B)` and every dephasi
 `C(p) ≤ 1 - h₂(h₂⁻¹(1 - C(0)) * p)`. -/
 theorem theorem_1_3_dephasing_sdpi (Ψ : DensityOp (Bool × d))
     {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) :
-    dephaseCoherence p hp0 hp1 Ψ ≤
+    dephaseCoherence p hp0 (le_trans hp1 (by norm_num)) Ψ ≤
       1 - h2 (binConv (h2Inv (1 - dephaseCoherence 0 le_rfl (by norm_num) Ψ)) p) := by
   haveI : Nonempty (Bool × d) := by
     by_contra h0
@@ -1238,13 +1249,15 @@ theorem theorem_1_3_dephasing_sdpi (Ψ : DensityOp (Bool × d))
     fun ε h0 h1 ↦ DensityOp.mix ε h0 h1 Ψ (maxMixedState (Bool × d))
   -- Dephasing commutes with mixing with `maxMixedState` since `(Z ⊗ I) I (Z ⊗ I) = I`
   have hdeph_mix : ∀ (q : ℝ) (hq0 : 0 ≤ q) (hq1 : q ≤ 1 / 2) (ε : ℝ) (hε0 : 0 ≤ ε) (hε1 : ε ≤ 1),
-      (dephaseState q hq0 hq1 (Ψε ε hε0 hε1)).mat =
-        (DensityOp.mix ε hε0 hε1 (dephaseState q hq0 hq1 Ψ) (maxMixedState (Bool × d))).mat := by
+      (dephaseState q hq0 (le_trans hq1 (by norm_num)) (Ψε ε hε0 hε1)).mat =
+        (DensityOp.mix ε hε0 hε1 (dephaseState q hq0 (le_trans hq1 (by norm_num)) Ψ) (maxMixedState (Bool × d))).mat := by
     intro q hq0 hq1 ε hε0 hε1
+    have hZ_mul : (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ) *
+        star (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ) = 1 :=
+      Unitary.coe_mul_star_self (pauliZTensorI d)
     have hZ_I : (DensityOp.conjUnitary (pauliZTensorI d) (maxMixedState (Bool × d))).mat =
         (maxMixedState (Bool × d)).mat := by
-      simp only [DensityOp.conjUnitary, maxMixedState, Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_one,
-        Unitary.coe_mul_star_self]
+      simp only [DensityOp.conjUnitary, maxMixedState, Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_one, hZ_mul]
     ext i j
     simp only [Ψε, dephaseState, DensityOp.mix, DensityOp.conjUnitary, Matrix.mul_add, Matrix.add_mul,
       Matrix.mul_smul, Matrix.smul_mul]
@@ -1253,15 +1266,20 @@ theorem theorem_1_3_dephasing_sdpi (Ψ : DensityOp (Bool × d))
     simp only [Matrix.add_apply, Matrix.smul_apply, Complex.real_smul]
     push_cast; ring
   -- Define `fL(ε) = C_{Ψ_ε}(p)` and `fR(ε) = 1 - h2(binConv(h2Inv(1 - C_{Ψ_ε}(0)), p))`
+  have hΨε_pd : ∀ (ε : ℝ) (hε0 : 0 < ε) (hε1 : ε < 1), (Ψε ε (le_of_lt hε0) (le_of_lt hε1)).mat.PosDef := by
+    intro ε hε0 hε1
+    have h1 : ((1 - ε : ℝ) • Ψ.mat).PosSemidef := Ψ.posSemidef.smul (by linarith)
+    have h2 : (ε • (maxMixedState (Bool × d)).mat).PosDef := (maxMixedState_posDef' (Bool × d)).smul hε0
+    simpa [Ψε, DensityOp.mix, add_comm] using h2.add_posSemidef h1
   let fC : ℝ → ℝ → ℝ := fun q ε ↦
     if h : 0 ≤ ε ∧ ε ≤ 1 ∧ 0 ≤ q ∧ q ≤ 1 / 2 then
-      dephaseCoherence q h.2.2.1 h.2.2.2 (Ψε ε h.1 h.2.1)
+      dephaseCoherence q h.2.2.1 (le_trans h.2.2.2 (by norm_num)) (Ψε ε h.1 h.2.1)
     else 0
   have hfC_tendsto : ∀ (q : ℝ) (hq0 : 0 ≤ q) (hq1 : q ≤ 1 / 2),
-      Tendsto (fC q) (𝓝[>] (0 : ℝ)) (𝓝 (dephaseCoherence q hq0 hq1 Ψ)) := by
+      Tendsto (fC q) (𝓝[>] (0 : ℝ)) (𝓝 (dephaseCoherence q hq0 (le_trans hq1 (by norm_num)) Ψ)) := by
     intro q hq0 hq1
-    have h1 := tendsto_vonNeumannEntropy_mix_maxMixed (dephaseState (1 / 2) (by norm_num) le_rfl Ψ)
-    have h2 := tendsto_vonNeumannEntropy_mix_maxMixed (dephaseState q hq0 hq1 Ψ)
+    have h1 := tendsto_vonNeumannEntropy_mix_maxMixed (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ)
+    have h2 := tendsto_vonNeumannEntropy_mix_maxMixed (dephaseState q hq0 (le_trans hq1 (by norm_num)) Ψ)
     have hsub := h1.sub h2
     refine hsub.congr' ?_
     filter_upwards [Ioo_mem_nhdsGT (show (0 : ℝ) < 1 by norm_num)] with ε hε
@@ -1270,56 +1288,26 @@ theorem theorem_1_3_dephasing_sdpi (Ψ : DensityOp (Bool × d))
     have hm1 := hdeph_mix (1 / 2) (by norm_num) le_rfl ε (le_of_lt hε.1) (le_of_lt hε.2)
     have hm2 := hdeph_mix q hq0 hq1 ε (le_of_lt hε.1) (le_of_lt hε.2)
     rw [vonNeumannEntropy_eq_of_mat_eq hm1, vonNeumannEntropy_eq_of_mat_eq hm2]
-  have hfL : Tendsto (fC p) (𝓝[>] (0 : ℝ)) (𝓝 (dephaseCoherence p hp0 hp1 Ψ)) :=
+  have hfL : Tendsto (fC p) (𝓝[>] (0 : ℝ)) (𝓝 (dephaseCoherence p hp0 (le_trans hp1 (by norm_num)) Ψ)) :=
     hfC_tendsto p hp0 hp1
   have hf0 : Tendsto (fC 0) (𝓝[>] (0 : ℝ)) (𝓝 (dephaseCoherence 0 le_rfl (by norm_num) Ψ)) :=
     hfC_tendsto 0 le_rfl (by norm_num)
-  -- `0 ≤ fC 0 ε ≤ 1` for `ε ∈ (0, 1)` and `0 ≤ C(0) ≤ 1`
   have hC0_mem : 1 - dephaseCoherence 0 le_rfl (by norm_num) Ψ ∈ Icc (0 : ℝ) 1 := by
     have hle1 : dephaseCoherence 0 le_rfl (by norm_num) Ψ ≤ 1 := by
-      -- Since `C(0) = lim C_ε(0)` and `C_ε(0) ≤ 1`
       refine le_of_tendsto hf0 ?_
       filter_upwards [Ioo_mem_nhdsGT (show (0 : ℝ) < 1 by norm_num)] with ε hε
       have hcond : 0 ≤ ε ∧ ε ≤ 1 ∧ (0 : ℝ) ≤ 0 ∧ (0 : ℝ) ≤ 1 / 2 := ⟨le_of_lt hε.1, le_of_lt hε.2, le_rfl, by norm_num⟩
-      simp only [fC, hcond, ↓reduceDIte]
-      have hpd : (Ψε ε (le_of_lt hε.1) (le_of_lt hε.2)).mat.PosDef := by
-        have h1 : (((1 - ε : ℝ) : ℂ) • Ψ.mat).PosSemidef := by
-          simpa [Complex.real_smul] using Ψ.posSemidef.smul (by linarith [hε.2])
-        have h2 : ((ε : ℂ) • (maxMixedState (Bool × d)).mat).PosDef := by
-          simpa [Complex.real_smul] using (maxMixedState_posDef (Bool × d)).smul hε.1
-        simpa [Ψε, DensityOp.mix, add_comm] using h2.add_posSemidef h1
-      -- `dephaseCoherence 0 Ψ_ε = qjs Ψ_ε Ψ̃_ε ≤ 1` directly:
-      rw [dephaseCoherence_eq_qjs]
-      have hpd2 : (DensityOp.conjUnitary (pauliZTensorI d) (dephaseState 0 le_rfl (by norm_num) (Ψε ε (le_of_lt hε.1) (le_of_lt hε.2)))).mat.PosDef := by
-        have hpd1 := dephaseState_posDef hpd le_rfl (by norm_num)
-        simpa [DensityOp.conjUnitary, Matrix.star_eq_conjTranspose] using
-          hpd1.mul_mul_conjTranspose_same (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ) (by
-            rw [Matrix.mulVec_injective_iff_isUnit]
-            exact ⟨⟨(pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ),
-              star (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ),
-              Unitary.coe_mul_star_self _, Unitary.coe_star_mul_self _⟩, rfl⟩)
-      have hle := qjs_le_one (dephaseState 0 le_rfl (by norm_num) (Ψε ε (le_of_lt hε.1) (le_of_lt hε.2)))
-        (DensityOp.conjUnitary (pauliZTensorI d) (dephaseState 0 le_rfl (by norm_num) (Ψε ε (le_of_lt hε.1) (le_of_lt hε.2))))
-      exact hle
+      simp only [fC, hcond, ↓reduceDIte, dephaseCoherence_eq_qjs]
+      have hpd1 := dephaseState_posDef (hΨε_pd ε hε.1 hε.2) le_rfl (by norm_num)
+      have hpd2 := conjUnitary_posDef hpd1 (pauliZTensorI d)
+      exact le_of_lt (qjs_lt_one_posDef hpd1 hpd2)
     have hnn : 0 ≤ dephaseCoherence 0 le_rfl (by norm_num) Ψ := by
       refine ge_of_tendsto hf0 ?_
       filter_upwards [Ioo_mem_nhdsGT (show (0 : ℝ) < 1 by norm_num)] with ε hε
       have hcond : 0 ≤ ε ∧ ε ≤ 1 ∧ (0 : ℝ) ≤ 0 ∧ (0 : ℝ) ≤ 1 / 2 := ⟨le_of_lt hε.1, le_of_lt hε.2, le_rfl, by norm_num⟩
       simp only [fC, hcond, ↓reduceDIte, dephaseCoherence_eq_qjs]
-      have hpd : (Ψε ε (le_of_lt hε.1) (le_of_lt hε.2)).mat.PosDef := by
-        have h1 : (((1 - ε : ℝ) : ℂ) • Ψ.mat).PosSemidef := by
-          simpa [Complex.real_smul] using Ψ.posSemidef.smul (by linarith [hε.2])
-        have h2 : ((ε : ℂ) • (maxMixedState (Bool × d)).mat).PosDef := by
-          simpa [Complex.real_smul] using (maxMixedState_posDef (Bool × d)).smul hε.1
-        simpa [Ψε, DensityOp.mix, add_comm] using h2.add_posSemidef h1
-      have hpd1 := dephaseState_posDef hpd le_rfl (by norm_num)
-      have hpd2 : (DensityOp.conjUnitary (pauliZTensorI d) (dephaseState 0 le_rfl (by norm_num) (Ψε ε (le_of_lt hε.1) (le_of_lt hε.2)))).mat.PosDef := by
-        simpa [DensityOp.conjUnitary, Matrix.star_eq_conjTranspose] using
-          hpd1.mul_mul_conjTranspose_same (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ) (by
-            rw [Matrix.mulVec_injective_iff_isUnit]
-            exact ⟨⟨(pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ),
-              star (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ),
-              Unitary.coe_mul_star_self _, Unitary.coe_star_mul_self _⟩, rfl⟩)
+      have hpd1 := dephaseState_posDef (hΨε_pd ε hε.1 hε.2) le_rfl (by norm_num)
+      have hpd2 := conjUnitary_posDef hpd1 (pauliZTensorI d)
       exact (qjs_eq_half_relEntropy_midpoint hpd1 hpd2).1
     exact ⟨by linarith, by linarith⟩
   have hfR : Tendsto (fun ε ↦ 1 - h2 (binConv (h2Inv (1 - fC 0 ε)) p)) (𝓝[>] (0 : ℝ))
@@ -1330,23 +1318,10 @@ theorem theorem_1_3_dephasing_sdpi (Ψ : DensityOp (Bool × d))
       filter_upwards [Ioo_mem_nhdsGT (show (0 : ℝ) < 1 by norm_num)] with ε hε
       have hcond : 0 ≤ ε ∧ ε ≤ 1 ∧ (0 : ℝ) ≤ 0 ∧ (0 : ℝ) ≤ 1 / 2 := ⟨le_of_lt hε.1, le_of_lt hε.2, le_rfl, by norm_num⟩
       simp only [fC, hcond, ↓reduceDIte, dephaseCoherence_eq_qjs]
-      have hpd : (Ψε ε (le_of_lt hε.1) (le_of_lt hε.2)).mat.PosDef := by
-        have h1' : (((1 - ε : ℝ) : ℂ) • Ψ.mat).PosSemidef := by
-          simpa [Complex.real_smul] using Ψ.posSemidef.smul (by linarith [hε.2])
-        have h2' : ((ε : ℂ) • (maxMixedState (Bool × d)).mat).PosDef := by
-          simpa [Complex.real_smul] using (maxMixedState_posDef (Bool × d)).smul hε.1
-        simpa [Ψε, DensityOp.mix, add_comm] using h2'.add_posSemidef h1'
-      have hpd1 := dephaseState_posDef hpd le_rfl (by norm_num)
-      have hpd2 : (DensityOp.conjUnitary (pauliZTensorI d) (dephaseState 0 le_rfl (by norm_num) (Ψε ε (le_of_lt hε.1) (le_of_lt hε.2)))).mat.PosDef := by
-        simpa [DensityOp.conjUnitary, Matrix.star_eq_conjTranspose] using
-          hpd1.mul_mul_conjTranspose_same (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ) (by
-            rw [Matrix.mulVec_injective_iff_isUnit]
-            exact ⟨⟨(pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ),
-              star (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ),
-              Unitary.coe_mul_star_self _, Unitary.coe_star_mul_self _⟩, rfl⟩)
+      have hpd1 := dephaseState_posDef (hΨε_pd ε hε.1 hε.2) le_rfl (by norm_num)
+      have hpd2 := conjUnitary_posDef hpd1 (pauliZTensorI d)
       have hnn := (qjs_eq_half_relEntropy_midpoint hpd1 hpd2).1
-      have hle1 := qjs_le_one (dephaseState 0 le_rfl (by norm_num) (Ψε ε (le_of_lt hε.1) (le_of_lt hε.2)))
-        (DensityOp.conjUnitary (pauliZTensorI d) (dephaseState 0 le_rfl (by norm_num) (Ψε ε (le_of_lt hε.1) (le_of_lt hε.2))))
+      have hlt1 := qjs_lt_one_posDef hpd1 hpd2
       exact ⟨by linarith, by linarith⟩
     have h2 : Tendsto (fun ε ↦ h2Inv (1 - fC 0 ε)) (𝓝[>] (0 : ℝ))
         (𝓝 (h2Inv (1 - dephaseCoherence 0 le_rfl (by norm_num) Ψ))) :=
@@ -1361,13 +1336,7 @@ theorem theorem_1_3_dephasing_sdpi (Ψ : DensityOp (Bool × d))
   have hcond1 : 0 ≤ ε ∧ ε ≤ 1 ∧ 0 ≤ p ∧ p ≤ 1 / 2 := ⟨le_of_lt hε.1, le_of_lt hε.2, hp0, hp1⟩
   have hcond0 : 0 ≤ ε ∧ ε ≤ 1 ∧ (0 : ℝ) ≤ 0 ∧ (0 : ℝ) ≤ 1 / 2 := ⟨le_of_lt hε.1, le_of_lt hε.2, le_rfl, by norm_num⟩
   simp only [fC, hcond1, hcond0, ↓reduceDIte]
-  have hpd : (Ψε ε (le_of_lt hε.1) (le_of_lt hε.2)).mat.PosDef := by
-    have h1' : (((1 - ε : ℝ) : ℂ) • Ψ.mat).PosSemidef := by
-      simpa [Complex.real_smul] using Ψ.posSemidef.smul (by linarith [hε.2])
-    have h2' : ((ε : ℂ) • (maxMixedState (Bool × d)).mat).PosDef := by
-      simpa [Complex.real_smul] using (maxMixedState_posDef (Bool × d)).smul hε.1
-    simpa [Ψε, DensityOp.mix, add_comm] using h2'.add_posSemidef h1'
-  exact theorem_1_3_dephasing_sdpi_posDef hpd hp0 hp1
+  exact theorem_1_3_dephasing_sdpi_posDef (hΨε_pd ε hε.1 hε.2) hp0 hp1
 
 /-- Equatorial single-qubit state `Ψ_A(x) = ½ (I + x X)` on `Bool × Unit` for `x ∈ [0, 1]`. -/
 noncomputable def equatorialState (x : ℝ) (hx0 : 0 ≤ x) (hx1 : x ≤ 1) : DensityOp (Bool × Unit) where
@@ -1412,7 +1381,7 @@ noncomputable def equatorialState (x : ℝ) (hx0 : 0 ≤ x) (hx1 : x ≤ 1) : De
 (`x ∈ [0, 1]`) attains equality in Theorem 1.3 for every `p ∈ [0, 1/2]`. -/
 theorem theorem_1_3_equatorial_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 1)
     {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) :
-    dephaseCoherence p hp0 hp1 (equatorialState x hx0 hx1) =
+    dephaseCoherence p hp0 (le_trans hp1 (by norm_num)) (equatorialState x hx0 hx1) =
       1 - h2 (binConv (h2Inv (1 - dephaseCoherence 0 le_rfl (by norm_num) (equatorialState x hx0 hx1))) p) := by
   have hS_eq : ∀ (r : ℝ) (hr0 : 0 ≤ r) (hr1 : r ≤ 1),
       vonNeumannEntropy (equatorialState r hr0 hr1) = h2 ((1 - r) / 2) := by
@@ -1431,7 +1400,7 @@ theorem theorem_1_3_equatorial_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 1
         simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.of_apply, Matrix.one_apply,
           Fintype.sum_prod_type, Fintype.sum_unique, Fintype.sum_bool]
         cases a <;> cases b <;> simp [star_mul', hstar] <;>
-          (have hm : ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) = 1 / 2 := by rw [← hstar]; exact hsq2
+          (have hm : ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) = 1 / 2 := by rw [hstar] at hsq2; exact hsq2
            rw [hm]; ring)⟩
     have hdiag : (DensityOp.conjUnitary H (equatorialState r hr0 hr1)).mat =
         Matrix.diagonal (Complex.ofReal ∘ fun q : Bool × Unit ↦ if q.1 = false then (1 + r) / 2 else (1 - r) / 2) := by
@@ -1442,7 +1411,7 @@ theorem theorem_1_3_equatorial_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 1
       have hstar : star ((Real.sqrt 2 : ℂ)⁻¹) = (Real.sqrt 2 : ℂ)⁻¹ := by
         rw [← Complex.ofReal_inv, Complex.star_def, Complex.conj_ofReal]
       have hmul2 : ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) = (1 / 2 : ℂ) := by
-        rw [← hstar]; rw [mul_comm]; exact hsq2
+        rw [hstar] at hsq2; exact hsq2
       ext ⟨a, ⟨⟩⟩ ⟨b, ⟨⟩⟩
       simp only [DensityOp.conjUnitary, equatorialState, H, Matrix.mul_apply, Matrix.star_apply,
         Matrix.of_apply, Matrix.diagonal_apply, Function.comp_apply,
@@ -1452,8 +1421,7 @@ theorem theorem_1_3_equatorial_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 1
           true_and, false_and, mul_one, mul_neg, neg_mul, star_mul', star_neg, star_one, hstar,
           Prod.mk.injEq, and_true];
          ring_nf;
-         try simp only [show ((Real.sqrt 2 : ℂ)⁻¹) ^ 2 = (1 / 2 : ℂ) by rw [sq, hmul2]];
-         push_cast; ring)
+         try (simp only [show ((Real.sqrt 2 : ℂ)⁻¹) ^ 2 = (1 / 2 : ℂ) by rw [sq, hmul2]]; push_cast; ring))
     have hD : (Matrix.diagonal (Complex.ofReal ∘ fun q : Bool × Unit ↦
         if q.1 = false then (1 + r) / 2 else (1 - r) / 2)).IsHermitian := by
       rw [Matrix.IsHermitian, Matrix.diagonal_conjTranspose]; congr 1; ext q; simp
@@ -1464,12 +1432,12 @@ theorem theorem_1_3_equatorial_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 1
     · exact spectral_sum_eq_of_charpoly_mul_X_pow (DensityOp.conjUnitary H _).isHermitian hD
         (k := 0) (l := 0) (by rw [pow_zero, mul_one, mul_one, hdiag]) (by simp [Real.negMulLog])
     · rw [spectral_sum_diagonal _ hD (by simp [Real.negMulLog]), Fintype.sum_prod_type,
-        Fintype.sum_unique, Fintype.sum_bool]
+        Fintype.sum_bool]; simp only [Fintype.sum_unique]
       simp only [Bool.true_eq_false, ↓reduceIte]
       have h1m : 1 - (1 - r) / 2 = (1 + r) / 2 := by ring
       rw [h1m]
   have hdeph_eq : ∀ (q : ℝ) (hq0 : 0 ≤ q) (hq1 : q ≤ 1 / 2),
-      (dephaseState q hq0 hq1 (equatorialState x hx0 hx1)).mat =
+      (dephaseState q hq0 (le_trans hq1 (by norm_num)) (equatorialState x hx0 hx1)).mat =
         (equatorialState ((1 - 2 * q) * x) (mul_nonneg (by linarith) hx0) (by nlinarith)).mat := by
     intro q hq0 hq1
     ext ⟨a, ⟨⟩⟩ ⟨b, ⟨⟩⟩
@@ -1478,7 +1446,7 @@ theorem theorem_1_3_equatorial_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 1
       Matrix.of_apply, Complex.real_smul, Fintype.sum_prod_type, Fintype.sum_unique, Fintype.sum_bool]
     cases a <;> cases b <;> simp <;> push_cast <;> ring
   have hC_val : ∀ (q : ℝ) (hq0 : 0 ≤ q) (hq1 : q ≤ 1 / 2),
-      dephaseCoherence q hq0 hq1 (equatorialState x hx0 hx1) = 1 - h2 ((1 - (1 - 2 * q) * x) / 2) := by
+      dephaseCoherence q hq0 (le_trans hq1 (by norm_num)) (equatorialState x hx0 hx1) = 1 - h2 ((1 - (1 - 2 * q) * x) / 2) := by
     intro q hq0 hq1
     unfold dephaseCoherence
     rw [vonNeumannEntropy_eq_of_mat_eq (hdeph_eq (1 / 2) (by norm_num) le_rfl),
