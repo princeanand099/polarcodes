@@ -98,8 +98,8 @@ theorem relEntropy_hockeyStick_integral {ρ σ : DensityOp d}
   -- Split ℝ = Iio 0 ∪ Icc 0 1 ∪ Ioi 1
   have hsplit1 : ∫⁻ t : ℝ, F t ∂volume =
       (∫⁻ t in Iio (0 : ℝ), F t ∂volume) + (∫⁻ t in Ici (0 : ℝ), F t ∂volume) := by
-    rw [← Measure.restrict_univ (μ := volume), ← Set.Iio_union_Ici (a := (0 : ℝ)),
-      lintegral_union measurableSet_Ici (Set.disjoint_left.mpr fun x h1 h2 ↦ not_lt.mpr h2 h1)]
+    conv_lhs => rw [← Measure.restrict_univ (μ := volume), ← Set.Iio_union_Ici (a := (0 : ℝ))]
+    exact lintegral_union measurableSet_Ici (Set.disjoint_left.mpr fun x h1 h2 ↦ not_lt.mpr h2 h1)
   have hsplit2 : ∫⁻ t in Ici (0 : ℝ), F t ∂volume =
       (∫⁻ t in Icc (0 : ℝ) 1, F t ∂volume) + (∫⁻ t in Ioi (1 : ℝ), F t ∂volume) := by
     rw [← lintegral_union measurableSet_Ioi
@@ -212,7 +212,8 @@ theorem relEntropy_hockeyStick_integral {ρ σ : DensityOp d}
         convert hnum.div hden h1 using 1
         simp only [g₂']; ring
       exact hd.hasDerivWithinAt
-    rw [← himg, lintegral_image_eq_lintegral_abs_deriv_mul measurableSet_Ioi hderiv hinj]
+    conv_lhs => rw [← himg]
+    rw [lintegral_image_eq_lintegral_abs_deriv_mul measurableSet_Ioi hderiv hinj]
     apply setLIntegral_congr_fun measurableSet_Ioi
     intro s hs
     have hs1 : 1 < s := hs
@@ -392,7 +393,7 @@ lemma hockeyStick_bounds_posDef {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ
       simp only [dotProduct, Pi.star_apply, Complex.re_sum] at hre
       have hsq : ∀ (v : d → ℂ) (i : d), (star (v i) * v i).re = ‖v i‖ ^ 2 := by
         intro v i; rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
-      simpa [hsq] using hre
+      simp_rw [hsq] at hre; exact hre
     rw [← hnorm, Finset.mul_sum, Finset.mul_sum]
     constructor
     · exact Finset.sum_le_sum fun i _ ↦
@@ -406,9 +407,11 @@ lemma hockeyStick_bounds_posDef {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ
       rw [Matrix.posSemidef_iff_dotProduct_mulVec]
       refine ⟨hockeyStick_isHermitian s ρ σ, fun x ↦ ?_⟩
       rw [Complex.nonneg_iff]
-      have him : (star x ⬝ᵥ (ρ.mat - (s : ℂ) • σ.mat).mulVec x).im = 0 := by
-        have hself := (hockeyStick_isHermitian s ρ σ).isHermitian_dotProduct_mulVec x
-        simpa [Complex.conj_eq_iff_im] using hself
+      have him : 0 = (star x ⬝ᵥ (ρ.mat - (s : ℂ) • σ.mat).mulVec x).im := by
+        have himρ := (Complex.nonneg_iff.mp ((Matrix.posSemidef_iff_dotProduct_mulVec.mp ρ.posSemidef).2 x)).2
+        have himσ := (Complex.nonneg_iff.mp ((Matrix.posSemidef_iff_dotProduct_mulVec.mp σ.posSemidef).2 x)).2
+        rw [Matrix.sub_mulVec, Matrix.smul_mulVec, dotProduct_sub, dotProduct_smul, smul_eq_mul]
+        simp [Complex.sub_im, Complex.mul_im, ← himρ, ← himσ]
       refine ⟨?_, him⟩
       have hre : (star x ⬝ᵥ (ρ.mat - (s : ℂ) • σ.mat).mulVec x).re =
           (star x ⬝ᵥ ρ.mat.mulVec x).re - s * (star x ⬝ᵥ σ.mat.mulVec x).re := by
@@ -440,9 +443,11 @@ lemma hockeyStick_bounds_posDef {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ
         simpa [neg_sub] using this
       refine ⟨hh, fun x ↦ ?_⟩
       rw [Complex.nonneg_iff]
-      have him : (star x ⬝ᵥ ((s : ℂ) • σ.mat - ρ.mat).mulVec x).im = 0 := by
-        have hself := hh.isHermitian_dotProduct_mulVec x
-        simpa [Complex.conj_eq_iff_im] using hself
+      have him : 0 = (star x ⬝ᵥ ((s : ℂ) • σ.mat - ρ.mat).mulVec x).im := by
+        have himρ := (Complex.nonneg_iff.mp ((Matrix.posSemidef_iff_dotProduct_mulVec.mp ρ.posSemidef).2 x)).2
+        have himσ := (Complex.nonneg_iff.mp ((Matrix.posSemidef_iff_dotProduct_mulVec.mp σ.posSemidef).2 x)).2
+        rw [Matrix.sub_mulVec, Matrix.smul_mulVec, dotProduct_sub, dotProduct_smul, smul_eq_mul]
+        simp [Complex.sub_im, Complex.mul_im, ← himρ, ← himσ]
       refine ⟨?_, him⟩
       have hre : (star x ⬝ᵥ ((s : ℂ) • σ.mat - ρ.mat).mulVec x).re =
           s * (star x ⬝ᵥ σ.mat.mulVec x).re - (star x ⬝ᵥ ρ.mat.mulVec x).re := by
@@ -456,13 +461,14 @@ lemma hockeyStick_bounds_posDef {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ
       have hsσ : ρ_max ≤ s * σ_min := (div_le_iff₀ hσ_min_pos).mp hs
       nlinarith
     have hpos0 : posPartTrace (hockeyStick_isHermitian s ρ σ) = 0 := by
-      have hneg_eq : negPartTrace (show ((s : ℂ) • σ.mat - ρ.mat).IsHermitian by
-          have := (hockeyStick_isHermitian s ρ σ).neg; simpa [neg_sub] using this) = 0 := by
+      have hsub_herm : ((s : ℂ) • σ.mat - ρ.mat).IsHermitian := by
+        have := (hockeyStick_isHermitian s ρ σ).neg; simpa [neg_sub] using this
+      have hneg_eq : negPartTrace hsub_herm = 0 := by
         unfold negPartTrace
         apply Finset.sum_eq_zero; intro i _
         exact max_eq_right (by linarith [hpsd.eigenvalues_nonneg i])
       rw [negPartTrace_eq_posPartTrace_neg] at hneg_eq
-      rw [posPartTrace_eq_of_eq (hockeyStick_isHermitian s ρ σ) _ (by abel)]
+      rw [posPartTrace_eq_of_eq (hockeyStick_isHermitian s ρ σ) hsub_herm.neg (by abel)]
       exact hneg_eq
     rw [hockeyStick_eq_posPartTrace]; exact hpos0
 
@@ -826,7 +832,7 @@ lemma lintegral_hockeyStick_kernel_1 {t : ℝ} (ht : 0 < t) :
       have hs0 : 0 < s := by linarith [hs.1]
       rw [max_eq_left (by linarith [hs.2]), sub_div, div_self (ne_of_gt hs0)]
     rw [h2]
-    have hcont : ContinuousOn (fun s : ℝ ↦ t / s - 1) (uIcc 1 t) := by
+    have hcont : ContinuousOn (fun s : ℝ ↦ t / s - 1) (uIcc (1 : ℝ) t) := by
       rw [Set.uIcc_of_le (le_of_lt ht1)]
       exact (continuousOn_const.div continuousOn_id fun s hs ↦ ne_of_gt (by linarith [hs.1] : 0 < s)).sub continuousOn_const
     have hint : IntegrableOn (fun s : ℝ ↦ t / s - 1) (Ioc 1 t) volume :=
@@ -1040,6 +1046,8 @@ lemma hockeyStick_midpoint_left (ρ σ : DensityOp d) {s : ℝ} (hs0 : 0 < s) :
             ((Matrix.posSemidef_iff_dotProduct_mulVec.mp σ.posSemidef).2 x)
       exact h1.add h2
     rw [hockeyStick_eq_posPartTrace]
+    have hsub_herm : ((s : ℂ) • σ.mat - ρ.mat).IsHermitian := by
+      have := (hockeyStick_isHermitian s ρ σ).neg; simpa [neg_sub] using this
     have hneg0 : negPartTrace (hockeyStick_isHermitian s ρ (DensityOp.midpoint ρ σ)).neg = 0 := by
       unfold negPartTrace
       apply Finset.sum_eq_zero; intro i _
