@@ -1,7 +1,11 @@
-# External Axiom Register
+# External Axioms
 
-**Policy**: Target is **zero** custom axioms (`permitted_axioms = ["propext", "Quot.sound", "Classical.choice"]`). All exported theorems must depend exclusively on Lean 4's three standard axioms.
+**None (0 custom axioms).**
 
-| Axiom Name | Module | Published Source | Justification | Dependent Declarations |
-|---|---|---|---|---|
-| *(none)* | — | — | — | — |
+Every theorem in `PolarCodes` is proved unconditionally from Mathlib (`v4.35.0`) and Lean 4 core. Running `lake env lean PolarCodes/AuditAxioms.lean` confirms that all 30 exported theorems depend exclusively on Lean 4's standard axioms:
+
+- `propext`
+- `Classical.choice`
+- `Quot.sound`
+
+No `axiom`, `sorry`, `admit`, `native_decide`, `unsafe`, or compiler-trust extensions are used anywhere in `PolarCodes` or `comparator/Solution.lean`.

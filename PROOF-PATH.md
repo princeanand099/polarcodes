@@ -1,26 +1,41 @@
-# Manuscript-to-Lean Correspondence & Dependency DAG
+# Proof Path & Module Dependency DAG
 
-Manuscript: *Polynomial-Blocklength Quantum Polar Codes via Nonlinear Dephasing Contraction* (Prince Anand, November 2026).
+This document records the 24-module dependency structure of `PolarCodes`.
 
-| Manuscript Result | Location | Planned Module | Lean Declaration | Dependencies | Fidelity | Proof Status |
-|---|---|---|---|---|---|---|
-| Binary entropy `h2`, `h2Inv`, `binConv`, `gc`, `gq`, `Δ` | Sec 1.2 | `PolarCodes/BinaryEntropy.lean` | `h2`, `h2Inv`, `binConv`, `gc`, `gq`, `deltaGap` | Mathlib | Checked | In progress |
-| Lemma 3.1 (Perspective-Symmetric Scalar Inequality) | Sec 3.1 | `PolarCodes/BinaryEntropy.lean` | `lemma_3_1_gx_nonneg` | `h2`, `phiParam` | Planned | Pending |
-| Sec 2.1 Entropies, Divergences, Distinguishability | Sec 2.1 | `PolarCodes/QuantumStates.lean` | `DensityOp`, `vonNeumannEntropy`, `relEntropy`, `qjs`, `hockeyStick`, `rootFidelity` | Mathlib | Planned | Pending |
-| Def 2.1 & Eq (2.8) Polar Channel Combinations & Conservation | Sec 2.2 | `PolarCodes/Channels.lean` | `checkCombine`, `varCombine`, `entropy_conservation` | `QuantumStates` | Planned | Pending |
-| Proposition 2.2 (Renes' Channel Duality) & Eq (2.9) | Sec 2.3 | `PolarCodes/Channels.lean` | `prop_2_2_renes_duality`, `check_duality_identity` | `Channels` | Planned | Pending |
-| Lemma 3.2 (Simultaneous Hockey-Stick Representation) | Sec 3.1 | `PolarCodes/HockeyStick.lean` | `lemma_3_2_hockey_stick_rep` | `QuantumStates` | Planned | Pending |
-| Proposition 3.3 (Quantum Jeffreys–Jensen–Shannon Inequality) | Sec 3.2 | `PolarCodes/HockeyStick.lean` | `prop_3_3_qjjs` | Lemma 3.1, Lemma 3.2 | Planned | Pending |
-| Theorem 1.3 (Nonlinear SDPI for Qubit Dephasing) | Sec 1.2, 3.2 | `PolarCodes/DephasingSDPI.lean` | `theorem_1_3_dephasing_sdpi` | Prop 3.3, Lemma 3.1 | Planned | Pending |
-| Lemma 4.1 (Gram-Matrix Dephasing Reduction) | Sec 4.1 | `PolarCodes/MrsGerber.lean` | `lemma_4_1_gram_matrix` | `QuantumStates`, `DephasingSDPI` | Planned | Pending |
-| Theorem 1.2(a) (Hybrid Quantum Mrs. Gerber Bounds) | Sec 1.2, 4.1 | `PolarCodes/MrsGerber.lean` | `theorem_1_2a_pure`, `theorem_1_2a_classical` | Thm 1.3, Lemma 4.1, Prop 2.2 | Planned | Pending |
-| Proposition 4.2 (Four-Branch Purification Bound) | Sec 4.2 | `PolarCodes/MrsGerber.lean` | `prop_4_2_four_branch` | Thm 1.2(a), Prop 2.2 | Planned | Pending |
-| Proposition 4.3 (Linear Splitting Constant & Asymptotics) | Sec 4.2 | `PolarCodes/MrsGerber.lean` | `prop_4_3_linear_splitting`, `prop_4_3_endpoint_limit` | Prop 4.2 | Planned | Pending |
-| Proposition 4.4 (Uniform Potential Contraction) | Sec 4.2 | `PolarCodes/MrsGerber.lean` | `prop_4_4_potential_contraction` | Prop 4.3 | Planned | Pending |
-| Theorem 1.2(b) (General Quantum Mrs. Gerber Bounds) | Sec 1.2, 4.2 | `PolarCodes/MrsGerber.lean` | `theorem_1_2b_general` | Prop 4.2–4.4 | Planned | Pending |
-| Lemma 5.1 (Quantum Bhattacharyya Evolution) | Sec 5.1 | `PolarCodes/Bhattacharyya.lean` | `lemma_5_1_bhattacharyya` | `Channels`, `QuantumStates` | Planned | Pending |
-| Lemma 5.2 (Stage 1: Rough Polarization) | Sec 5.2 | `PolarCodes/Polarization.lean` | `lemma_5_2_stage1` | Prop 4.4, Lemma 5.1 | Planned | Pending |
-| Lemma 5.3 (Stage 2: Bootstrap Polarization) | Sec 5.2 | `PolarCodes/Polarization.lean` | `lemma_5_3_stage2` | Lemma 5.1, Lemma 5.2 | Planned | Pending |
-| Lemma 5.4 (Stage 3: Fine Polarization) | Sec 5.2 | `PolarCodes/Polarization.lean` | `lemma_5_4_stage3` | Lemma 5.1, Lemma 5.3 | Planned | Pending |
-| Theorem 1.1 (Polynomial-Blocklength C-Q Polar Codes) | Sec 1.2, 5.2 | `PolarCodes/MainTheorem.lean` | `theorem_1_1_poly_polar_codes` | Lemmas 5.2–5.4 | Planned | Pending |
-| Corollary 5.5 (Private & Quantum Polar Coding) | Sec 5.3 | `PolarCodes/MainTheorem.lean` | `corollary_5_5_private_quantum` | Thm 1.1 | Planned | Pending |
+## Layer 1 — Scalar & Quantum Foundations
+1. `PolarCodes/BinaryEntropy.lean` — `h2`, `h2Inv`, `binConv`, `gc`, `gq`, `deltaGap`, `antitoneOn_deltaGap`, **Lemma 3.1** (`lemma_3_1_gx_nonneg`).
+2. `PolarCodes/QuantumStates.lean` — `DensityOp`, `eigvals`, `eigUnitary`, `sqrtMat`, `mix`, `midpoint`, `tensor`, `conjUnitary`, `vonNeumannEntropy`, `relEntropy`, `qjs`, `hockeyStick`, `traceDist`, `rootFidelity`.
+3. `PolarCodes/Channels.lean` — `CQChannel`, `condEntropy`, `symCapacity`, `fidelityParam`, `potential`, `ketBraBool`, **Definition 2.1** (`checkCombine`, `varCombine`, `minusChannel`, `plusChannel`), `IsPureState`, `IsClassical`.
+4. `PolarCodes/SplittingBounds.lean` — `theta0`, `theta2`, `Lambda0`, **Proposition 4.3** (`prop_4_3_scalar`), **Proposition 4.4** (`prop_4_4_potential_contraction_general`).
+5. `PolarCodes/ScalarSupplements.lean` — Wyner–Ziv convexity (`convexOn_gc`) and Eq. (1.8) asymptotics (`prop_4_3_asymptotic`).
+
+## Layer 2 — Channel Algebra, Purification & Duality
+6. `PolarCodes/QuantumProps.lean` — Sylvester charpoly, unitary invariance, additivity, block midpoint entropy, **Eq. (2.7)–(2.8)** (`condEntropy_varCombine_eq`, `entropy_conservation`), **Lemma 5.1(b) plus** (`fidelityParam_plusChannel`).
+7. `PolarCodes/GramDephasing.lean` — `pauliZTensorI`, `dephaseState`, `dephaseCoherence`, `pureState`, `gramState`, **Lemma 4.1** (`lemma_4_1_gram_dephasing`).
+8. `PolarCodes/Bhattacharyya.lean` — Polar decomposition, `partialTrace₂`, Uhlmann purification (`exists_uhlmann_purification`), **Lemma 5.1(b) minus** (`fidelityParam_minusChannel_le`).
+9. `PolarCodes/ChannelDuality.lean` — **Proposition 2.2** (`prop_2_2_D1`, `checkCombine_duality`, `prop_2_2_D2`, `prop_2_2_D3`).
+
+## Layer 3 — Frenkel Integral, DPI, Hockey-Stick & Nonlinear SDPI (Section 3)
+10. `PolarCodes/SpectralTrace.lean` — `posPartTrace`, `negPartTrace`, `negEigCount`, Sylvester's Law of Inertia (`negEigCount_congruence`).
+11. `PolarCodes/FrenkelHelpers.lean` — Measurability and Lebesgue integral helpers for the Hermitian pencil `(1 - t) ρ + t σ + r I`.
+12. `PolarCodes/FrenkelIntegral.lean` — **Frenkel's Integral Formula (Eq. 3.7)** (`relEntropy_frenkel_integral`).
+13. `PolarCodes/DataProcessing.lean` — DPI (`relEntropy_partialTrace₂_le`, `qjs_partialTrace₂_le`), **Lemma 5.1(a)** (`condEntropy_ge_one_sub_h2`, `fidelityParam_le_sqrt_condEntropy`).
+14. `PolarCodes/HockeyStick.lean` — **Eq. (3.8)** (`relEntropy_hockeyStick_integral`).
+15. `PolarCodes/HockeyStickMeasure.lean` — **Lemma 3.2** (`lemma_3_2_hockeyStick_measure`).
+16. `PolarCodes/QJJS.lean` — **Proposition 3.3** (`prop_3_3_qjjs_posDef`, `prop_3_3_qjjs`).
+17. `PolarCodes/DephasingSDPI.lean` — **Theorem 1.3** (`theorem_1_3_dephasing_sdpi`, `theorem_1_3_equatorial_equality`).
+
+## Layer 4 — Quantum Mrs. Gerber's Lemma & Polarization Splitting (Section 4)
+18. `PolarCodes/MrsGerberHybrid.lean` — **Theorem 1.2(a)** pure-state and BSC branches (`theorem_1_2a_pure`, `theorem_1_2a_bsc`).
+19. `PolarCodes/MrsGerberClassical.lean` — Simultaneous diagonalization and **Theorem 1.2(a)** classical branch (`theorem_1_2a_classical`).
+20. `PolarCodes/MrsGerber.lean` — **Proposition 4.2** (`prop_4_2_four_branch`) and **Theorem 1.2(b)** (`theorem_1_2b_linear_splitting`, `theorem_1_2b_potential_contraction`).
+
+## Layer 5 — Three-Stage Martingale Polarization & Main Theorems (Section 5)
+21. `PolarCodes/Polarization.lean` — Binary-tree Doob maximal inequality, Hoeffding bound, `PolarProcess`, **Lemma 5.2** (`lemma_5_2_stage1`), **Lemma 5.3** (`lemma_5_3_stage2`).
+22. `PolarCodes/PolarizationFine.lean` — **Lemma 5.4** (`lemma_5_4_stage3`), abstract **Theorem 1.1** (`polar_process_poly_blocklength`), abstract **Corollary 5.5** (`polar_process_dual_pair_poly_blocklength`).
+23. `PolarCodes/MainTheorem.lean` — Concrete `polarChannelTree`, `cqPolarProcess`, **Theorem 1.1** (`theorem_1_1_quantum_polar_poly_blocklength`), **Corollary 5.5** (`corollary_5_5_simultaneous_css_polarization`).
+24. `PolarCodes/SanityChecks.lean` — Concrete non-vacuity witnesses for Theorems 1.1, 1.2(b), and 1.3.
+
+## Verification & Comparator Layer
+- `PolarCodes/AuditAxioms.lean` — `#print axioms` audit across all 30 exported theorems.
+- `comparator/ChallengeDefs.lean`, `comparator/Challenge.lean`, `comparator/Solution.lean`, `comparator.json` — Standalone statement lock verified by `lake comparator`.

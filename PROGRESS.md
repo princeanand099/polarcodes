@@ -1,25 +1,32 @@
-# Formalization Progress Record
+# Formalization Progress
 
-- **Current Stage**: Stage 4 (Proving core modules in dependency order, zero-`sorry`, zero-`axiom`)
-- **Last Updated**: 2026-11-24
+**Status**: Complete (24 / 24 library modules compiled with `LAKE_BUILD_EXIT=0`, zero `sorry`, zero custom axioms).
 
-## CI-Verified Zero-`sorry` Modules (0 custom axioms)
-
-- [x] `PolarCodes/BinaryEntropy.lean` — `h2`, `h2Inv`, `binConv`, `gc`, `gq`, `deltaGap`, `cParam`, `phiParam`, `phi`, `phiExt`, `phiDerivParam`, `betaParam`, `gx`, `strictConcaveOn_h2`, `convexOn_h2Inv`, `antitoneOn_deltaGap`, and **Lemma 3.1** (`lemma_3_1_tangent`, `lemma_3_1_gx_nonneg`).
-- [x] `PolarCodes/QuantumStates.lean` — `DensityOp`, `sqrtMat`, `sqrtMat_mul_self`, `mix`, `midpoint`, `tensor`, `conjUnitary`, `vonNeumannEntropy`, `relEntropy`, `qjs`, `hockeyStick`, `traceDist`, `rootFidelity`.
-- [x] `PolarCodes/Channels.lean` — `CQChannel`, `condEntropy`, `symCapacity`, `fidelityParam`, `potential`, `ketBraBool`, **Definition 2.1** (`checkCombine`, `varCombine`, `minusChannel`, `plusChannel`), `IsPureState`, `IsClassical`.
-- [x] `PolarCodes/SplittingBounds.lean` — 4-term `log` Taylor bounds, `theta0_gt` (`θ₀ > 0.05673`), `theta2_gt_theta0`, `Lambda0_lt` (`Λ₀ < 0.99960`), **Proposition 4.3** (`prop_4_3_region1`, `prop_4_3_region2`, `prop_4_3_scalar`), and **Proposition 4.4** (`prop_4_4_potential_contraction_general`).
-- [x] `PolarCodes/Polarization.lean` — Binary-tree probability space (`treeAvg`, `treeProb`), Markov inequality (`treeProb_markov`), **Doob's maximal inequality** (`tree_doob_maximal`), and **Hoeffding's inequality** (`tree_hoeffding_lower`).
-
-## Remaining Modules to Formalize
-
-- [ ] `PolarCodes/Polarization.lean` — Stages 1–3 (**Lemmas 5.2, 5.3, 5.4**) and abstract polynomial-blocklength rate/error theorem.
-- [ ] `PolarCodes/BinaryEntropy.lean` — Wyner–Ziv convexity of `gc` (`convexOn_gc`) and endpoint limit (Eq. 1.8).
-- [ ] `PolarCodes/Channels.lean` — Entropy conservation (Eq. 2.8) and Renes' channel duality (**Proposition 2.2** & Eq. 2.9).
-- [ ] `PolarCodes/HockeyStick.lean` — Frenkel's hockey-stick integral representation, **Lemma 3.2**, and **Proposition 3.3** (QJJS).
-- [ ] `PolarCodes/DephasingSDPI.lean` — **Theorem 1.3** (Nonlinear SDPI for Qubit Dephasing).
-- [ ] `PolarCodes/MrsGerber.lean` — **Lemma 4.1**, **Theorem 1.2(a)**, **Proposition 4.2**, and **Theorem 1.2(b)**.
-- [ ] `PolarCodes/Bhattacharyya.lean` — **Lemma 5.1** (Quantum Bhattacharyya evolution & entropy relation).
-- [ ] `PolarCodes/MainTheorem.lean` — Wilde–Guha SC decoder bound, **Theorem 1.1**, and **Corollary 5.5**.
-- [ ] `PolarCodes/SanityChecks.lean`, `PolarCodes/AuditAxioms.lean`, `comparator/ChallengeDefs.lean`, `comparator/Challenge.lean`, `comparator/Solution.lean`.
-- [ ] Full verification CI (`full_verify: true`: `lake build`, hygiene check, `AuditAxioms`, `lake comparator`).
+| # | Module | Manuscript Results | Status |
+|---|---|---|---|
+| 1 | `PolarCodes/BinaryEntropy.lean` | `h2`, `h2Inv`, `deltaGap`, Lemma 3.1 | Complete |
+| 2 | `PolarCodes/QuantumStates.lean` | `DensityOp`, `vonNeumannEntropy`, `relEntropy`, `qjs`, `hockeyStick`, `rootFidelity` | Complete |
+| 3 | `PolarCodes/Channels.lean` | `CQChannel`, Definition 2.1 (`checkCombine`, `varCombine`) | Complete |
+| 4 | `PolarCodes/QuantumProps.lean` | Eq. (2.7)–(2.8) (`entropy_conservation`), Lemma 5.1(b) plus | Complete |
+| 5 | `PolarCodes/GramDephasing.lean` | `dephaseState`, `dephaseCoherence`, Lemma 4.1 | Complete |
+| 6 | `PolarCodes/Bhattacharyya.lean` | Uhlmann purification, Lemma 5.1(b) minus | Complete |
+| 7 | `PolarCodes/SplittingBounds.lean` | `theta0`, `Lambda0`, Propositions 4.3 & 4.4 | Complete |
+| 8 | `PolarCodes/SpectralTrace.lean` | `posPartTrace`, `negPartTrace`, Sylvester's Law of Inertia | Complete |
+| 9 | `PolarCodes/ChannelDuality.lean` | Proposition 2.2 (D1–D3) | Complete |
+| 10 | `PolarCodes/FrenkelHelpers.lean` | Measurability & Lebesgue integral helpers | Complete |
+| 11 | `PolarCodes/Polarization.lean` | Doob maximal, Hoeffding, Lemmas 5.2 & 5.3 | Complete |
+| 12 | `PolarCodes/FrenkelIntegral.lean` | Frenkel's integral formula (Eq. 3.7) | Complete |
+| 13 | `PolarCodes/DataProcessing.lean` | DPI, Lemma 5.1(a) | Complete |
+| 14 | `PolarCodes/PolarizationFine.lean` | Lemma 5.4, abstract Theorem 1.1 & Corollary 5.5 | Complete |
+| 15 | `PolarCodes/HockeyStick.lean` | Hockey-stick integral (Eq. 3.8) | Complete |
+| 16 | `PolarCodes/ScalarSupplements.lean` | Wyner–Ziv convexity (`convexOn_gc`), Eq. (1.8) | Complete |
+| 17 | `PolarCodes/HockeyStickMeasure.lean` | Lemma 3.2 | Complete |
+| 18 | `PolarCodes/QJJS.lean` | Proposition 3.3 | Complete |
+| 19 | `PolarCodes/DephasingSDPI.lean` | Theorem 1.3 (SDPI + equatorial equality) | Complete |
+| 20 | `PolarCodes/MrsGerberHybrid.lean` | Theorem 1.2(a) pure-state & BSC branches | Complete |
+| 21 | `PolarCodes/MrsGerberClassical.lean` | Theorem 1.2(a) classical branch | Complete |
+| 22 | `PolarCodes/MrsGerber.lean` | Proposition 4.2, Theorem 1.2(b) | Complete |
+| 23 | `PolarCodes/MainTheorem.lean` | Theorem 1.1, Corollary 5.5 | Complete |
+| 24 | `PolarCodes/SanityChecks.lean` | Non-vacuity witness checks | Complete |
+| — | `PolarCodes/AuditAxioms.lean` | `#print axioms` audit across 30 theorems | Complete |
+| — | `comparator/` + `comparator.json` | Standalone challenge/solution lock for `lake comparator` | Complete |

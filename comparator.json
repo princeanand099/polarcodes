@@ -1,7 +1,14 @@
 {
   "challenge_module": "Challenge",
   "solution_module": "Solution",
-  "theorem_names": [],
+  "theorem_names": [
+    "PolarCodesChallenge.theorem_1_1_quantum_polar_poly_blocklength",
+    "PolarCodesChallenge.corollary_5_5_simultaneous_css_polarization",
+    "PolarCodesChallenge.theorem_1_2b_linear_splitting",
+    "PolarCodesChallenge.theorem_1_2b_potential_contraction",
+    "PolarCodesChallenge.theorem_1_3_dephasing_sdpi",
+    "PolarCodesChallenge.theorem_1_3_equatorial_equality"
+  ],
   "definition_names": [],
   "permitted_axioms": [
     "propext",
