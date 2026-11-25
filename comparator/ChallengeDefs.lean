@@ -82,11 +82,12 @@ noncomputable def sqrtMat (ρ : DensityOp d) : Matrix d d ℂ :=
 lemma sqrtMat_isHermitian (ρ : DensityOp d) : ρ.sqrtMat.IsHermitian := by
   unfold sqrtMat
   rw [Matrix.IsHermitian, Matrix.conjTranspose_mul, Matrix.conjTranspose_mul,
-    ← Matrix.star_eq_conjTranspose, star_star, Matrix.diagonal_conjTranspose]
-  have hdiag : (fun i ↦ star ((Real.sqrt (ρ.eigvals i) : ℂ))) =
+    ← Matrix.star_eq_conjTranspose, ← Matrix.star_eq_conjTranspose, star_star,
+    Matrix.diagonal_conjTranspose]
+  have hdiag : (star fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ)) =
       fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ) := by
     ext i; simp
-  simp [hdiag, Matrix.mul_assoc]
+  rw [hdiag, Matrix.mul_assoc]
 
 lemma sqrtMat_mul_self (ρ : DensityOp d) : ρ.sqrtMat * ρ.sqrtMat = ρ.mat := by
   unfold sqrtMat
@@ -112,9 +113,13 @@ noncomputable def mix (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1) (ρ σ : Density
   mat := ((1 - p : ℝ) : ℂ) • ρ.mat + (p : ℂ) • σ.mat
   posSemidef := by
     have h1 : (((1 - p : ℝ) : ℂ) • ρ.mat).PosSemidef := by
-      simpa [Complex.real_smul] using ρ.posSemidef.smul (by linarith : (0 : ℝ) ≤ 1 - p)
+      have : (((1 - p : ℝ) : ℂ) • ρ.mat) = (1 - p : ℝ) • ρ.mat := by
+        ext i j; simp [Complex.real_smul]
+      rw [this]; exact ρ.posSemidef.smul (by linarith : (0 : ℝ) ≤ 1 - p)
     have h2 : ((p : ℂ) • σ.mat).PosSemidef := by
-      simpa [Complex.real_smul] using σ.posSemidef.smul hp0
+      have : ((p : ℂ) • σ.mat) = p • σ.mat := by
+        ext i j; simp [Complex.real_smul]
+      rw [this]; exact σ.posSemidef.smul hp0
     exact h1.add h2
   trace_one := by
     simp [Matrix.trace_add, Matrix.trace_smul, ρ.trace_one, σ.trace_one]
@@ -191,7 +196,7 @@ def pauliZTensorI (d : Type*) [Fintype d] [DecidableEq d] :
       apply Finset.sum_eq_zero
       intro r _
       by_cases h1 : p = r
-      · subst h1; simp [hpq]
+      · subst h1; simp [Ne.symm hpq]
       · simp [h1]⟩
 
 /-- Qubit dephasing channel `(Z_p ⊗ id)(Ψ) = (1 - p) Ψ + p (Z ⊗ I) Ψ (Z ⊗ I)`. -/

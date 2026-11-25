@@ -12,7 +12,7 @@ import PolarCodes.SpectralTrace
 /-!
 # Helper Lemmas for Frenkel's Integral Formula
 
-Proves the layer-cake identity for `negEigCount`, the elementary 1D partial-fraction integral,
+Proves the layer-cake identity for `negEigCount`, the elementary 1D rational-fraction integral,
 and measurability of `negEigCount` on the Hermitian pencil `(1 - t) ρ + t σ + r I`.
 -/
 
@@ -24,7 +24,7 @@ namespace PolarCodes
 variable {d d₁ d₂ : Type*} [Fintype d] [DecidableEq d]
   [Fintype d₁] [DecidableEq d₁] [Fintype d₂] [DecidableEq d₂]
 
-/-! ### Layer-Cake Formula and Elementary Partial-Fraction Integrals -/
+/-! ### Layer-Cake Formula and Elementary Rational-Fraction Integrals -/
 
 lemma tendsto_setLIntegral_monotone {s : ℕ → Set ℝ} (hs_mono : Monotone s)
     (hs_meas : ∀ n, MeasurableSet (s n)) {f : ℝ → ℝ≥0∞} (hf : Measurable f) :
@@ -130,7 +130,7 @@ lemma lintegral_negEigCount_eq_negPartTrace {A : Matrix d d ℂ} (hA : A.IsHermi
   · rw [max_eq_right h, ENNReal.ofReal_of_nonpos h, ENNReal.ofReal_zero]
   · rw [max_eq_left (le_of_lt h)]
 
-/-- Elementary partial-fraction Lebesgue integral for `λ > -1`:
+/-- Elementary rational-fraction Lebesgue integral for `λ > -1`:
 `∫⁻ t, 1_{1 + t λ < 0} / (|t| (t - 1)²) dt = log(1 + λ) - λ / (1 + λ)`. -/
 lemma lintegral_indicator_inv_abs_mul_sq_sub_one {lam : ℝ} (hlam : -1 < lam) :
     ∫⁻ t : ℝ, (if 1 + t * lam < 0 then ENNReal.ofReal (1 / (|t| * (t - 1) ^ 2)) else 0) ∂volume =

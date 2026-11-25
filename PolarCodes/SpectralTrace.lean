@@ -11,13 +11,13 @@ import PolarCodes.Bhattacharyya
 This module proves:
 1. Positive/negative spectral trace parts `posPartTrace`, `negPartTrace` and Frenkel's
    contraction lemma (`negPartTrace_map_le`) for positive trace-nonincreasing linear maps,
-   instantiated on the partial trace `partialTrace₂Mat`.
+   instantiated on the subsystem trace `partialTrace₂Mat`.
 2. Sylvester's Law of Inertia (`negEigCount_congruence`) for Hermitian matrices under
    invertible congruence `P * A * Pᴴ`.
 3. **Frenkel's Integral Formula (Eq. 3.7)** (`relEntropy_frenkel_integral`) and its
    **Hockey-Stick Form (Eq. 3.8)** (`relEntropy_hockeyStick_integral`) for full-rank states,
    proved purely real-analytically via the congruence `X(t, r) = (ρ + r I)^{1/2}(I + t M(r))(ρ + r I)^{1/2}`,
-   Sylvester's inertia, layer-cake representation, elementary partial fractions, and Tonelli's theorem.
+   Sylvester's inertia, layer-cake representation, elementary rational fractions, and Tonelli's theorem.
 4. **Data Processing Inequality (DPI)** for `relEntropy` and `qjs` under `partialTrace₂`
    (`relEntropy_partialTrace₂_le`, `qjs_partialTrace₂_le`).
 5. **Lemma 5.1(a)** (`condEntropy_ge_one_sub_h2`, `fidelityParam_le_sqrt_condEntropy`,
