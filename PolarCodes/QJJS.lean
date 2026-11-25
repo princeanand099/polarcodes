@@ -105,7 +105,7 @@ theorem prop_3_3_qjjs_posDef {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ : 
         have hint_t : Integrable (fun t : ℝ ↦ t) μ := by
           refine Integrable.mono' (integrable_const b) (continuous_id : Continuous (fun t : ℝ ↦ t)).aestronglyMeasurable ?_
           filter_upwards [ae_iff.mpr hsupp] with t ht
-          rw [Real.norm_of_nonneg (by linarith [ht.1])]; exact ht.2
+          dsimp only [id]; rw [Real.norm_of_nonneg (by linarith [ht.1])]; exact ht.2
         rw [integral_div, integral_add (integrable_const 1) hint_t, integral_const, smul_eq_mul,
           hmean, show μ.real univ = 1 by simp [Measure.real]]
         ring
@@ -821,7 +821,7 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
         have hint_t : Integrable (fun t : ℝ ↦ t) μ := by
           refine Integrable.mono' (integrable_const b) (continuous_id : Continuous (fun t : ℝ ↦ t)).aestronglyMeasurable ?_
           filter_upwards [ae_iff.mpr hsuppμ] with t ht
-          rw [Real.norm_of_nonneg (by linarith [ht.1])]; exact ht.2
+          dsimp only [id]; rw [Real.norm_of_nonneg (by linarith [ht.1])]; exact ht.2
         rw [integral_sub hI_rhs (integrable_const δ), integral_div, integral_add (integrable_const 1) hint_t,
           integral_const, smul_eq_mul, hmean, show μ.real univ = 1 by simp [Measure.real],
           integral_const, smul_eq_mul, show μ.real univ = 1 by simp [Measure.real]]

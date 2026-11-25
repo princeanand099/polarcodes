@@ -217,7 +217,7 @@ theorem lemma_3_2_hockeyStick_measure {ρ σ : DensityOp d}
     have hint_t : Integrable (fun t : ℝ ↦ t) μ := by
       apply Integrable.mono' (integrable_const b) (continuous_id : Continuous (fun t : ℝ ↦ t)).aestronglyMeasurable
       filter_upwards [hae_supp] with t ht
-      rw [Real.norm_of_nonneg (by linarith [ht.1])]; exact ht.2
+      dsimp only [id]; rw [Real.norm_of_nonneg (by linarith [ht.1])]; exact ht.2
     rw [integral_sub hint_t (integrable_const 1), hmean, integral_const, smul_eq_mul,
       hμ_real_univ]
     ring
