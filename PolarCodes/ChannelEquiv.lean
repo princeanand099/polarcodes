@@ -532,7 +532,6 @@ lemma dual_isoEquiv_of_purification {d E : Type u} [Fintype d] [DecidableEq d]
                 simp [smul_eq_mul]; ring } }
     W.dual.IsoEquiv W_E := by
   intro M₀ M₁ W_E
-  -- Factor lemma: if `A * Aᴴ = τ.mat`, there is an isometry `V : d → E ⊕ d` with `V * τ.sqrtMat = [Aᴴ; 0]`.
   have hfactor : ∀ (τ : DensityOp d) (A : Matrix d E ℂ), A * Aᴴ = τ.mat →
       ∃ V : Matrix (E ⊕ d) d ℂ, Vᴴ * V = 1 ∧
         ∀ (y : E ⊕ d) (x : d), (V * τ.sqrtMat) y x =
@@ -857,7 +856,6 @@ theorem prop_2_2_D3_isoEquiv_pure {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) 
     cases i <;> cases j <;> simp
   obtain ⟨γ, _, _, V₁, V₂, h1, h2, heq⟩ :=
     dual_isoEquiv_of_purification (pureChannel f hf0 hf1) A₀ A₁ hA₀ hA₁
-  -- Conjugate `W_E` by the Hadamard unitary `H : Bool → Bool × PUnit` to get `BSC(p)`!
   let H : Matrix (Bool × PUnit.{1}) Bool ℂ :=
     Matrix.of fun r c ↦ ((Real.sqrt 2 : ℂ)⁻¹) * (if r.1 = true ∧ c = true then -1 else 1)
   have hsq2 : star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) = (1 / 2 : ℂ) := by
@@ -1074,7 +1072,7 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
       simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Fin.sum_univ_three,
         M, D, A₀, A₁, Matrix.of_apply, Matrix.diagonal_apply]
       cases b <;> cases r₁ <;> cases r₂ <;> fin_cases k₁ <;> fin_cases k₂ <;>
-        simp [hstar2, hmul2, hs1, hs2] <;> ring
+        (simp [hstar2, hmul2, hs1, hs2]; try (ring_nf; simp only [sq, hmul2, hs1, hs2]; push_cast; ring))
     let 𝒩 : CPTPMap.{0} (Bool × Fin 3) (Fin 3) :=
       ⟨Bool × Fin 3, inferInstance, inferInstance,
         Matrix.of fun (p : Fin 3 × (Bool × Fin 3)) (q : Bool × Fin 3) ↦
@@ -1104,15 +1102,13 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
       simp only [Matrix.mul_apply, Fintype.sum_prod_type, Fintype.sum_bool, Fin.sum_univ_three,
         𝒩, M, Q, A₀, A₁, Matrix.of_apply, Matrix.conjTranspose_apply, Matrix.diagonal_apply]
       fin_cases x
-      · -- x = 0
-        cases b <;> fin_cases i <;> rcases e with ⟨eb, ek⟩ <;> cases eb <;> fin_cases ek <;>
-          simp [hstar2, hmul2] <;> ring
-      · -- x = 1
-        cases b <;> fin_cases i <;> rcases e with ⟨eb, ek⟩ <;> cases eb <;> fin_cases ek <;>
-          simp [hstar2, hmul2] <;> ring
-      · -- x = 2
-        cases b <;> fin_cases i <;> rcases e with ⟨eb, ek⟩ <;> cases eb <;> fin_cases ek <;>
-          simp [hstar2, hmul2] <;> ring
+      · -- x = 0: only q = (false, 0) contributes
+        cases b <;> fin_cases i <;> by_cases he : e = (false, 0) <;> simp [he]
+      · -- x = 1: only q = (true, 1) contributes
+        cases b <;> fin_cases i <;> by_cases he : e = (true, 1) <;> simp [he]
+      · -- x = 2: only q = (false, 2) and (true, 2) contribute
+        cases b <;> fin_cases i <;> by_cases he : e = (false, 2) <;>
+          (simp [he]; try (ring_nf; simp only [sq, hmul2]; ring))
     let ℳ : CPTPMap.{0} (Fin 3) (Bool × Fin 3) :=
       ⟨Bool, inferInstance, inferInstance,
         Matrix.of fun (p : (Bool × Fin 3) × Bool) (k : Fin 3) ↦
@@ -1161,9 +1157,10 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
         rw [hmat]
         dsimp only [partialTrace₂Mat, LinearMap.coe_mk, AddHom.coe_mk]
         cases b <;> fin_cases i <;> fin_cases j <;>
-          simp [Q, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply,
+          (simp [Q, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply,
             Matrix.of_apply, Fintype.sum_prod_type, Fintype.sum_bool, Fin.sum_univ_three,
-            hstar2, hmul2, hs1, hs2] <;> push_cast <;> ring
+            hstar2, hmul2, hs1, hs2];
+           try (ring_nf; simp only [sq, hmul2, hs1, hs2]; push_cast; ring))
       · intro b
         ext ⟨r₁, k₁⟩ ⟨r₂, k₂⟩
         have hmat : ((match b with
@@ -1174,10 +1171,31 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
           (r₁, k₁) (r₂, k₂) = _
         rw [hmat]
         dsimp only [partialTrace₂Mat, LinearMap.coe_mk, AddHom.coe_mk, ℳ]
-        cases b <;> cases r₁ <;> cases r₂ <;> fin_cases k₁ <;> fin_cases k₂ <;>
-          simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply,
-            Matrix.of_apply, Fintype.sum_prod_type, Fintype.sum_bool, Fin.sum_univ_three,
-            hstar2, hmul2] <;> push_cast <;> ring
+        fin_cases k₁ <;> fin_cases k₂
+        · cases b <;> cases r₁ <;> cases r₂ <;>
+            (simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+              Fintype.sum_bool, Fin.sum_univ_three, hstar2, hmul2];
+             try (ring_nf; simp only [sq, hmul2]; push_cast; ring))
+        · simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+            Fintype.sum_bool, Fin.sum_univ_three]
+        · simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+            Fintype.sum_bool, Fin.sum_univ_three]
+        · simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+            Fintype.sum_bool, Fin.sum_univ_three]
+        · cases b <;> cases r₁ <;> cases r₂ <;>
+            (simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+              Fintype.sum_bool, Fin.sum_univ_three, hstar2, hmul2];
+             try (ring_nf; simp only [sq, hmul2]; push_cast; ring))
+        · simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+            Fintype.sum_bool, Fin.sum_univ_three]
+        · simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+            Fintype.sum_bool, Fin.sum_univ_three]
+        · simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+            Fintype.sum_bool, Fin.sum_univ_three]
+        · cases b <;> cases r₁ <;> cases r₂ <;>
+            (simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+              Fintype.sum_bool, Fin.sum_univ_three, hstar2, hmul2];
+             try (ring_nf; simp only [sq, hmul2]; push_cast; ring))
     exact hstep1.trans hstep2
 
 end ChannelEquivalence
