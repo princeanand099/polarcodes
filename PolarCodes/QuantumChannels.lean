@@ -143,6 +143,7 @@ def comp (ℳ : CPTPMap d₂ d₃) (𝒩 : CPTPMap d₁ d₂) : CPTPMap d₁ d�
             conv_lhs => arg 2; ext b₁; rw [Finset.sum_comm]
             apply Finset.sum_congr rfl; intro b₁ _
             apply Finset.sum_congr rfl; intro b₂ _
+            rw [Finset.sum_comm]
             apply Finset.sum_congr rfl; intro e₁ _
             apply Finset.sum_congr rfl; intro e₂ _
             ring
@@ -153,7 +154,9 @@ def comp (ℳ : CPTPMap d₂ d₃) (𝒩 : CPTPMap d₁ d₂) : CPTPMap d₁ d�
           apply Finset.sum_congr rfl; intro b₂ _
           rw [Finset.sum_comm]
           apply Finset.sum_congr rfl; intro e₁ _
-          simp_rw [Finset.mul_sum]
+          rw [Finset.mul_sum]
+          apply Finset.sum_congr rfl; intro c _
+          rw [Finset.mul_sum]
       _ = ∑ b₁ : d₂, ∑ b₂ : d₂, ∑ e₁ : 𝒩.env,
             star (𝒩.isom (b₁, e₁) i) * 𝒩.isom (b₂, e₁) j *
             (1 : Matrix d₂ d₂ ℂ) b₁ b₂ := by
@@ -176,8 +179,11 @@ def comp (ℳ : CPTPMap d₂ d₃) (𝒩 : CPTPMap d₁ d₂) : CPTPMap d₁ d�
 lemma comp_apply (ℳ : CPTPMap d₂ d₃) (𝒩 : CPTPMap d₁ d₂) (ρ : DensityOp d₁) :
     ((ℳ.comp 𝒩).apply ρ).mat = (ℳ.apply (𝒩.apply ρ)).mat := by
   ext c₁ c₂
-  dsimp only [apply, toLinearMap, comp, partialTrace₂Mat, LinearMap.coe_mk, AddHom.coe_mk]
-  simp only [Matrix.of_apply, Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
+  change ∑ e : ℳ.env × 𝒩.env,
+      ((ℳ.comp 𝒩).isom * ρ.mat * (ℳ.comp 𝒩).isomᴴ) (c₁, e) (c₂, e) =
+    ∑ e₂ : ℳ.env, (ℳ.isom * (𝒩.apply ρ).mat * ℳ.isomᴴ) (c₁, e₂) (c₂, e₂)
+  simp only [apply, toLinearMap, comp, partialTrace₂Mat, LinearMap.coe_mk, AddHom.coe_mk,
+    Matrix.of_apply, Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
     star_sum, star_mul']
   simp_rw [Finset.sum_mul, Finset.mul_sum]
   apply Finset.sum_congr rfl; intro e₂ _
@@ -321,13 +327,13 @@ lemma relEntropy_mix_maxMixed_eq [Nonempty d] (ρ σ : DensityOp d) {δ : ℝ}
       rw [Matrix.mul_one, hU]
     have hterm1 : (((1 - δ : ℝ) : ℂ) • τ.mat) =
         U * (((1 - δ : ℝ) : ℂ) • Matrix.diagonal (Complex.ofReal ∘ τ.eigvals)) * star U := by
-      rw [hspec, Matrix.smul_mul, Matrix.mul_smul]
+      rw [hspec, ← Matrix.smul_mul, ← Matrix.mul_smul]
     have hterm2 : ((δ : ℂ) • (maxMixedState d).mat) =
         U * (((δ * (Fintype.card d : ℝ)⁻¹ : ℝ) : ℂ) • (1 : Matrix d d ℂ)) * star U := by
       have : ((δ : ℂ) • (maxMixedState d).mat) =
           (((δ * (Fintype.card d : ℝ)⁻¹ : ℝ) : ℂ) • (1 : Matrix d d ℂ)) := by
         ext i j; simp [maxMixedState, Complex.real_smul]; push_cast; ring
-      rw [this]; conv_lhs => rw [h1]; rw [Matrix.smul_mul, Matrix.mul_smul]
+      rw [this]; conv_lhs => rw [h1]; rw [← Matrix.smul_mul, ← Matrix.mul_smul]
     change (((1 - δ : ℝ) : ℂ) • τ.mat) + ((δ : ℂ) • (maxMixedState d).mat) = _
     rw [hterm1, hterm2, ← Matrix.add_mul, ← Matrix.mul_add]
     congr 2; ext i j
@@ -633,7 +639,7 @@ lemma negPartTrace_sub_le {A B : Matrix d d ℂ} (hA : A.IsHermitian) (hB : B.Is
         have hconj : star (star x ⬝ᵥ (((C : ℂ) • (1 : Matrix d d ℂ) - (B - A)).mulVec x)) =
             star x ⬝ᵥ (((C : ℂ) • (1 : Matrix d d ℂ) - (B - A)).mulVec x) := by
           rw [Matrix.star_dotProduct, star_star, Matrix.star_mulVec, hH.eq]
-          exact (Matrix.dotProduct_mulVec _ _ _).symm
+          exact (Matrix.dotProduct_mulVec (star x) ((C : ℂ) • (1 : Matrix d d ℂ) - (B - A)) x).symm
         have h := congr_arg Complex.im hconj
         simp only [Complex.star_def, Complex.conj_im] at h
         linarith
@@ -775,9 +781,9 @@ theorem relEntropy_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
           ℰδ (((1 - t : ℝ) : ℂ) • ρ'.mat + (t : ℂ) • σ'.mat) := by
         rw [map_add, map_smul, map_smul]
         have hA' : ℰδ ρ'.mat = A'.mat := by
-          simp [ℰδ, A', DensityOp.mix, CPTPMap.apply, ρ'.trace_one]
+          ext i j; simp [ℰδ, A', DensityOp.mix, CPTPMap.apply, ρ'.trace_one, Complex.real_smul]
         have hB' : ℰδ σ'.mat = B'.mat := by
-          simp [ℰδ, B', DensityOp.mix, CPTPMap.apply, σ'.trace_one]
+          ext i j; simp [ℰδ, B', DensityOp.mix, CPTPMap.apply, σ'.trace_one, Complex.real_smul]
         rw [hA', hB']
       have hA_herm : (((1 - t : ℝ) : ℂ) • ρ'.mat + (t : ℂ) • σ'.mat).IsHermitian := by
         have h1 : (((1 - t : ℝ) : ℂ) • ρ'.mat).IsHermitian := by
@@ -834,7 +840,7 @@ theorem relEntropy_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
     have hfk_meas : ∀ k : ℕ, Measurable (fk k) := by
       intro k
       apply ENNReal.measurable_ofReal.comp
-      apply Measurable.div _ (measurable_id.abs.mul ((measurable_id.sub measurable_const).pow_const 2))
+      apply Measurable.div _ (show Continuous fun t : ℝ ↦ |t| * (t - 1) ^ 2 by fun_prop).measurable
       have hcont : Continuous (fun t : ℝ ↦
           negPartTrace (show (((1 - t : ℝ) : ℂ) • (Ak k).mat + (t : ℂ) • (Bk k).mat).IsHermitian by
             have h1 : (((1 - t : ℝ) : ℂ) • (Ak k).mat).IsHermitian := by
@@ -940,8 +946,16 @@ theorem relEntropy_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
               ((1 - ε k : ℝ) : ℂ) • (𝒩.apply σ).mat + ((ε k : ℝ) : ℂ) • (𝒩.apply (maxMixedState d₁)).mat := by
             show 𝒩.toLinearMap (((1 - ε k : ℝ) : ℂ) • σ.mat + ((ε k : ℝ) : ℂ) • (maxMixedState d₁).mat) = _
             rw [map_add, map_smul, map_smul]; rfl
-          simp only [Ak, Bk, A0, B0, DensityOp.mix, Matrix.add_apply, Matrix.smul_apply, hlin_ρ, hlin_σ,
-            Complex.real_smul]
+          have hAk : (Ak k).mat = ((1 - δ : ℝ) : ℂ) • (((1 - ε k : ℝ) : ℂ) • (𝒩.apply ρ).mat +
+              ((ε k : ℝ) : ℂ) • (𝒩.apply (maxMixedState d₁)).mat) + ((δ : ℝ) : ℂ) • (maxMixedState d₂).mat := by
+            change ((1 - δ : ℝ) : ℂ) • (𝒩.apply (DensityOp.mix (ε k) _ _ ρ (maxMixedState d₁))).mat + _ = _
+            rw [hlin_ρ]
+          have hBk : (Bk k).mat = ((1 - δ : ℝ) : ℂ) • (((1 - ε k : ℝ) : ℂ) • (𝒩.apply σ).mat +
+              ((ε k : ℝ) : ℂ) • (𝒩.apply (maxMixedState d₁)).mat) + ((δ : ℝ) : ℂ) • (maxMixedState d₂).mat := by
+            change ((1 - δ : ℝ) : ℂ) • (𝒩.apply (DensityOp.mix (ε k) _ _ σ (maxMixedState d₁))).mat + _ = _
+            rw [hlin_σ]
+          rw [hAk, hBk]
+          simp only [A0, B0, DensityOp.mix, Matrix.add_apply, Matrix.smul_apply, Complex.real_smul]
           push_cast; ring
         have hsum_le : (∑ i : d₂, ∑ j : d₂,
             ‖(((1 - t : ℝ) : ℂ) • (Ak k).mat + (t : ℂ) • (Bk k).mat) i j -
@@ -1024,7 +1038,7 @@ theorem relEntropy_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
               (DensityOp.mix (ε k) (le_of_lt (hε_pos k)) (le_of_lt (hε_lt1 k)) σ (maxMixedState d₁)) *
             ENNReal.ofReal (Real.log 2)) atTop := by
           apply Filter.liminf_le_liminf
-          · exact Eventually.of_forall fun k ↦ mul_le_mul_right' (hdpi_ε (ε k) (hε_pos k) (hε_lt1 k)) _
+          · exact Eventually.of_forall fun k ↦ ENNReal.mul_le_mul (hdpi_ε (ε k) (hε_pos k) (hε_lt1 k)) le_rfl
           · isBoundedDefault
           · isBoundedDefault
       _ = relEntropy ρ σ * ENNReal.ofReal (Real.log 2) := by
