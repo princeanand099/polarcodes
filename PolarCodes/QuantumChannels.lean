@@ -450,7 +450,7 @@ lemma tendsto_relEntropy_mix_maxMixed [Nonempty d] (ρ σ : DensityOp d) :
           (Real.log ((1 - δ) * ρ.eigvals i + δ * invd) -
            Real.log ((1 - δ) * σ.eigvals j + δ * invd)))) / Real.log 2) := by
     filter_upwards [Ioo_mem_nhdsGT (by norm_num : (0 : ℝ) < 1)] with δ hδ
-    rw [dif_pos hδ]
+    rw [dif_pos ⟨hδ.1, hδ.2⟩]
     exact relEntropy_mix_maxMixed_eq ρ σ hδ.1 hδ.2
   rw [tendsto_congr' hrew]
   by_cases hsupp : suppSubset ρ σ
@@ -686,6 +686,22 @@ lemma negPartTrace_sub_le {A B : Matrix d d ℂ} (hA : A.IsHermitian) (hB : B.Is
       ← Complex.ofReal_mul, Complex.ofReal_re, mul_comm]
   linarith
 
+private lemma mix_maxMixed_posDef {α : Type u} [Fintype α] [DecidableEq α] [Nonempty α]
+    (τ : DensityOp α) {δ : ℝ} (hδ0 : 0 < δ) (hδ1 : δ < 1) :
+    (DensityOp.mix δ (le_of_lt hδ0) (le_of_lt hδ1) τ (maxMixedState α)).mat.PosDef := by
+  have h1 : (((1 - δ : ℝ) : ℂ) • τ.mat).PosSemidef := by
+    have : (((1 - δ : ℝ) : ℂ) • τ.mat) = (1 - δ : ℝ) • τ.mat := by ext i j; simp [Complex.real_smul]
+    rw [this]; exact τ.posSemidef.smul (by linarith)
+  have h2 : ((δ : ℂ) • (maxMixedState α).mat).PosDef := by
+    have : ((δ : ℂ) • (maxMixedState α).mat) = δ • (maxMixedState α).mat := by
+      ext i j; simp [Complex.real_smul]
+    rw [this]
+    exact ((Matrix.PosDef.one (n := α) (R := ℂ)).smul
+      (inv_pos.mpr (Nat.cast_pos.mpr Fintype.card_pos))).smul hδ0
+  change (((1 - δ : ℝ) : ℂ) • τ.mat + (δ : ℂ) • (maxMixedState α).mat).PosDef
+  rw [add_comm]
+  exact h2.add_posSemidef h1
+
 /-- **General CPTP Data Processing Inequality (Umegaki Relative Entropy)**:
 For every finite-dimensional CPTP map `𝒩 : B(ℂ^{d₁}) → B(ℂ^{d₂})` and all density operators
 `ρ, σ ∈ D(ℂ^{d₁})`, `D(𝒩(ρ) ‖ 𝒩(σ)) ≤ D(ρ ‖ σ)`. -/
@@ -697,24 +713,6 @@ theorem relEntropy_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
   haveI : Nonempty d₂ := by
     by_contra h0; haveI : IsEmpty d₂ := not_nonempty_iff.mp h0
     have htr := (𝒩.apply ρ).trace_one; simp [Matrix.trace] at htr
-  have hmax₁_pd : (maxMixedState d₁).mat.PosDef :=
-    (Matrix.PosDef.one (n := d₁) (R := ℂ)).smul (inv_pos.mpr (Nat.cast_pos.mpr Fintype.card_pos))
-  have hmax₂_pd : (maxMixedState d₂).mat.PosDef :=
-    (Matrix.PosDef.one (n := d₂) (R := ℂ)).smul (inv_pos.mpr (Nat.cast_pos.mpr Fintype.card_pos))
-  have hmix_pd : ∀ {α : Type u} [Fintype α] [DecidableEq α] [Nonempty α] (τ : DensityOp α)
-      {δ : ℝ} (hδ0 : 0 < δ) (hδ1 : δ < 1),
-      (DensityOp.mix δ (le_of_lt hδ0) (le_of_lt hδ1) τ (maxMixedState α)).mat.PosDef := by
-    intro α _ _ _ τ δ hδ0 hδ1
-    have h1 : (((1 - δ : ℝ) : ℂ) • τ.mat).PosSemidef := by
-      have : (((1 - δ : ℝ) : ℂ) • τ.mat) = (1 - δ : ℝ) • τ.mat := by ext i j; simp [Complex.real_smul]
-      rw [this]; exact τ.posSemidef.smul (by linarith)
-    have h2 : ((δ : ℂ) • (maxMixedState α).mat).PosDef := by
-      have : ((δ : ℂ) • (maxMixedState α).mat) = δ • (maxMixedState α).mat := by
-        ext i j; simp [Complex.real_smul]
-      rw [this]
-      exact ((Matrix.PosDef.one (n := α) (R := ℂ)).smul
-        (inv_pos.mpr (Nat.cast_pos.mpr Fintype.card_pos))).smul hδ0
-    simpa [DensityOp.mix, add_comm] using h2.add_posSemidef h1
   -- Step 1: For fixed `δ ∈ (0, 1)`, show `D(𝒩_δ(ρ) ‖ 𝒩_δ(σ)) ≤ D(ρ ‖ σ)`
   have hstep_δ : ∀ (δ : ℝ) (hδ0 : 0 < δ) (hδ1 : δ < 1),
       relEntropy (DensityOp.mix δ (le_of_lt hδ0) (le_of_lt hδ1) (𝒩.apply ρ) (maxMixedState d₂))
@@ -753,7 +751,6 @@ theorem relEntropy_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
         Matrix.traceLinearMap_apply, Matrix.trace_add, Matrix.trace_smul, 𝒩.toLinearMap_trace,
         (maxMixedState d₂).trace_one, smul_eq_mul, mul_one]
       push_cast; ring
-    -- For every `ε ∈ (0, 1)`, DPI holds between `(ρ_ε, σ_ε)` and `(𝒩_δ(ρ_ε), 𝒩_δ(σ_ε))`
     have hdpi_ε : ∀ (ε : ℝ) (hε0 : 0 < ε) (hε1 : ε < 1),
         relEntropy
           (DensityOp.mix δ (le_of_lt hδ0) (le_of_lt hδ1)
@@ -770,8 +767,9 @@ theorem relEntropy_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
       set B' := DensityOp.mix δ (le_of_lt hδ0) (le_of_lt hδ1) (𝒩.apply σ') (maxMixedState d₂)
       have hlog2_pos : 0 < ENNReal.ofReal (Real.log 2) := ENNReal.ofReal_pos.mpr (Real.log_pos (by norm_num))
       refine (ENNReal.mul_le_mul_iff_left (ne_of_gt hlog2_pos) ENNReal.ofReal_ne_top).mp ?_
-      rw [relEntropy_frenkel_integral (hmix_pd (𝒩.apply ρ') hδ0 hδ1) (hmix_pd (𝒩.apply σ') hδ0 hδ1),
-          relEntropy_frenkel_integral (hmix_pd ρ hε0 hε1) (hmix_pd σ hε0 hε1)]
+      rw [mul_comm _ (ENNReal.ofReal (Real.log 2)), mul_comm _ (ENNReal.ofReal (Real.log 2))]
+      rw [relEntropy_frenkel_integral (mix_maxMixed_posDef (𝒩.apply ρ') hδ0 hδ1) (mix_maxMixed_posDef (𝒩.apply σ') hδ0 hδ1),
+          relEntropy_frenkel_integral (mix_maxMixed_posDef ρ hε0 hε1) (mix_maxMixed_posDef σ hε0 hε1)]
       apply MeasureTheory.lintegral_mono; intro t
       apply ENNReal.ofReal_le_ofReal
       apply div_le_div_of_nonneg_right _ (mul_nonneg (abs_nonneg t) (sq_nonneg _))
@@ -798,7 +796,6 @@ theorem relEntropy_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
       have hB'_herm : (ℰδ (((1 - t : ℝ) : ℂ) • ρ'.mat + (t : ℂ) • σ'.mat)).IsHermitian := hlin ▸ hB_herm
       rw [negPartTrace_eq_of_eq hB_herm hB'_herm hlin]
       exact negPartTrace_map_le ℰδ hℰδ_pos (fun X _ ↦ by rw [hℰδ_tr]) hA_herm hB'_herm
-    -- Pass to `ε_k = 1 / (k + 2) → 0+` via Fatou's lemma on Frenkel's integral
     let ε : ℕ → ℝ := fun k ↦ 1 / ((k : ℝ) + 2)
     have hε_pos : ∀ k : ℕ, 0 < ε k := fun k ↦ by positivity
     have hε_lt1 : ∀ k : ℕ, ε k < 1 := fun k ↦ by
@@ -821,7 +818,8 @@ theorem relEntropy_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
         (maxMixedState d₂)
     have hlog2_pos : 0 < ENNReal.ofReal (Real.log 2) := ENNReal.ofReal_pos.mpr (Real.log_pos (by norm_num))
     refine (ENNReal.mul_le_mul_iff_left (ne_of_gt hlog2_pos) ENNReal.ofReal_ne_top).mp ?_
-    rw [relEntropy_frenkel_integral (hmix_pd (𝒩.apply ρ) hδ0 hδ1) (hmix_pd (𝒩.apply σ) hδ0 hδ1)]
+    rw [mul_comm _ (ENNReal.ofReal (Real.log 2)), mul_comm _ (ENNReal.ofReal (Real.log 2))]
+    rw [relEntropy_frenkel_integral (mix_maxMixed_posDef (𝒩.apply ρ) hδ0 hδ1) (mix_maxMixed_posDef (𝒩.apply σ) hδ0 hδ1)]
     let fk : ℕ → ℝ → ℝ≥0∞ := fun k t ↦
       ENNReal.ofReal (negPartTrace (show (((1 - t : ℝ) : ℂ) • (Ak k).mat + (t : ℂ) • (Bk k).mat).IsHermitian by
         have h1 : (((1 - t : ℝ) : ℂ) • (Ak k).mat).IsHermitian := by
@@ -1023,14 +1021,14 @@ theorem relEntropy_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
       _ = liminf (fun k ↦ ENNReal.ofReal (Real.log 2) * relEntropy (Ak k) (Bk k)) atTop := by
           congr 1; ext k
           exact (relEntropy_frenkel_integral
-            (hmix_pd (𝒩.apply _) hδ0 hδ1) (hmix_pd (𝒩.apply _) hδ0 hδ1)).symm
+            (mix_maxMixed_posDef (𝒩.apply _) hδ0 hδ1) (mix_maxMixed_posDef (𝒩.apply _) hδ0 hδ1)).symm
       _ ≤ liminf (fun k ↦ ENNReal.ofReal (Real.log 2) *
             relEntropy (DensityOp.mix (ε k) (le_of_lt (hε_pos k)) (le_of_lt (hε_lt1 k)) ρ (maxMixedState d₁))
               (DensityOp.mix (ε k) (le_of_lt (hε_pos k)) (le_of_lt (hε_lt1 k)) σ (maxMixedState d₁))) atTop := by
           apply Filter.liminf_le_liminf
           · exact Eventually.of_forall fun k ↦ mul_le_mul_left' (hdpi_ε (ε k) (hε_pos k) (hε_lt1 k)) _
-          · exact Filter.isBoundedUnder_of ⟨0, fun _ ↦ zero_le _⟩
-          · exact Filter.isCoboundedUnder_of ⟨⊤, fun _ ↦ le_top⟩
+          · isBoundedDefault
+          · isBoundedDefault
       _ = ENNReal.ofReal (Real.log 2) * relEntropy ρ σ := by
           have htend_rhs : Tendsto (fun k ↦ ENNReal.ofReal (Real.log 2) *
               relEntropy (DensityOp.mix (ε k) (le_of_lt (hε_pos k)) (le_of_lt (hε_lt1 k)) ρ (maxMixedState d₁))
@@ -1055,7 +1053,7 @@ theorem relEntropy_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
   -- Step 2: Take `δ → 0+` via `tendsto_relEntropy_mix_maxMixed`
   refine le_of_tendsto (tendsto_relEntropy_mix_maxMixed (𝒩.apply ρ) (𝒩.apply σ)) ?_
   filter_upwards [Ioo_mem_nhdsGT (by norm_num : (0 : ℝ) < 1)] with δ hδ
-  rw [dif_pos hδ]
+  rw [dif_pos ⟨hδ.1, hδ.2⟩]
   exact hstep_δ δ hδ.1 hδ.2
 
 /-- **General CPTP Data Processing Inequality for Quantum Jensen–Shannon Divergence**:
@@ -1068,21 +1066,9 @@ theorem qjs_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
   haveI : Nonempty d₂ := by
     by_contra h0; haveI : IsEmpty d₂ := not_nonempty_iff.mp h0
     have htr := (𝒩.apply ρ).trace_one; simp [Matrix.trace] at htr
-  have hmix_pd : ∀ {α : Type u} [Fintype α] [DecidableEq α] [Nonempty α] (τ : DensityOp α)
-      {δ : ℝ} (hδ0 : 0 < δ) (hδ1 : δ < 1),
-      (DensityOp.mix δ (le_of_lt hδ0) (le_of_lt hδ1) τ (maxMixedState α)).mat.PosDef := by
-    intro α _ _ _ τ δ hδ0 hδ1
-    have h1 : (((1 - δ : ℝ) : ℂ) • τ.mat).PosSemidef := by
-      have : (((1 - δ : ℝ) : ℂ) • τ.mat) = (1 - δ : ℝ) • τ.mat := by ext i j; simp [Complex.real_smul]
-      rw [this]; exact τ.posSemidef.smul (by linarith)
-    have h2 : ((δ : ℂ) • (maxMixedState α).mat).PosDef := by
-      have : ((δ : ℂ) • (maxMixedState α).mat) = δ • (maxMixedState α).mat := by
-        ext i j; simp [Complex.real_smul]
-      rw [this]
-      exact ((Matrix.PosDef.one (n := α) (R := ℂ)).smul
-        (inv_pos.mpr (Nat.cast_pos.mpr Fintype.card_pos))).smul hδ0
-    simpa [DensityOp.mix, add_comm] using h2.add_posSemidef h1
-  -- First express `qjs A B = ½ (D(A ‖ m).toReal + D(B ‖ m).toReal)` for ALL `A, B` via `δ → 0+`
+  have hdensity_ext : ∀ {α : Type u} [Fintype α] [DecidableEq α] (X Y : DensityOp α),
+      X.mat = Y.mat → X = Y := by
+    intro α _ _ ⟨_, _, _⟩ ⟨_, _, _⟩ h; cases h; rfl
   have hqjs_rel : ∀ {α : Type u} [Fintype α] [DecidableEq α] [Nonempty α] (A B : DensityOp α),
       qjs A B = ((relEntropy A (DensityOp.midpoint A B)).toReal +
         (relEntropy B (DensityOp.midpoint A B)).toReal) / 2 ∧
@@ -1091,14 +1077,15 @@ theorem qjs_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
     intro α _ _ _ A B
     have hsuppA : suppSubset A (DensityOp.midpoint A B) := by
       intro i j hAi hMj
-      have hker : (DensityOp.midpoint A B).mat.mulVec (fun r ↦ ((DensityOp.midpoint A B).eigUnitary : Matrix α α ℂ) r j) = 0 := by
+      set v : α → ℂ := fun r ↦ ((DensityOp.midpoint A B).eigUnitary : Matrix α α ℂ) r j
+      have hker : (DensityOp.midpoint A B).mat.mulVec v = 0 := by
         set U := ((DensityOp.midpoint A B).eigUnitary : Matrix α α ℂ)
         have hspec : (DensityOp.midpoint A B).mat = U * Matrix.diagonal (Complex.ofReal ∘ (DensityOp.midpoint A B).eigvals) * star U := by
           simpa [U, DensityOp.eigUnitary, DensityOp.eigvals, Matrix.star_eq_conjTranspose,
             Unitary.conjStarAlgAut_apply] using (DensityOp.midpoint A B).isHermitian.spectral_theorem
-        have hcol : (star U).mulVec (fun r ↦ U r j) = Pi.single j 1 := by
+        have hcol : (star U).mulVec v = Pi.single j 1 := by
           ext k; have h := congr_fun (congr_fun (Unitary.coe_star_mul_self (DensityOp.midpoint A B).eigUnitary) k) j
-          simpa [Matrix.mulVec, dotProduct, Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply,
+          simpa [v, Matrix.mulVec, dotProduct, Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply,
             Pi.single_apply, eq_comm] using h
         conv_lhs => rw [hspec]
         rw [← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec, hcol]
@@ -1107,7 +1094,6 @@ theorem qjs_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
           · subst hk; simp [hMj]
           · simp [Pi.single_eq_of_ne hk]
         rw [hz, Matrix.mulVec_zero]
-      set v : α → ℂ := fun r ↦ ((DensityOp.midpoint A B).eigUnitary : Matrix α α ℂ) r j
       have hquad0 : (star v ⬝ᵥ (DensityOp.midpoint A B).mat.mulVec v).re = 0 := by rw [hker]; simp
       have hmid_quad : (star v ⬝ᵥ (DensityOp.midpoint A B).mat.mulVec v).re =
           ((star v ⬝ᵥ A.mat.mulVec v).re + (star v ⬝ᵥ B.mat.mulVec v).re) / 2 := by
@@ -1117,12 +1103,10 @@ theorem qjs_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
           rw [Matrix.add_mulVec, Matrix.smul_mulVec, Matrix.smul_mulVec]; norm_num
         rw [h1, dotProduct_add, dotProduct_smul, dotProduct_smul, smul_eq_mul, smul_eq_mul,
           Complex.add_re, Complex.re_ofReal_mul, Complex.re_ofReal_mul]; ring
-      have hAnn : 0 ≤ (star v ⬝ᵥ A.mat.mulVec v).re := by
-        have h := (Matrix.posSemidef_iff_dotProduct_mulVec.mp A.posSemidef).2 v
-        exact (Complex.le_def.mp h).1
-      have hBnn : 0 ≤ (star v ⬝ᵥ B.mat.mulVec v).re := by
-        have h := (Matrix.posSemidef_iff_dotProduct_mulVec.mp B.posSemidef).2 v
-        exact (Complex.le_def.mp h).1
+      have hAnn : 0 ≤ (star v ⬝ᵥ A.mat.mulVec v).re :=
+        (Complex.le_def.mp ((Matrix.posSemidef_iff_dotProduct_mulVec.mp A.posSemidef).2 v)).1
+      have hBnn : 0 ≤ (star v ⬝ᵥ B.mat.mulVec v).re :=
+        (Complex.le_def.mp ((Matrix.posSemidef_iff_dotProduct_mulVec.mp B.posSemidef).2 v)).1
       have hA0 : (star v ⬝ᵥ A.mat.mulVec v).re = 0 := by linarith
       rw [re_quadForm_spectral A.isHermitian v] at hA0
       have hterm0 : A.eigvals i * ‖((star (A.eigUnitary : Matrix α α ℂ)).mulVec v) i‖ ^ 2 = 0 := by
@@ -1130,6 +1114,7 @@ theorem qjs_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
           (fun k _ ↦ mul_nonneg (A.eigvals_nonneg k) (sq_nonneg _)) (Finset.mem_univ i)
         have hge : 0 ≤ A.eigvals i * ‖((star (A.eigUnitary : Matrix α α ℂ)).mulVec v) i‖ ^ 2 :=
           mul_nonneg (A.eigvals_nonneg i) (sq_nonneg _)
+        unfold DensityOp.eigvals DensityOp.eigUnitary at hle hge ⊢
         linarith
       have hnorm0 : ((star (A.eigUnitary : Matrix α α ℂ)).mulVec v) i = 0 := by
         rcases mul_eq_zero.mp hterm0 with h | h
@@ -1142,8 +1127,6 @@ theorem qjs_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
         apply Finset.sum_congr rfl; intro k _; ring
       rw [hconj, hnorm0, star_zero]
     have hsuppB : suppSubset B (DensityOp.midpoint A B) := by
-      have hmid_comm : (DensityOp.midpoint A B).mat = (DensityOp.midpoint B A).mat := by
-        ext i j; simp [DensityOp.midpoint, DensityOp.mix, Complex.real_smul]; ring
       intro i j hBi hMj
       set v : α → ℂ := fun r ↦ ((DensityOp.midpoint A B).eigUnitary : Matrix α α ℂ) r j
       have hker : (DensityOp.midpoint A B).mat.mulVec v = 0 := by
@@ -1182,6 +1165,7 @@ theorem qjs_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
           (fun k _ ↦ mul_nonneg (B.eigvals_nonneg k) (sq_nonneg _)) (Finset.mem_univ i)
         have hge : 0 ≤ B.eigvals i * ‖((star (B.eigUnitary : Matrix α α ℂ)).mulVec v) i‖ ^ 2 :=
           mul_nonneg (B.eigvals_nonneg i) (sq_nonneg _)
+        unfold DensityOp.eigvals DensityOp.eigUnitary at hle hge ⊢
         linarith
       have hnorm0 : ((star (B.eigUnitary : Matrix α α ℂ)).mulVec v) i = 0 := by
         rcases mul_eq_zero.mp hterm0 with h | h
@@ -1210,7 +1194,7 @@ theorem qjs_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
       refine hcomb.congr' ?_
       filter_upwards [Ioo_mem_nhdsGT (by norm_num : (0 : ℝ) < 1)] with δ hδ
       have h01 : 0 ≤ δ ∧ δ ≤ 1 := ⟨le_of_lt hδ.1, le_of_lt hδ.2⟩
-      rw [dif_pos h01, dif_pos h01, dif_pos h01, dif_pos hδ]
+      rw [dif_pos h01, dif_pos h01, dif_pos h01, dif_pos ⟨hδ.1, hδ.2⟩]
       unfold qjs
       have hmid_eq : (DensityOp.midpoint
           (DensityOp.mix δ h01.1 h01.2 A (maxMixedState α))
@@ -1235,7 +1219,7 @@ theorem qjs_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
       have hcomb := (h1.add h2).div_const 2
       refine hcomb.congr' ?_
       filter_upwards [Ioo_mem_nhdsGT (by norm_num : (0 : ℝ) < 1)] with δ hδ
-      simp [Function.comp_def, dif_pos hδ]
+      simp only [Function.comp_def, dif_pos ⟨hδ.1, hδ.2⟩]
     have hEq : ∀ᶠ δ : ℝ in 𝓝[>] 0,
         (if h : 0 < δ ∧ δ < 1 then
           qjs (DensityOp.mix δ (le_of_lt h.1) (le_of_lt h.2) A (maxMixedState α))
@@ -1249,52 +1233,41 @@ theorem qjs_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
         else ((relEntropy A (DensityOp.midpoint A B)).toReal +
               (relEntropy B (DensityOp.midpoint A B)).toReal) / 2) := by
       filter_upwards [Ioo_mem_nhdsGT (by norm_num : (0 : ℝ) < 1)] with δ hδ
-      rw [dif_pos hδ, dif_pos hδ]
-      have hq := (qjs_eq_half_relEntropy_midpoint (hmix_pd A hδ.1 hδ.2) (hmix_pd B hδ.1 hδ.2)).2
+      rw [dif_pos ⟨hδ.1, hδ.2⟩, dif_pos ⟨hδ.1, hδ.2⟩]
+      have hq := (qjs_eq_half_relEntropy_midpoint (mix_maxMixed_posDef A hδ.1 hδ.2) (mix_maxMixed_posDef B hδ.1 hδ.2)).2
       have hmid_eq : DensityOp.midpoint
           (DensityOp.mix δ (le_of_lt hδ.1) (le_of_lt hδ.2) A (maxMixedState α))
           (DensityOp.mix δ (le_of_lt hδ.1) (le_of_lt hδ.2) B (maxMixedState α)) =
           DensityOp.mix δ (le_of_lt hδ.1) (le_of_lt hδ.2) (DensityOp.midpoint A B) (maxMixedState α) := by
-        cases DensityOp.midpoint
-          (DensityOp.mix δ (le_of_lt hδ.1) (le_of_lt hδ.2) A (maxMixedState α))
-          (DensityOp.mix δ (le_of_lt hδ.1) (le_of_lt hδ.2) B (maxMixedState α)) with
-        | mk m1 _ _ =>
-          cases DensityOp.mix δ (le_of_lt hδ.1) (le_of_lt hδ.2) (DensityOp.midpoint A B) (maxMixedState α) with
-          | mk m2 _ _ =>
-            congr 1; ext i j
-            simp [DensityOp.midpoint, DensityOp.mix, Complex.real_smul]; push_cast; ring
+        apply hdensity_ext
+        ext i j; simp [DensityOp.midpoint, DensityOp.mix, Complex.real_smul]; push_cast; ring
       rw [hmid_eq] at hq
       have h1_ne : relEntropy (DensityOp.mix δ (le_of_lt hδ.1) (le_of_lt hδ.2) A (maxMixedState α))
           (DensityOp.mix δ (le_of_lt hδ.1) (le_of_lt hδ.2) (DensityOp.midpoint A B) (maxMixedState α)) ≠ ⊤ := by
         unfold relEntropy
-        have hpd := hmix_pd (DensityOp.midpoint A B) hδ.1 hδ.2
+        have hpd := mix_maxMixed_posDef (DensityOp.midpoint A B) hδ.1 hδ.2
         rw [if_pos (fun i j _ h0 ↦ absurd h0 (ne_of_gt (hpd.eigenvalues_pos j)))]
         exact ENNReal.ofReal_ne_top
       have h2_ne : relEntropy (DensityOp.mix δ (le_of_lt hδ.1) (le_of_lt hδ.2) B (maxMixedState α))
           (DensityOp.mix δ (le_of_lt hδ.1) (le_of_lt hδ.2) (DensityOp.midpoint A B) (maxMixedState α)) ≠ ⊤ := by
         unfold relEntropy
-        have hpd := hmix_pd (DensityOp.midpoint A B) hδ.1 hδ.2
+        have hpd := mix_maxMixed_posDef (DensityOp.midpoint A B) hδ.1 hδ.2
         rw [if_pos (fun i j _ h0 ↦ absurd h0 (ne_of_gt (hpd.eigenvalues_pos j)))]
         exact ENNReal.ofReal_ne_top
       have hq_real := congr_arg ENNReal.toReal hq
-      rw [ENNReal.toReal_ofReal (qjs_eq_half_relEntropy_midpoint (hmix_pd A hδ.1 hδ.2) (hmix_pd B hδ.1 hδ.2)).1,
+      rw [ENNReal.toReal_ofReal (qjs_eq_half_relEntropy_midpoint (mix_maxMixed_posDef A hδ.1 hδ.2) (mix_maxMixed_posDef B hδ.1 hδ.2)).1,
         ENNReal.toReal_mul, ENNReal.toReal_add h1_ne h2_ne] at hq_real
       have hhalf : (1 / 2 : ℝ≥0∞).toReal = 1 / 2 := by norm_num
       rw [hhalf] at hq_real
       linarith
     exact tendsto_nhds_unique (hL.congr' hEq) hR
-  -- Now apply `relEntropy_cptp_le` to both terms
   obtain ⟨h1, _, _⟩ := hqjs_rel (𝒩.apply ρ) (𝒩.apply σ)
   obtain ⟨h2, h2A, h2B⟩ := hqjs_rel ρ σ
   have hmid_N : DensityOp.midpoint (𝒩.apply ρ) (𝒩.apply σ) = 𝒩.apply (DensityOp.midpoint ρ σ) := by
-    have hmat : (DensityOp.midpoint (𝒩.apply ρ) (𝒩.apply σ)).mat = (𝒩.apply (DensityOp.midpoint ρ σ)).mat := by
-      show ((1 - 1 / 2 : ℝ) : ℂ) • 𝒩.toLinearMap ρ.mat + ((1 / 2 : ℝ) : ℂ) • 𝒩.toLinearMap σ.mat =
-        𝒩.toLinearMap (((1 - 1 / 2 : ℝ) : ℂ) • ρ.mat + ((1 / 2 : ℝ) : ℂ) • σ.mat)
-      rw [map_add, map_smul, map_smul]
-    cases DensityOp.midpoint (𝒩.apply ρ) (𝒩.apply σ) with
-    | mk m1 _ _ =>
-      cases 𝒩.apply (DensityOp.midpoint ρ σ) with
-      | mk m2 _ _ => congr 1
+    apply hdensity_ext
+    show ((1 - 1 / 2 : ℝ) : ℂ) • 𝒩.toLinearMap ρ.mat + ((1 / 2 : ℝ) : ℂ) • 𝒩.toLinearMap σ.mat =
+      𝒩.toLinearMap (((1 - 1 / 2 : ℝ) : ℂ) • ρ.mat + ((1 / 2 : ℝ) : ℂ) • σ.mat)
+    rw [map_add, map_smul, map_smul]
   rw [h1, h2, hmid_N]
   have hleA : (relEntropy (𝒩.apply ρ) (𝒩.apply (DensityOp.midpoint ρ σ))).toReal ≤
       (relEntropy ρ (DensityOp.midpoint ρ σ)).toReal :=
