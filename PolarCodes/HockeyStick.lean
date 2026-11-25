@@ -3,6 +3,7 @@ Copyright (c) 2026 Prince Anand. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Prince Anand
 -/
+import Mathlib.MeasureTheory.Function.JacobianOneDim
 import Mathlib.MeasureTheory.Measure.Stieltjes
 import PolarCodes.DataProcessing
 
@@ -97,8 +98,8 @@ theorem relEntropy_hockeyStick_integral {ρ σ : DensityOp d}
   -- Split ℝ = Iio 0 ∪ Icc 0 1 ∪ Ioi 1
   have hsplit1 : ∫⁻ t : ℝ, F t ∂volume =
       (∫⁻ t in Iio (0 : ℝ), F t ∂volume) + (∫⁻ t in Ici (0 : ℝ), F t ∂volume) := by
-    rw [← lintegral_union measurableSet_Ici (Set.disjoint_left.mpr fun x h1 h2 ↦ not_lt.mpr h2 h1),
-      Set.Iio_union_Ici, Measure.restrict_univ]
+    rw [← Measure.restrict_univ (μ := volume), ← Set.Iio_union_Ici (a := (0 : ℝ)),
+      lintegral_union measurableSet_Ici (Set.disjoint_left.mpr fun x h1 h2 ↦ not_lt.mpr h2 h1)]
   have hsplit2 : ∫⁻ t in Ici (0 : ℝ), F t ∂volume =
       (∫⁻ t in Icc (0 : ℝ) 1, F t ∂volume) + (∫⁻ t in Ioi (1 : ℝ), F t ∂volume) := by
     rw [← lintegral_union measurableSet_Ioi
@@ -107,7 +108,7 @@ theorem relEntropy_hockeyStick_integral {ρ σ : DensityOp d}
   have hzero : ∫⁻ t in Icc (0 : ℝ) 1, F t ∂volume = 0 := by
     apply setLIntegral_eq_zero measurableSet_Icc
     intro t ht
-    simp only [F, negPartTrace_pencil_eq_zero_of_mem_Icc ht.1 ht.2, zero_div, ENNReal.ofReal_zero]
+    simp only [F, Pi.zero_apply, negPartTrace_pencil_eq_zero_of_mem_Icc ht.1 ht.2, zero_div, ENNReal.ofReal_zero]
   rw [hsplit1, hsplit2, hzero, zero_add]
   -- Left piece: Iio 0 via s ↦ -s / (1 - s) on Ioo 0 1
   have hleft : ∫⁻ t in Iio (0 : ℝ), F t ∂volume =
@@ -117,8 +118,10 @@ theorem relEntropy_hockeyStick_integral {ρ σ : DensityOp d}
     have himg : g₁ '' Ioo (0 : ℝ) 1 = Iio (0 : ℝ) := by
       ext y; constructor
       · rintro ⟨s, ⟨hs0, hs1⟩, rfl⟩
+        simp only [Set.mem_Iio, g₁]
         exact div_neg_of_neg_of_pos (by linarith) (by linarith)
       · intro hy
+        have hy' : y < 0 := hy
         refine ⟨-y / (1 - y), ⟨div_pos (by linarith) (by linarith), ?_⟩, ?_⟩
         · rw [div_lt_one (by linarith)]; linarith
         · simp only [g₁]
@@ -135,9 +138,8 @@ theorem relEntropy_hockeyStick_integral {ρ σ : DensityOp d}
       intro s hs
       have h1 : 1 - s ≠ 0 := by linarith [hs.2]
       have hd : HasDerivAt g₁ (g₁' s) s := by
-        have hnum : HasDerivAt (fun x : ℝ ↦ -x) (-1) s := (hasDerivAt_id s).neg
-        have hden : HasDerivAt (fun x : ℝ ↦ 1 - x) (-1) s := by
-          simpa using (hasDerivAt_const s (1 : ℝ)).sub (hasDerivAt_id s)
+        have hnum : HasDerivAt (fun x : ℝ ↦ -x) (-1) s := (hasDerivAt_id' s).neg
+        have hden : HasDerivAt (fun x : ℝ ↦ 1 - x) (-1) s := (hasDerivAt_id' s).const_sub 1
         convert hnum.div hden h1 using 1
         simp only [g₁']; ring
       exact hd.hasDerivWithinAt
@@ -205,9 +207,8 @@ theorem relEntropy_hockeyStick_integral {ρ σ : DensityOp d}
       intro s hs
       have h1 : s - 1 ≠ 0 := by linarith [Set.mem_Ioi.mp hs]
       have hd : HasDerivAt g₂ (g₂' s) s := by
-        have hnum : HasDerivAt (fun x : ℝ ↦ x) 1 s := hasDerivAt_id s
-        have hden : HasDerivAt (fun x : ℝ ↦ x - 1) 1 s := by
-          simpa using (hasDerivAt_id s).sub (hasDerivAt_const s (1 : ℝ))
+        have hnum : HasDerivAt (fun x : ℝ ↦ x) 1 s := hasDerivAt_id' s
+        have hden : HasDerivAt (fun x : ℝ ↦ x - 1) 1 s := (hasDerivAt_id' s).sub_const 1
         convert hnum.div hden h1 using 1
         simp only [g₂']; ring
       exact hd.hasDerivWithinAt
@@ -257,28 +258,26 @@ theorem relEntropy_hockeyStick_integral {ρ σ : DensityOp d}
       (∫⁻ s in Ioi (1 : ℝ),
         ENNReal.ofReal ((hockeyStick s ρ σ - max (1 - s) 0) / s) ∂volume) := by
     have hae : (Ioo (0 : ℝ) 1 ∪ Ioi (1 : ℝ) : Set ℝ) =ᵐ[volume] Ioi (0 : ℝ) := by
-      rw [Filter.EventuallyEq, ae_iff]
-      have hsub : {x : ℝ | ¬ (x ∈ Ioo (0 : ℝ) 1 ∪ Ioi (1 : ℝ) ↔ x ∈ Ioi (0 : ℝ))} ⊆ {(1 : ℝ)} := by
-        intro x hx
-        simp only [Set.mem_setOf_eq, Set.mem_union, Set.mem_Ioo, Set.mem_Ioi,
+      rw [MeasureTheory.ae_eq_set]
+      constructor
+      · refine measure_mono_null (t := ∅) (fun x hx ↦ ?_) measure_empty
+        simp only [Set.mem_diff, Set.mem_union, Set.mem_Ioo, Set.mem_Ioi] at hx
+        rcases hx.1 with ⟨h0, _⟩ | h1 <;> exact absurd (by linarith) hx.2
+      · refine measure_mono_null (t := {(1 : ℝ)}) (fun x hx ↦ ?_) Real.volume_singleton
+        simp only [Set.mem_diff, Set.mem_union, Set.mem_Ioo, Set.mem_Ioi,
           Set.mem_singleton_iff] at hx ⊢
         by_contra hne
-        apply hx
-        constructor
-        · rintro (⟨h0, _⟩ | h1) <;> linarith
-        · intro h0
-          rcases lt_or_gt_of_ne hne with hlt | hgt
-          · left; exact ⟨h0, hlt⟩
-          · right; exact hgt
-      exact measure_mono_null hsub (Real.volume_singleton)
+        rcases lt_or_gt_of_ne hne with hlt | hgt
+        · exact hx.2 (Or.inl ⟨hx.1, hlt⟩)
+        · exact hx.2 (Or.inr hgt)
     rw [← setLIntegral_congr hae,
       lintegral_union measurableSet_Ioi (Set.disjoint_left.mpr fun x h1 h2 ↦ not_lt.mpr (le_of_lt h1.2) h2)]
   rw [hcomb]
   congr 1
   · apply setLIntegral_congr_fun measurableSet_Ioo
-    intro s hs; rw [max_eq_left (by linarith [hs.2])]
+    intro s hs; dsimp only; rw [max_eq_left (by linarith [hs.2])]
   · apply setLIntegral_congr_fun measurableSet_Ioi
-    intro s hs; rw [max_eq_right (by linarith [Set.mem_Ioi.mp hs]), sub_zero]
+    intro s hs; dsimp only; rw [max_eq_right (by linarith [Set.mem_Ioi.mp hs]), sub_zero]
 
 /-! ### Part 2: Convexity and Endpoint Behavior of `s ↦ E_s(ρ ‖ σ)` -/
 
@@ -318,7 +317,7 @@ lemma hockeyStick_convexOn (ρ σ : DensityOp d) :
       have habC : (a : ℂ) + (b : ℂ) = 1 := by exact_mod_cast hab
       push_cast
       linear_combination -(ρ.mat i j) * habC
-    rw [hcomb, ← posPartMat_sub_negPartMat hA₁, ← posPartMat_sub_negPartMat hA₂]
+    conv_lhs => rw [hcomb, ← posPartMat_sub_negPartMat hA₁, ← posPartMat_sub_negPartMat hA₂]
     simp only [B, smul_sub]
     abel
   have hBA : (B - (ρ.mat - ((a * s₁ + b * s₂ : ℝ) : ℂ) • σ.mat)).PosSemidef := by
@@ -378,29 +377,17 @@ lemma hockeyStick_bounds_posDef {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ
       (star x ⬝ᵥ τ.mat.mulVec x).re ≤ (Finset.univ.sup' hne τ.eigvals) * (∑ i : d, ‖x i‖ ^ 2) := by
     intro τ x
     rw [re_quadForm_spectral τ.isHermitian x]
-    set y : d → ℂ := (star (τ.isHermitian.eigenvectorUnitary : Matrix d d ℂ)).mulVec x
+    set U : Matrix d d ℂ := (τ.isHermitian.eigenvectorUnitary : Matrix d d ℂ)
+    have hU : U * star U = 1 := Unitary.coe_mul_star_self τ.isHermitian.eigenvectorUnitary
+    set y : d → ℂ := (star U).mulVec x
     have hnorm : ∑ i : d, ‖y i‖ ^ 2 = ∑ i : d, ‖x i‖ ^ 2 := by
       have hdot : star y ⬝ᵥ y = star x ⬝ᵥ x := by
-        simp only [y]
-        rw [Matrix.dotProduct_mulVec]
-        have hvec : star ((star (τ.isHermitian.eigenvectorUnitary : Matrix d d ℂ)).mulVec x) ᵥ*
-            star (τ.isHermitian.eigenvectorUnitary : Matrix d d ℂ) = star x := by
-          ext j
-          simp only [Matrix.vecMul, Matrix.mulVec, dotProduct, Pi.star_apply, Matrix.star_apply,
-            star_sum, star_mul', star_star]
-          calc ∑ k : d, (∑ i : d, star (x i) * (τ.isHermitian.eigenvectorUnitary : Matrix d d ℂ) i k) *
-                  star ((τ.isHermitian.eigenvectorUnitary : Matrix d d ℂ) j k)
-              = ∑ i : d, star (x i) *
-                  ∑ k : d, (τ.isHermitian.eigenvectorUnitary : Matrix d d ℂ) i k *
-                    star ((τ.isHermitian.eigenvectorUnitary : Matrix d d ℂ) j k) := by
-                simp_rw [Finset.sum_mul, Finset.mul_sum]; rw [Finset.sum_comm]
-                apply Finset.sum_congr rfl; intro i _; apply Finset.sum_congr rfl; intro k _; ring
-            _ = ∑ i : d, star (x i) * (1 : Matrix d d ℂ) i j := by
-                apply Finset.sum_congr rfl; intro i _
-                have h := congr_fun (congr_fun (Unitary.coe_mul_star_self τ.isHermitian.eigenvectorUnitary) i) j
-                simpa [Matrix.mul_apply, Matrix.star_apply] using congr_arg (star (x i) * ·) h
-            _ = star (x j) := by simp [Matrix.one_apply]
-        rw [hvec]
+        have hst : star y = star x ᵥ* U := by
+          ext k
+          simp only [y, Pi.star_apply, Matrix.mulVec, Matrix.vecMul, dotProduct,
+            Matrix.star_apply, star_sum, star_mul', star_star]
+          apply Finset.sum_congr rfl; intro i _; ring
+        rw [hst, ← Matrix.dotProduct_mulVec, Matrix.mulVec_mulVec, hU, Matrix.one_mulVec]
       have hre := congr_arg Complex.re hdot
       simp only [dotProduct, Pi.star_apply, Complex.re_sum] at hre
       have hsq : ∀ (v : d → ℂ) (i : d), (star (v i) * v i).re = ‖v i‖ ^ 2 := by
@@ -521,29 +508,29 @@ lemma slope_bounds_of_hockeyStick (hf : ConvexOn ℝ univ f)
     -1 ≤ (f y - f x) / (y - x) ∧ (f y - f x) / (y - x) ≤ 0 := by
   let x₀ := min x a - 1
   let y₀ := max y b + 1
-  have hx₀ : x₀ < x := by simp [x₀]; linarith [min_le_left x a]
-  have hx₀a : x₀ ≤ a := by simp [x₀]; linarith [min_le_right x a]
-  have hy₀ : y < y₀ := by simp [y₀]; linarith [le_max_left y b]
-  have hy₀b : b ≤ y₀ := by simp [y₀]; linarith [le_max_right y b]
+  have hx₀ : x₀ < x := by dsimp [x₀]; linarith [min_le_left x a]
+  have hx₀a : x₀ ≤ a := by dsimp [x₀]; linarith [min_le_right x a]
+  have hy₀ : y < y₀ := by dsimp [y₀]; linarith [le_max_left y b]
+  have hy₀b : b ≤ y₀ := by dsimp [y₀]; linarith [le_max_right y b]
   constructor
   · let x₁ := min x a - 2
-    have hx₁ : x₁ < x₀ := by simp [x₁, x₀]
+    have hx₁ : x₁ < x₀ := by dsimp [x₁, x₀]; linarith
     have hx₁a : x₁ ≤ a := by linarith
     have h1 : (f x₀ - f x₁) / (x₀ - x₁) = -1 := by
       rw [hleft x₀ hx₀a, hleft x₁ hx₁a]
       have hne : x₀ - x₁ ≠ 0 := by linarith
       field_simp [hne]; ring
-    have h2 := (slope_le_slope_of_convex hf hx₁ hx₀).2
-    have h3 := (slope_le_slope_of_convex hf hx₀ hxy).2
-    linarith
+    have h2 := slope_le_slope_of_convex hf hx₁ hx₀
+    have h3 := slope_le_slope_of_convex hf hx₀ hxy
+    linarith [h2.1, h2.2, h3.1, h3.2]
   · let y₁ := max y b + 2
-    have hy₁ : y₀ < y₁ := by simp [y₀, y₁]
+    have hy₁ : y₀ < y₁ := by dsimp [y₀, y₁]; linarith
     have hy₁b : b ≤ y₁ := by linarith
     have h1 : (f y₁ - f y₀) / (y₁ - y₀) = 0 := by
       rw [hright y₁ hy₁b, hright y₀ hy₀b]; simp
-    have h2 := (slope_le_slope_of_convex hf hxy hy₀).1
-    have h3 := (slope_le_slope_of_convex hf hy₀ hy₁).1
-    linarith
+    have h2 := slope_le_slope_of_convex hf hxy hy₀
+    have h3 := slope_le_slope_of_convex hf hy₀ hy₁
+    linarith [h2.1, h2.2, h3.1, h3.2]
 
 lemma convexRightDeriv_le_slope (hf : ConvexOn ℝ univ f)
     (hleft : ∀ s ≤ a, f s = 1 - s) (hright : ∀ s ≥ b, f s = 0)
@@ -552,9 +539,10 @@ lemma convexRightDeriv_le_slope (hf : ConvexOn ℝ univ f)
   apply csInf_le
   · refine ⟨-1, ?_⟩
     rintro _ ⟨h, hh, rfl⟩
+    have hh' : 0 < h := hh
     have h1 := (slope_bounds_of_hockeyStick hf hleft hright (by linarith : x < x + h)).1
     simpa [add_sub_cancel_left] using h1
-  · exact ⟨y - x, by linarith, by simp [add_sub_cancel]⟩
+  · exact ⟨y - x, show (0 : ℝ) < y - x by linarith, by simp [add_sub_cancel]⟩
 
 lemma slope_le_convexRightDeriv (hf : ConvexOn ℝ univ f)
     (hleft : ∀ s ≤ a, f s = 1 - s) (hright : ∀ s ≥ b, f s = 0)
@@ -563,7 +551,9 @@ lemma slope_le_convexRightDeriv (hf : ConvexOn ℝ univ f)
   apply le_csInf
   · exact ⟨(f (y + 1) - f y) / 1, 1, by norm_num, rfl⟩
   · rintro _ ⟨h, hh, rfl⟩
-    have h1 := (slope_le_slope_of_convex hf hxy (by linarith : y < y + h)).2
+    have hh' : 0 < h := hh
+    have h12 := slope_le_slope_of_convex hf hxy (by linarith : y < y + h)
+    have h1 : (f y - f x) / (y - x) ≤ (f (y + h) - f y) / (y + h - y) := le_trans h12.1 h12.2
     simpa [add_sub_cancel_left] using h1
 
 lemma convexRightDeriv_mono (hf : ConvexOn ℝ univ f)
@@ -579,10 +569,12 @@ lemma convexRightDeriv_bounds (hf : ConvexOn ℝ univ f)
     (hleft : ∀ s ≤ a, f s = 1 - s) (hright : ∀ s ≥ b, f s = 0) (s : ℝ) :
     -1 ≤ convexRightDeriv f s ∧ convexRightDeriv f s ≤ 0 := by
   constructor
-  · apply le_csInf ⟨(f (s + 1) - f s) / 1, 1, by norm_num, rfl⟩
-    rintro _ ⟨h, hh, rfl⟩
-    simpa [add_sub_cancel_left] using
-      (slope_bounds_of_hockeyStick hf hleft hright (by linarith : s < s + h)).1
+  · apply le_csInf
+    · exact ⟨(f (s + 1) - f s) / 1, 1, by norm_num, rfl⟩
+    · rintro _ ⟨h, hh, rfl⟩
+      have hh' : 0 < h := hh
+      simpa [add_sub_cancel_left] using
+        (slope_bounds_of_hockeyStick hf hleft hright (by linarith : s < s + h)).1
   · exact le_trans (convexRightDeriv_le_slope hf hleft hright (by linarith : s < s + 1))
       (slope_bounds_of_hockeyStick hf hleft hright (by linarith : s < s + 1)).2
 
@@ -601,9 +593,12 @@ lemma convexRightDeriv_eq_zero (hf : ConvexOn ℝ univ f)
     (hleft : ∀ s ≤ a, f s = 1 - s) (hright : ∀ s ≥ b, f s = 0) {s : ℝ} (hs : b ≤ s) :
     convexRightDeriv f s = 0 := by
   apply le_antisymm (convexRightDeriv_bounds hf hleft hright s).2
-  apply le_csInf ⟨(f (s + 1) - f s) / 1, 1, by norm_num, rfl⟩
-  rintro _ ⟨h, hh, rfl⟩
-  rw [hright (s + h) (by linarith), hright s hs]; simp
+  apply le_csInf
+  · exact ⟨(f (s + 1) - f s) / 1, 1, by norm_num, rfl⟩
+  · rintro _ ⟨h, hh, rfl⟩
+    have hh' : 0 < h := hh
+    dsimp only
+    rw [hright (s + h) (by linarith), hright s hs]; simp
 
 lemma continuous_of_hockeyStick (hf : ConvexOn ℝ univ f)
     (hleft : ∀ s ≤ a, f s = 1 - s) (hright : ∀ s ≥ b, f s = 0) :
@@ -635,6 +630,7 @@ lemma convexRightDeriv_right_continuous (hf : ConvexOn ℝ univ f)
   have hne : ((fun h : ℝ ↦ (f (s + h) - f s) / h) '' Ioi 0).Nonempty :=
     ⟨(f (s + 1) - f s) / 1, 1, by norm_num, rfl⟩
   obtain ⟨_, ⟨h, hh, rfl⟩, hlt⟩ := exists_lt_of_csInf_lt hne (by linarith : convexRightDeriv f s < convexRightDeriv f s + ε / 2)
+  have hh' : 0 < h := hh
   have hcont_q : ContinuousAt (fun t : ℝ ↦ (f (s + h) - f t) / (s + h - t)) s := by
     have h1 : ContinuousAt (fun t : ℝ ↦ f (s + h) - f t) s :=
       continuousAt_const.sub (continuous_of_hockeyStick hf hleft hright).continuousAt
@@ -739,7 +735,7 @@ lemma sub_eq_intervalIntegral_convexRightDeriv (hf : ConvexOn ℝ univ f)
   have hpos : 0 < |(f b - f s) - ∫ u in s..b, g u| := abs_pos.mpr (sub_ne_zero.mpr hne)
   obtain ⟨N, hN⟩ := exists_nat_gt ((b - s) / |(f b - f s) - ∫ u in s..b, g u|)
   have hNpos : 0 < N := by
-    by_contra h0; push_neg at h0
+    by_contra h0; push Not at h0
     have hN0 : N = 0 := Nat.eq_zero_of_le_zero h0
     subst hN0; simp at hN
     have : 0 ≤ (b - s) / |(f b - f s) - ∫ u in s..b, g u| := div_nonneg (by linarith) (le_of_lt hpos)
@@ -766,6 +762,7 @@ lemma lintegral_hockeyStick_kernel_1 {t : ℝ} (ht : 0 < t) :
     have h2 : ∫⁻ s in Ioi (1 : ℝ), ENNReal.ofReal (max (t - s) 0 / s) ∂volume = 0 := by
       apply setLIntegral_eq_zero measurableSet_Ioi
       intro s hs
+      dsimp only; simp only [Pi.zero_apply]
       rw [max_eq_right (by linarith [Set.mem_Ioi.mp hs]), zero_div, ENNReal.ofReal_zero]
     rw [h2, add_zero]
     have h1 : ∫⁻ s in Ioc (0 : ℝ) 1, ENNReal.ofReal (max (s - t) 0 / s) ∂volume =
@@ -776,38 +773,40 @@ lemma lintegral_hockeyStick_kernel_1 {t : ℝ} (ht : 0 < t) :
         (Set.disjoint_left.mpr fun x h1 h2 ↦ not_lt.mpr h1.2 h2.1)]
       have hz : ∫⁻ s in Ioc (0 : ℝ) t, ENNReal.ofReal (max (s - t) 0 / s) ∂volume = 0 := by
         apply setLIntegral_eq_zero measurableSet_Ioc
-        intro s hs; rw [max_eq_right (by linarith [hs.2]), zero_div, ENNReal.ofReal_zero]
+        intro s hs; dsimp only; simp only [Pi.zero_apply]
+        rw [max_eq_right (by linarith [hs.2]), zero_div, ENNReal.ofReal_zero]
       rw [hz, zero_add]
       apply setLIntegral_congr_fun measurableSet_Ioc
       intro s hs
+      dsimp only
       have hs0 : 0 < s := lt_trans ht hs.1
       rw [max_eq_left (by linarith [hs.1]), sub_div, div_self (ne_of_gt hs0)]
     rw [h1]
     have hcont : ContinuousOn (fun s : ℝ ↦ 1 - t / s) (uIcc t 1) := by
       rw [Set.uIcc_of_le ht1]
-      exact continuousOn_const.sub (continuousOn_const.div continuousOn_id fun s hs ↦ by linarith [hs.1])
+      exact continuousOn_const.sub (continuousOn_const.div continuousOn_id fun s hs ↦ ne_of_gt (lt_of_lt_of_le ht hs.1))
     have hint : IntegrableOn (fun s : ℝ ↦ 1 - t / s) (Ioc t 1) volume :=
       (hcont.intervalIntegrable).1
     rw [← ofReal_integral_eq_lintegral_ofReal hint
       ((ae_restrict_iff' measurableSet_Ioc).mpr (Eventually.of_forall fun s hs ↦ by
+        dsimp only; simp only [Pi.zero_apply]
         have hs0 : 0 < s := lt_trans ht hs.1
         rw [sub_nonneg, div_le_one hs0]; exact le_of_lt hs.1))]
     rw [← intervalIntegral.integral_of_le ht1]
     have hftc : ∫ s in t..1, (1 - t / s) = (1 - t * Real.log 1) - (t - t * Real.log t) := by
-      apply intervalIntegral.integral_eq_sub_of_hasDerivAt
+      apply intervalIntegral.integral_eq_sub_of_hasDerivAt (f := fun x : ℝ ↦ x - t * Real.log x)
       · intro s hs
         rw [Set.uIcc_of_le ht1] at hs
         have hs0 : s ≠ 0 := by linarith [hs.1]
-        have hd : HasDerivAt (fun x : ℝ ↦ x - t * Real.log x) (1 - t / s) s := by
-          convert (hasDerivAt_id s).sub ((Real.hasDerivAt_log hs0).const_mul t) using 1
-          ring
-        exact hd
+        convert (hasDerivAt_id' s).sub ((Real.hasDerivAt_log hs0).const_mul t) using 1
+        ring
       · exact hcont.intervalIntegrable
     rw [hftc, Real.log_one]; congr 1; ring
   · -- Case `1 < t`: first integral vanishes, second is `∫_1^t (t/s - 1) ds`
     have h1 : ∫⁻ s in Ioc (0 : ℝ) 1, ENNReal.ofReal (max (s - t) 0 / s) ∂volume = 0 := by
       apply setLIntegral_eq_zero measurableSet_Ioc
       intro s hs
+      dsimp only; simp only [Pi.zero_apply]
       rw [max_eq_right (by linarith [hs.2]), zero_div, ENNReal.ofReal_zero]
     rw [h1, zero_add]
     have h2 : ∫⁻ s in Ioi (1 : ℝ), ENNReal.ofReal (max (t - s) 0 / s) ∂volume =
@@ -818,32 +817,33 @@ lemma lintegral_hockeyStick_kernel_1 {t : ℝ} (ht : 0 < t) :
         (Set.disjoint_left.mpr fun x h1 h2 ↦ not_lt.mpr h1.2 h2)]
       have hz : ∫⁻ s in Ioi t, ENNReal.ofReal (max (t - s) 0 / s) ∂volume = 0 := by
         apply setLIntegral_eq_zero measurableSet_Ioi
-        intro s hs; rw [max_eq_right (by linarith [Set.mem_Ioi.mp hs]), zero_div, ENNReal.ofReal_zero]
+        intro s hs; dsimp only; simp only [Pi.zero_apply]
+        rw [max_eq_right (by linarith [Set.mem_Ioi.mp hs]), zero_div, ENNReal.ofReal_zero]
       rw [hz, add_zero]
       apply setLIntegral_congr_fun measurableSet_Ioc
       intro s hs
+      dsimp only
       have hs0 : 0 < s := by linarith [hs.1]
       rw [max_eq_left (by linarith [hs.2]), sub_div, div_self (ne_of_gt hs0)]
     rw [h2]
     have hcont : ContinuousOn (fun s : ℝ ↦ t / s - 1) (uIcc 1 t) := by
       rw [Set.uIcc_of_le (le_of_lt ht1)]
-      exact (continuousOn_const.div continuousOn_id fun s hs ↦ by linarith [hs.1]).sub continuousOn_const
+      exact (continuousOn_const.div continuousOn_id fun s hs ↦ ne_of_gt (by linarith [hs.1] : 0 < s)).sub continuousOn_const
     have hint : IntegrableOn (fun s : ℝ ↦ t / s - 1) (Ioc 1 t) volume :=
       (hcont.intervalIntegrable).1
     rw [← ofReal_integral_eq_lintegral_ofReal hint
       ((ae_restrict_iff' measurableSet_Ioc).mpr (Eventually.of_forall fun s hs ↦ by
+        dsimp only; simp only [Pi.zero_apply]
         have hs0 : 0 < s := by linarith [hs.1]
         rw [sub_nonneg, one_le_div hs0]; exact hs.2))]
     rw [← intervalIntegral.integral_of_le (le_of_lt ht1)]
     have hftc : ∫ s in (1 : ℝ)..t, (t / s - 1) = (t * Real.log t - t) - (t * Real.log 1 - 1) := by
-      apply intervalIntegral.integral_eq_sub_of_hasDerivAt
+      apply intervalIntegral.integral_eq_sub_of_hasDerivAt (f := fun x : ℝ ↦ t * Real.log x - x)
       · intro s hs
         rw [Set.uIcc_of_le (le_of_lt ht1)] at hs
         have hs0 : s ≠ 0 := by linarith [hs.1]
-        have hd : HasDerivAt (fun x : ℝ ↦ t * Real.log x - x) (t / s - 1) s := by
-          convert ((Real.hasDerivAt_log hs0).const_mul t).sub (hasDerivAt_id s) using 1
-          ring
-        exact hd
+        convert ((Real.hasDerivAt_log hs0).const_mul t).sub (hasDerivAt_id' s) using 1
+        ring
       · exact hcont.intervalIntegrable
     rw [hftc, Real.log_one]; congr 1; ring
 
@@ -860,7 +860,7 @@ lemma lintegral_hockeyStick_kernel_2 {t : ℝ} (ht : 0 < t) :
       ENNReal.ofReal t * ∫⁻ s in Ioc (0 : ℝ) 1, ENNReal.ofReal (max (s - t⁻¹) 0 / s) ∂volume := by
     rw [← lintegral_const_mul' _ _ ENNReal.ofReal_ne_top]
     apply setLIntegral_congr_fun measurableSet_Ioc
-    intro s hs
+    intro s hs; dsimp only
     rw [← ENNReal.ofReal_mul (le_of_lt ht)]
     congr 1
     have hmax : t * max (s - t⁻¹) 0 = max (s * t - 1) 0 := by
@@ -871,7 +871,7 @@ lemma lintegral_hockeyStick_kernel_2 {t : ℝ} (ht : 0 < t) :
       ENNReal.ofReal t * ∫⁻ s in Ioi (1 : ℝ), ENNReal.ofReal (max (t⁻¹ - s) 0 / s) ∂volume := by
     rw [← lintegral_const_mul' _ _ ENNReal.ofReal_ne_top]
     apply setLIntegral_congr_fun measurableSet_Ioi
-    intro s hs
+    intro s hs; dsimp only
     rw [← ENNReal.ofReal_mul (le_of_lt ht)]
     congr 1
     have hmax : t * max (t⁻¹ - s) 0 = max (1 - s * t) 0 := by
@@ -896,7 +896,7 @@ lemma lintegral_hockeyStick_kernel_mid1 {t : ℝ} (ht : 0 < t) :
       ENNReal.ofReal c * ∫⁻ s in Ioc (0 : ℝ) 1, ENNReal.ofReal (max (s - r) 0 / s) ∂volume := by
     rw [← lintegral_const_mul' _ _ ENNReal.ofReal_ne_top]
     apply setLIntegral_congr_fun measurableSet_Ioc
-    intro s _
+    intro s _; dsimp only
     rw [← ENNReal.ofReal_mul (le_of_lt hc)]
     congr 1
     have hmax : c * max (s - r) 0 = max (s * c - t) 0 := by
@@ -907,7 +907,7 @@ lemma lintegral_hockeyStick_kernel_mid1 {t : ℝ} (ht : 0 < t) :
       ENNReal.ofReal c * ∫⁻ s in Ioi (1 : ℝ), ENNReal.ofReal (max (r - s) 0 / s) ∂volume := by
     rw [← lintegral_const_mul' _ _ ENNReal.ofReal_ne_top]
     apply setLIntegral_congr_fun measurableSet_Ioi
-    intro s _
+    intro s _; dsimp only
     rw [← ENNReal.ofReal_mul (le_of_lt hc)]
     congr 1
     have hmax : c * max (r - s) 0 = max (t - s * c) 0 := by
@@ -916,11 +916,12 @@ lemma lintegral_hockeyStick_kernel_mid1 {t : ℝ} (ht : 0 < t) :
     rw [← hmax]; ring
   rw [hl, hrr, ← mul_add, h1, ← ENNReal.ofReal_mul (le_of_lt hc)]
   congr 1
-  have hr_eq : r = 2 * t / (1 + t) := by simp only [r, c]; field_simp [by linarith : 1 + t ≠ 0]
+  have h1t : 1 + t ≠ 0 := by linarith
+  have hr_eq : r = 2 * t / (1 + t) := by simp only [r, c]; field_simp [h1t]
   rw [hr_eq]
-  have hcr : c * (2 * t / (1 + t)) = t := by simp only [c]; field_simp [by linarith : 1 + t ≠ 0]
+  have hcr : c * (2 * t / (1 + t)) = t := by simp only [c]; field_simp [h1t]
   have h1c : c * (2 * t / (1 + t) - 1) = (t - 1) / 2 := by
-    simp only [c]; field_simp [by linarith : 1 + t ≠ 0]; ring
+    simp only [c]; field_simp [h1t]; ring
   calc c * (2 * t / (1 + t) * Real.log (2 * t / (1 + t)) - (2 * t / (1 + t) - 1))
       = (c * (2 * t / (1 + t))) * Real.log (2 * t / (1 + t)) - c * (2 * t / (1 + t) - 1) := by ring
     _ = t * Real.log (2 * t / (1 + t)) + (1 - t) / 2 := by rw [hcr, h1c]; ring
@@ -940,7 +941,7 @@ lemma lintegral_hockeyStick_kernel_mid2 {t : ℝ} (ht : 0 < t) :
       ENNReal.ofReal c * ∫⁻ s in Ioc (0 : ℝ) 1, ENNReal.ofReal (max (s - r) 0 / s) ∂volume := by
     rw [← lintegral_const_mul' _ _ ENNReal.ofReal_ne_top]
     apply setLIntegral_congr_fun measurableSet_Ioc
-    intro s _
+    intro s _; dsimp only
     rw [← ENNReal.ofReal_mul (le_of_lt hc)]
     congr 1
     have hmax : c * max (s - r) 0 = max (s * c - 1) 0 := by
@@ -951,7 +952,7 @@ lemma lintegral_hockeyStick_kernel_mid2 {t : ℝ} (ht : 0 < t) :
       ENNReal.ofReal c * ∫⁻ s in Ioi (1 : ℝ), ENNReal.ofReal (max (r - s) 0 / s) ∂volume := by
     rw [← lintegral_const_mul' _ _ ENNReal.ofReal_ne_top]
     apply setLIntegral_congr_fun measurableSet_Ioi
-    intro s _
+    intro s _; dsimp only
     rw [← ENNReal.ofReal_mul (le_of_lt hc)]
     congr 1
     have hmax : c * max (r - s) 0 = max (1 - s * c) 0 := by
@@ -960,11 +961,12 @@ lemma lintegral_hockeyStick_kernel_mid2 {t : ℝ} (ht : 0 < t) :
     rw [← hmax]; ring
   rw [hl, hrr, ← mul_add, h1, ← ENNReal.ofReal_mul (le_of_lt hc)]
   congr 1
-  have hr_eq : r = 2 / (1 + t) := by simp only [r, c]; field_simp [by linarith : 1 + t ≠ 0]
+  have h1t : 1 + t ≠ 0 := by linarith
+  have hr_eq : r = 2 / (1 + t) := by simp only [r, c]; field_simp [h1t]
   rw [hr_eq]
-  have hcr : c * (2 / (1 + t)) = 1 := by simp only [c]; field_simp [by linarith : 1 + t ≠ 0]
+  have hcr : c * (2 / (1 + t)) = 1 := by simp only [c]; field_simp [h1t]
   have h1c : c * (2 / (1 + t) - 1) = (1 - t) / 2 := by
-    simp only [c]; field_simp [by linarith : 1 + t ≠ 0]; ring
+    simp only [c]; field_simp [h1t]; ring
   calc c * (2 / (1 + t) * Real.log (2 / (1 + t)) - (2 / (1 + t) - 1))
       = (c * (2 / (1 + t))) * Real.log (2 / (1 + t)) - c * (2 / (1 + t) - 1) := by ring
     _ = Real.log (2 / (1 + t)) + (t - 1) / 2 := by rw [hcr, h1c]; ring
@@ -1010,7 +1012,7 @@ lemma hockeyStick_midpoint_left (ρ σ : DensityOp d) {s : ℝ} (hs0 : 0 < s) :
     have hsc : (((1 - s / 2 : ℝ) : ℂ) • (ρ.mat - ((s / (2 - s) : ℝ) : ℂ) • σ.mat)).IsHermitian := by
       rw [← hmat]; exact hockeyStick_isHermitian s ρ (DensityOp.midpoint ρ σ)
     rw [posPartTrace_eq_of_eq _ hsc hmat, posPartTrace_smul_nonneg (le_of_lt hc)]
-  · push_neg at hs2
+  · push Not at hs2
     -- `ρ - s * (ρ + σ)/2 = -((s/2 - 1) ρ + (s/2) σ) ≼ 0`
     have hpsd : (-((ρ.mat - (s : ℂ) • (DensityOp.midpoint ρ σ).mat))).PosSemidef := by
       have hmat : -(ρ.mat - (s : ℂ) • (DensityOp.midpoint ρ σ).mat) =
