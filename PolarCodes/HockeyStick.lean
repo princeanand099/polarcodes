@@ -99,7 +99,7 @@ theorem relEntropy_hockeyStick_integral {ρ σ : DensityOp d}
   have hsplit1 : ∫⁻ t : ℝ, F t ∂volume =
       (∫⁻ t in Iio (0 : ℝ), F t ∂volume) + (∫⁻ t in Ici (0 : ℝ), F t ∂volume) := by
     conv_lhs => rw [← Measure.restrict_univ (μ := volume), ← Set.Iio_union_Ici (a := (0 : ℝ))]
-    exact lintegral_union measurableSet_Ici (Set.disjoint_left.mpr fun x h1 h2 ↦ not_lt.mpr h2 h1)
+    exact lintegral_union measurableSet_Ici (Set.disjoint_left.mpr fun x h1 h2 ↦ not_lt.mpr (Set.mem_Ici.mp h2) (Set.mem_Iio.mp h1))
   have hsplit2 : ∫⁻ t in Ici (0 : ℝ), F t ∂volume =
       (∫⁻ t in Icc (0 : ℝ) 1, F t ∂volume) + (∫⁻ t in Ioi (1 : ℝ), F t ∂volume) := by
     rw [← lintegral_union measurableSet_Ioi
@@ -834,7 +834,7 @@ lemma lintegral_hockeyStick_kernel_1 {t : ℝ} (ht : 0 < t) :
     rw [h2]
     have hcont : ContinuousOn (fun s : ℝ ↦ t / s - 1) (uIcc (1 : ℝ) t) := by
       rw [Set.uIcc_of_le (le_of_lt ht1)]
-      exact (continuousOn_const.div continuousOn_id fun s hs ↦ ne_of_gt (by linarith [hs.1] : 0 < s)).sub continuousOn_const
+      exact (continuousOn_const.div (continuousOn_id (s := Icc (1 : ℝ) t)) fun s hs ↦ ne_of_gt (by linarith [hs.1] : (0 : ℝ) < s)).sub continuousOn_const
     have hint : IntegrableOn (fun s : ℝ ↦ t / s - 1) (Ioc 1 t) volume :=
       (hcont.intervalIntegrable).1
     rw [← ofReal_integral_eq_lintegral_ofReal hint
@@ -1046,8 +1046,6 @@ lemma hockeyStick_midpoint_left (ρ σ : DensityOp d) {s : ℝ} (hs0 : 0 < s) :
             ((Matrix.posSemidef_iff_dotProduct_mulVec.mp σ.posSemidef).2 x)
       exact h1.add h2
     rw [hockeyStick_eq_posPartTrace]
-    have hsub_herm : ((s : ℂ) • σ.mat - ρ.mat).IsHermitian := by
-      have := (hockeyStick_isHermitian s ρ σ).neg; simpa [neg_sub] using this
     have hneg0 : negPartTrace (hockeyStick_isHermitian s ρ (DensityOp.midpoint ρ σ)).neg = 0 := by
       unfold negPartTrace
       apply Finset.sum_eq_zero; intro i _
