@@ -596,7 +596,8 @@ lemma qjs_pureState (ψ₀ ψ₁ : d → ℂ)
       rw [← map_add]; congr 1; push_cast; ring
     have h2 : Polynomial.C (((1 - f) / 2 : ℝ) : ℂ) = Polynomial.C (1 / 2 : ℂ) - Polynomial.C ((f / 2 : ℝ) : ℂ) := by
       rw [← map_sub]; congr 1; push_cast; ring
-    rw [h1, h2, hzz, one_smul]
+    rw [h1, h2, hzz]
+    simp only [zsmul_eq_mul, Int.cast_neg, Int.cast_one]
     ring
   have hcp_all : (DensityOp.midpoint (pureState ψ₀ hψ₀) (pureState ψ₁ hψ₁)).mat.charpoly * Polynomial.X ^ (Fintype.card Bool) =
       (Matrix.diagonal (Complex.ofReal ∘ lam)).charpoly * Polynomial.X ^ (Fintype.card d) := by
