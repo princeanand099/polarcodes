@@ -476,7 +476,7 @@ lemma qscPrefixKraus_congr (W : CQChannel d) (n : ℕ) (infoSet : Finset (Fin (2
     rw [qscPrefixKraus_succ, qscPrefixKraus_succ]
     have hprev := ih (by omega) (fun j hj ↦ h j (by omega))
     have hpref : prefixOf ⟨k, by omega⟩ u = prefixOf ⟨k, by omega⟩ v := by
-      funext j; exact h ⟨j.val, by omega⟩ (by omega)
+      funext j; have := j.isLt; exact h ⟨j.val, by omega⟩ (by omega)
     have huk : u ⟨k, by omega⟩ = v ⟨k, by omega⟩ := h ⟨k, by omega⟩ (Nat.lt_succ_self k)
     rw [hprev, hpref, huk]
 
@@ -508,7 +508,7 @@ lemma qscPrefixKraus_sum_one (W : CQChannel d) (n : ℕ)
             dsimp only
             split_ifs with h
             · rfl
-            · have hi_eq : i = ik := Fin.ext (by omega)
+            · have hi_eq : i = ik := Fin.ext (by dsimp [ik]; omega)
               subst hi_eq; rfl
           right_inv := fun ⟨b, m'⟩ ↦ by
             ext
@@ -539,7 +539,7 @@ lemma qscPrefixKraus_sum_one (W : CQChannel d) (n : ℕ)
             intro j hj
             have hj' : j.val < k + 1 := by omega
             by_cases hmem : j ∈ infoSet
-            · simp [u, u', e, hmem, hj, hj']
+            · simp [u, u', e, hmem, hj, hj', Nat.le_of_lt hj]
             · simp [u, u', hmem]
           have hK : qscPrefixKraus W n infoSet k (by omega) u = K :=
             qscPrefixKraus_congr W n infoSet k (by omega) hagree
@@ -548,6 +548,7 @@ lemma qscPrefixKraus_sum_one (W : CQChannel d) (n : ℕ)
           have huk : u ik = b := by
             simp [u, e, hik, ik]
           have hP := qscStepProj_isProjector W n ik (prefixOf ik u') b
+          dsimp only
           rw [qscPrefixKraus_succ]
           simp only [ik, hik, ↓reduceIte, hK, hpref, huk]
           calc (qscStepProj W n ik (prefixOf ik u') b * K)ᴴ *
@@ -594,8 +595,9 @@ lemma qscPrefixKraus_sum_one (W : CQChannel d) (n : ℕ)
           intro j hj
           have hj' : j.val < k + 1 := by omega
           by_cases hmem : j ∈ infoSet
-          · simp [u, u', e, hmem, hj, hj']
+          · simp [u, u', e, hmem, hj, hj', Nat.le_of_lt hj]
           · simp [u, u', hmem]
+        dsimp only
         rw [qscPrefixKraus_succ]
         simp only [ik, hik, ↓reduceIte, Matrix.one_mul,
           qscPrefixKraus_congr W n infoSet k (by omega) hagree]
@@ -829,15 +831,11 @@ theorem wilde_guha_qsc_bound (W : CQChannel d) (n : ℕ) (infoSet : Finset (Fin 
     rw [hpart]
     have hpow : ((2 : ℝ) ^ (2 ^ n))⁻¹ * (2 : ℝ) ^ (2 ^ n - 1 - i.val) =
         ((2 : ℝ) ^ i.val)⁻¹ * (1 / 2 : ℝ) := by
-      set N := 2 ^ n
-      set m := i.val
-      have hexp : N = m + 1 + (N - 1 - m) := by omega
-      have hN : (2 : ℝ) ^ N = (2 : ℝ) ^ m * 2 * (2 : ℝ) ^ (N - 1 - m) := by
-        conv_lhs => rw [hexp]
-        rw [pow_add, pow_add, pow_one]
+      have hN : (2 : ℝ) ^ (2 ^ n) = (2 : ℝ) ^ i.val * 2 * (2 : ℝ) ^ (2 ^ n - 1 - i.val) := by
+        rw [← pow_succ, ← pow_add, show i.val + 1 + (2 ^ n - 1 - i.val) = 2 ^ n by omega]
       rw [hN]
-      have h1 : (2 : ℝ) ^ m ≠ 0 := by positivity
-      have h2 : (2 : ℝ) ^ (N - 1 - m) ≠ 0 := by positivity
+      have h1 : (2 : ℝ) ^ i.val ≠ 0 := by positivity
+      have h2 : (2 : ℝ) ^ (2 ^ n - 1 - i.val) ≠ 0 := by positivity
       field_simp
     calc ((2 : ℝ) ^ (2 ^ n))⁻¹ *
           ∑ p : Fin i.val → Bool, ∑ b : Bool,
@@ -897,11 +895,9 @@ theorem wilde_guha_qsc_bound (W : CQChannel d) (n : ℕ) (infoSet : Finset (Fin 
         ((2 : ℝ) ^ (2 ^ n - infoSet.card))⁻¹ * ((2 : ℝ) ^ infoSet.card)⁻¹ := by
       have hle : infoSet.card ≤ 2 ^ n := by
         simpa [Fintype.card_fin] using Finset.card_le_univ infoSet
-      set N := 2 ^ n
-      set c := infoSet.card
-      have hexp : N = (N - c) + c := by omega
-      conv_lhs => rw [hexp]
-      rw [pow_add, mul_inv]
+      have hN : (2 : ℝ) ^ (2 ^ n) = (2 : ℝ) ^ (2 ^ n - infoSet.card) * (2 : ℝ) ^ infoSet.card := by
+        rw [← pow_add, Nat.sub_add_cancel hle]
+      rw [hN, mul_inv]
     rw [hpow, mul_assoc, Finset.mul_sum]
     apply congr_arg (((2 : ℝ) ^ (2 ^ n - infoSet.card))⁻¹ * ·)
     apply Finset.sum_congr rfl; intro f _
@@ -930,7 +926,7 @@ theorem wilde_guha_qsc_bound (W : CQChannel d) (n : ℕ) (infoSet : Finset (Fin 
       (2 : ℝ) ^ (2 ^ n - infoSet.card) := by
     rw [Finset.card_univ, Fintype.card_fun, Fintype.card_bool]
     have hc : Fintype.card {i : Fin (2 ^ n) // i ∉ infoSet} = 2 ^ n - infoSet.card := by
-      rw [Fintype.card_subtype_compl, Fintype.card_fin]
+      rw [Fintype.card_subtype_compl, Fintype.card_fin, Fintype.card_coe]
     rw [hc]
     norm_cast
   have hsum_le : ∑ f : {i : Fin (2 ^ n) // i ∉ infoSet} → Bool,
