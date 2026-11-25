@@ -54,7 +54,7 @@ lemma CQChannel.ChannelEquiv.refl {d : Type u} [Fintype d] [DecidableEq d] (W : 
       (W.out b).mat i j
     rw [Fintype.sum_unique]
     simp [CPTPMap.id, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
-      ite_mul, zero_mul, one_mul, mul_ite, mul_zero, mul_one, star_ite, star_one, star_zero,
+      apply_ite star, ite_mul, zero_mul, one_mul, mul_ite, mul_zero, mul_one,
       Finset.sum_ite_eq, Finset.sum_ite_eq']
 
 lemma CQChannel.ChannelEquiv.symm {d₁ d₂ : Type u} [Fintype d₁] [DecidableEq d₁]
@@ -1196,21 +1196,21 @@ theorem prop_2_2_D3_bec_channelEquiv {ε : ℝ} (hε0 : 0 ≤ ε) (hε1 : ε ≤
           (simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
             Fintype.sum_bool, Fin.sum_univ_three, hstar2, hmul2];
            try (ring_nf; simp only [sq, hmul2]; push_cast; ring))
-      · simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+      · cases b <;> simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
           Fintype.sum_bool, Fin.sum_univ_three]
-      · simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+      · cases b <;> simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
           Fintype.sum_bool, Fin.sum_univ_three]
-      · simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+      · cases b <;> simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
           Fintype.sum_bool, Fin.sum_univ_three]
       · cases b <;> cases r₁ <;> cases r₂ <;>
           (simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
             Fintype.sum_bool, Fin.sum_univ_three, hstar2, hmul2];
            try (ring_nf; simp only [sq, hmul2]; push_cast; ring))
-      · simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+      · cases b <;> simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
           Fintype.sum_bool, Fin.sum_univ_three]
-      · simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+      · cases b <;> simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
           Fintype.sum_bool, Fin.sum_univ_three]
-      · simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+      · cases b <;> simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
           Fintype.sum_bool, Fin.sum_univ_three]
       · cases b <;> cases r₁ <;> cases r₂ <;>
           (simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
