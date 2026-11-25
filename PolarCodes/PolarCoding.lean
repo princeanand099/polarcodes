@@ -476,7 +476,7 @@ lemma qscPrefixKraus_congr (W : CQChannel d) (n : ℕ) (infoSet : Finset (Fin (2
     rw [qscPrefixKraus_succ, qscPrefixKraus_succ]
     have hprev := ih (by omega) (fun j hj ↦ h j (by omega))
     have hpref : prefixOf ⟨k, by omega⟩ u = prefixOf ⟨k, by omega⟩ v := by
-      funext j; have := j.isLt; exact h ⟨j.val, by omega⟩ (by omega)
+      funext j; exact h ⟨j.val, Nat.lt_trans j.isLt (by omega)⟩ (Nat.lt_succ_of_lt j.isLt)
     have huk : u ⟨k, by omega⟩ = v ⟨k, by omega⟩ := h ⟨k, by omega⟩ (Nat.lt_succ_self k)
     rw [hprev, hpref, huk]
 
