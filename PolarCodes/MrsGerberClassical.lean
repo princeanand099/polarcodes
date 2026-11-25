@@ -620,8 +620,8 @@ theorem theorem_1_2a_classical (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (
         = ∑ y : d₂, w y * (1 - (vonNeumannEntropy (τm y) - (vonNeumannEntropy (τ₀ y) + vonNeumannEntropy (τ₁ y)) / 2)) := by
             have h1 : (1 : ℝ) = ∑ y : d₂, w y := hw_sum.symm
             conv_lhs => rw [h1]
-            simp_rw [mul_sub, mul_one, ← mul_div_assoc, mul_add, Finset.sum_sub_distrib,
-              Finset.sum_add_distrib, ← Finset.sum_div]
+            simp only [mul_sub, mul_one, ← mul_div_assoc, mul_add, Finset.sum_sub_distrib,
+              ← Finset.sum_div, Finset.sum_add_distrib]
             ring
       _ = ∑ y : d₂, w y * (CQChannel.checkCombine W₁ (bscChannel (q y) (hq0 y) (by linarith [hq1 y]))).condEntropy := by
             apply Finset.sum_congr rfl; intro y _; rw [hblk_bsc y]
