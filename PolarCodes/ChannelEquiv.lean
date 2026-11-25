@@ -842,8 +842,8 @@ theorem prop_2_2_D3_isoEquiv_pure {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) 
   set f : ℝ := 1 - 2 * p
   have hf0 : 0 ≤ f := by linarith
   have hf1 : f ≤ 1 := by linarith
-  have h1pf : (1 + f) / 2 = 1 - p := by simp [f]; ring
-  have h1mf : (1 - f) / 2 = p := by simp [f]; ring
+  have h1pf : (1 + f) / 2 = 1 - p := by simp only [f]; ring
+  have h1mf : (1 - f) / 2 = p := by simp only [f]; ring
   let A₀ : Matrix Bool PUnit.{1} ℂ :=
     Matrix.of fun b _ ↦ if b = false then (Real.sqrt (1 - p) : ℂ) else (Real.sqrt p : ℂ)
   let A₁ : Matrix Bool PUnit.{1} ℂ :=
@@ -947,8 +947,8 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
     set f : ℝ := 1 - 2 * p
     have hf0 : 0 ≤ f := by linarith
     have hf1 : f ≤ 1 := by linarith
-    have h1pf : (1 + f) / 2 = 1 - p := by simp [f]; ring
-    have h1mf : (1 - f) / 2 = p := by simp [f]; ring
+    have h1pf : (1 + f) / 2 = 1 - p := by simp only [f]; ring
+    have h1mf : (1 - f) / 2 = p := by simp only [f]; ring
     let A₀ : Matrix Bool Bool ℂ :=
       Matrix.diagonal fun k : Bool ↦ if k = false then (Real.sqrt (1 - p) : ℂ) else (Real.sqrt p : ℂ)
     let A₁ : Matrix Bool Bool ℂ :=
@@ -1006,7 +1006,7 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
         Matrix.of_apply, Matrix.kroneckerMap_apply, Matrix.smul_apply, Matrix.one_apply,
         smul_eq_mul, h1pf, h1mf, Fintype.card_bool, Nat.cast_ofNat]
       cases b <;> cases c₁ <;> cases s₁ <;> cases c₂ <;> cases s₂ <;>
-        (simp [hstar2, hmul2, hsp1, hsp2]; try (ring_nf; simp only [sq, hmul2, hsp1, hsp2]; ring))
+        (simp [hstar2, hmul2, hsp1, hsp2]; try (ring_nf; simp only [sq, hmul2, hsp1, hsp2]; push_cast; ring))
     have hstep2 : CQChannel.IsoEquiv
         ({ out := fun b ↦
             match b with
@@ -1081,22 +1081,24 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
         M, D, A₀, A₁, Matrix.of_apply, Matrix.diagonal_apply]
       cases b <;> cases r₁ <;> cases r₂ <;> fin_cases k₁ <;> fin_cases k₂ <;>
         (simp [hstar2, hmul2, hs1, hs2]; try (ring_nf; simp only [sq, hmul2, hs1, hs2]; push_cast; ring))
+    let V𝒩 : Matrix (Fin 3 × (Bool × Fin 3)) (Bool × Fin 3) ℂ :=
+      Matrix.of fun p q ↦
+        if q.2 = 0 then (if p.1 = 2 ∧ p.2 = (q.1, 0) then 1 else 0)
+        else if q.2 = 1 then (if p.1 = 2 ∧ p.2 = (q.1, 1) then 1 else 0)
+        else
+          if p.2 = (false, 2) then
+            if p.1 = 0 then ((Real.sqrt 2 : ℂ)⁻¹)
+            else if p.1 = 1 then (if q.1 = false then ((Real.sqrt 2 : ℂ)⁻¹) else -((Real.sqrt 2 : ℂ)⁻¹))
+            else 0
+          else 0
+    have hV𝒩 : V𝒩ᴴ * V𝒩 = 1 := by
+      ext ⟨b₁, k₁⟩ ⟨b₂, k₂⟩
+      simp only [V𝒩, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+        Fintype.sum_prod_type, Fintype.sum_bool, Fin.sum_univ_three, Matrix.one_apply]
+      fin_cases k₁ <;> fin_cases k₂ <;> cases b₁ <;> cases b₂ <;>
+        (simp [hstar2, hmul2]; try (ring_nf; simp only [sq, hmul2]; norm_num))
     let 𝒩 : CPTPMap.{0} (Bool × Fin 3) (Fin 3) :=
-      ⟨Bool × Fin 3, inferInstance, inferInstance,
-        Matrix.of fun (p : Fin 3 × (Bool × Fin 3)) (q : Bool × Fin 3) ↦
-          if q.2 = 0 then (if p.1 = 2 ∧ p.2 = (q.1, 0) then 1 else 0)
-          else if q.2 = 1 then (if p.1 = 2 ∧ p.2 = (q.1, 1) then 1 else 0)
-          else
-            if p.2 = (false, 2) then
-              if p.1 = 0 then ((Real.sqrt 2 : ℂ)⁻¹)
-              else if p.1 = 1 then (if q.1 = false then ((Real.sqrt 2 : ℂ)⁻¹) else -((Real.sqrt 2 : ℂ)⁻¹))
-              else 0
-            else 0, by
-        ext ⟨b₁, k₁⟩ ⟨b₂, k₂⟩
-        simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
-          Fintype.sum_prod_type, Fintype.sum_bool, Fin.sum_univ_three, Matrix.one_apply]
-        fin_cases k₁ <;> fin_cases k₂ <;> cases b₁ <;> cases b₂ <;>
-          (simp [hstar2, hmul2]; try (ring_nf; simp only [sq, hmul2]; ring))⟩
+      ⟨Bool × Fin 3, inferInstance, inferInstance, V𝒩, hV𝒩⟩
     let Q : Bool → Matrix (Fin 3 × (Bool × Fin 3)) (Fin 3) ℂ := fun b ↦
       Matrix.of fun p x ↦
         if p = (2, (false, 0)) ∧ x = 0 then ((Real.sqrt 2 : ℂ)⁻¹) * (Real.sqrt (1 - ε) : ℂ)
@@ -1104,27 +1106,29 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
         else if p = (0, (false, 2)) ∧ x = 2 ∧ b = false then (Real.sqrt ε : ℂ)
         else if p = (1, (false, 2)) ∧ x = 2 ∧ b = true then (Real.sqrt ε : ℂ)
         else 0
-    have hNQ : ∀ b, 𝒩.isom * M b = Q b := by
+    have hNQ : ∀ b, V𝒩 * M b = Q b := by
       intro b; ext ⟨i, e⟩ x
       simp only [Matrix.mul_apply, Fintype.sum_prod_type, Fintype.sum_bool, Fin.sum_univ_three,
-        𝒩, M, Q, A₀, A₁, Matrix.of_apply, Matrix.conjTranspose_apply, Matrix.diagonal_apply]
+        V𝒩, M, Q, A₀, A₁, Matrix.of_apply, Matrix.conjTranspose_apply, Matrix.diagonal_apply]
       fin_cases x
       · cases b <;> fin_cases i <;> by_cases he : e = (false, 0) <;> simp [he]
       · cases b <;> fin_cases i <;> by_cases he : e = (true, 1) <;> simp [he]
       · cases b <;> fin_cases i <;> by_cases he : e = (false, 2) <;>
           (simp [he]; try (ring_nf; simp only [sq, hmul2]; ring))
+    let Vℳ : Matrix ((Bool × Fin 3) × Bool) (Fin 3) ℂ :=
+      Matrix.of fun p k ↦
+        if k = 0 then (if p.2 = false ∧ p.1.2 = 2 then ((Real.sqrt 2 : ℂ)⁻¹) else 0)
+        else if k = 1 then (if p.2 = false ∧ p.1.2 = 2 then (if p.1.1 = false then ((Real.sqrt 2 : ℂ)⁻¹) else -((Real.sqrt 2 : ℂ)⁻¹)) else 0)
+        else
+          if (p.2 = false ∧ p.1 = (false, 0)) ∨ (p.2 = true ∧ p.1 = (true, 1)) then ((Real.sqrt 2 : ℂ)⁻¹) else 0
+    have hVℳ : Vℳᴴ * Vℳ = 1 := by
+      ext k₁ k₂
+      simp only [Vℳ, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+        Fintype.sum_prod_type, Fintype.sum_bool, Fin.sum_univ_three, Matrix.one_apply]
+      fin_cases k₁ <;> fin_cases k₂ <;>
+        (simp [hstar2, hmul2]; try (ring_nf; simp only [sq, hmul2]; norm_num))
     let ℳ : CPTPMap.{0} (Fin 3) (Bool × Fin 3) :=
-      ⟨Bool, inferInstance, inferInstance,
-        Matrix.of fun (p : (Bool × Fin 3) × Bool) (k : Fin 3) ↦
-          if k = 0 then (if p.2 = false ∧ p.1.2 = 2 then ((Real.sqrt 2 : ℂ)⁻¹) else 0)
-          else if k = 1 then (if p.2 = false ∧ p.1.2 = 2 then (if p.1.1 = false then ((Real.sqrt 2 : ℂ)⁻¹) else -((Real.sqrt 2 : ℂ)⁻¹)) else 0)
-          else
-            if (p.2 = false ∧ p.1 = (false, 0)) ∨ (p.2 = true ∧ p.1 = (true, 1)) then ((Real.sqrt 2 : ℂ)⁻¹) else 0, by
-        ext k₁ k₂
-        simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
-          Fintype.sum_prod_type, Fintype.sum_bool, Fin.sum_univ_three, Matrix.one_apply]
-        fin_cases k₁ <;> fin_cases k₂ <;>
-          (simp [hstar2, hmul2]; try (ring_nf; simp only [sq, hmul2]; ring))⟩
+      ⟨Bool, inferInstance, inferInstance, Vℳ, hVℳ⟩
     have hstep2 : CQChannel.ChannelEquiv
         ({ out := fun b ↦
             match b with
@@ -1147,16 +1151,16 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
         (becChannel (1 - ε) (by linarith) (by linarith)) := by
       refine ⟨𝒩, ℳ, ?_, ?_⟩
       · intro b
-        have hmat : 𝒩.isom * ((match b with
+        have hmat : V𝒩 * ((match b with
             | false => ({ mat := M false * (M false)ᴴ, posSemidef := posSemidef_mul_conjTranspose (M false), trace_one := _ } : DensityOp (Bool × Fin 3))
-            | true => ({ mat := M true * (M true)ᴴ, posSemidef := posSemidef_mul_conjTranspose (M true), trace_one := _ } : DensityOp (Bool × Fin 3))).mat) * 𝒩.isomᴴ =
+            | true => ({ mat := M true * (M true)ᴴ, posSemidef := posSemidef_mul_conjTranspose (M true), trace_one := _ } : DensityOp (Bool × Fin 3))).mat) * V𝒩ᴴ =
             Q b * (Q b)ᴴ := by
           cases b <;>
-            calc 𝒩.isom * (M _ * (M _)ᴴ) * 𝒩.isomᴴ
-                = (𝒩.isom * M _) * (𝒩.isom * M _)ᴴ := by simp [Matrix.conjTranspose_mul, Matrix.mul_assoc]
+            calc V𝒩 * (M _ * (M _)ᴴ) * V𝒩ᴴ
+                = (V𝒩 * M _) * (V𝒩 * M _)ᴴ := by simp [Matrix.conjTranspose_mul, Matrix.mul_assoc]
               _ = Q _ * (Q _)ᴴ := by rw [hNQ]
         ext i j
-        change (partialTrace₂Mat (𝒩.isom * _ * 𝒩.isomᴴ)) i j = ((becChannel (1 - ε) _ _).out b).mat i j
+        change (partialTrace₂Mat (V𝒩 * _ * V𝒩ᴴ)) i j = ((becChannel (1 - ε) _ _).out b).mat i j
         rw [hmat]
         dsimp only [partialTrace₂Mat, LinearMap.coe_mk, AddHom.coe_mk]
         cases b <;> fin_cases i <;> fin_cases j <;>
@@ -1170,10 +1174,10 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
             | false => ({ mat := M false * (M false)ᴴ, posSemidef := posSemidef_mul_conjTranspose (M false), trace_one := _ } : DensityOp (Bool × Fin 3))
             | true => ({ mat := M true * (M true)ᴴ, posSemidef := posSemidef_mul_conjTranspose (M true), trace_one := _ } : DensityOp (Bool × Fin 3))).mat) = D b := by
           cases b <;> exact hMD _
-        change (partialTrace₂Mat (ℳ.isom * ((becChannel (1 - ε) _ _).out b).mat * ℳ.isomᴴ))
+        change (partialTrace₂Mat (Vℳ * ((becChannel (1 - ε) _ _).out b).mat * Vℳᴴ))
           (r₁, k₁) (r₂, k₂) = _
         rw [hmat]
-        dsimp only [partialTrace₂Mat, LinearMap.coe_mk, AddHom.coe_mk, ℳ]
+        dsimp only [partialTrace₂Mat, LinearMap.coe_mk, AddHom.coe_mk, Vℳ]
         fin_cases k₁ <;> fin_cases k₂
         · cases b <;> cases r₁ <;> cases r₂ <;>
             (simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
