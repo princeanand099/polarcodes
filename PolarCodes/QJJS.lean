@@ -141,12 +141,12 @@ theorem prop_3_3_qjjs_posDef {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ : 
     have harg : (1 + (1 - 2 * h2Inv (1 - c))) / (1 - (1 - 2 * h2Inv (1 - c))) =
         (1 - h2Inv (1 - c)) / h2Inv (1 - c) := by
       field_simp [ne_of_gt hinv_pos]; ring
-    rw [harg]; ring
+    rw [harg]
   -- Integrate `gx x t ≥ 0` (Lemma 3.1) against `μ`
   have hgx_nn : 0 ≤ ∫ t, gx x t ∂μ := by
     apply integral_nonneg_of_ae
     filter_upwards [ae_iff.mpr hsupp] with t ht
-    exact lemma_3_1_gx_nonneg hx0 hx1 (lt_of_lt_of_le ha ht.1)
+    exact (lemma_3_1_gx_nonneg ⟨hx0, hx1⟩ (lt_of_lt_of_le ha ht.1)).1
   -- Express `∫ gx x t ∂μ` in terms of `D(ρ‖σ)`, `D(σ‖ρ)`, `QJS(ρ, σ)`
   have hint_of_cont : ∀ (ψ : ℝ → ℝ), ContinuousOn ψ (Icc a b) → Integrable ψ μ := by
     intro ψ hψ
@@ -183,7 +183,9 @@ theorem prop_3_3_qjjs_posDef {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ : 
         1 / 2 * Real.logb 2 (2 / (1 + t))) ∂μ) +
       betaParam x * (∫ t, (1 + t) / 2 ∂μ) := by
     unfold gx
-    rw [integral_add (hI1.sub hI2) hI3, integral_sub hI1 hI2, integral_const_mul, integral_const_mul]
+    have h12 : Integrable (fun t : ℝ ↦ (1 / 4 : ℝ) * (t - 1) * Real.logb 2 t -
+        phiDerivParam x * (t / 2 * Real.logb 2 (2 * t / (1 + t)) + 1 / 2 * Real.logb 2 (2 / (1 + t)))) μ := hI1.sub hI2
+    rw [integral_add h12 hI3, integral_sub hI1 hI2, integral_const_mul, integral_const_mul]
   have hJ : ∫ t, (1 / 4 : ℝ) * (t - 1) * Real.logb 2 t ∂μ =
       (1 / 4 : ℝ) * ((relEntropy ρ σ).toReal + (relEntropy σ ρ).toReal) := by
     rw [hEq34, hEq35]
@@ -685,13 +687,13 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
                 (Real.log (τ₂.eigvals j) : ℂ) • (fun r ↦ U₂ r j) := by
               change (U₂ * Matrix.diagonal (fun j ↦ (Real.log (τ₂.eigvals j) : ℂ)) * star U₂) *ᵥ (fun r ↦ U₂ r j) = _
               rw [← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec, hcol]
-              ext r; simp [Matrix.mulVec, dotProduct, Matrix.mulVec_diagonal, Pi.single_apply]
+              ext r; simp [Matrix.mulVec, dotProduct, Matrix.mulVec_diagonal, Matrix.diagonal_apply, Pi.single_apply, mul_comm]
             rw [hR]
             have hτ2_eig : τ₂.mat.mulVec (fun r ↦ U₂ r j) =
                 (τ₂.eigvals j : ℂ) • (fun r ↦ U₂ r j) := by
               conv_lhs => rw [hspec2]
               rw [← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec, hcol]
-              ext r; simp [Matrix.mulVec, dotProduct, Matrix.mulVec_diagonal, Pi.single_apply]
+              ext r; simp [Matrix.mulVec, dotProduct, Matrix.mulVec_diagonal, Matrix.diagonal_apply, Pi.single_apply, mul_comm]
             by_cases hj0 : τ₂.eigvals j = 0
             · rw [hj0, Real.log_zero, Complex.ofReal_zero, zero_smul]
               have hVh0 : Vᴴ.mulVec (fun r ↦ U₂ r j) = 0 := by
@@ -856,7 +858,7 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
         ENNReal.ofReal ((1 / 4 : ℝ) * ((relEntropy ρ' σ').toReal + (relEntropy σ' ρ').toReal)) := by
       rw [ENNReal.ofReal_mul (by norm_num), ENNReal.ofReal_add ENNReal.toReal_nonneg ENNReal.toReal_nonneg,
         ENNReal.ofReal_toReal hfin1, ENNReal.ofReal_toReal hfin2]
-      congr 1; rw [show (1 / 4 : ℝ) = (4 : ℝ)⁻¹ by norm_num, ENNReal.ofReal_inv_of_pos (by norm_num : (0 : ℝ) < 4), ENNReal.ofReal_ofNat]
+      congr 1; rw [show (1 / 4 : ℝ) = (4 : ℝ)⁻¹ by norm_num, ENNReal.ofReal_inv_of_pos (by norm_num : (0 : ℝ) < 4), ENNReal.ofReal_ofNat, one_div]
     rw [hRHS]
     exact ENNReal.ofReal_le_ofReal hmain
   · -- If `supp(ρ) ≠ supp(σ)`, then `D(ρ ‖ σ) + D(σ ‖ ρ) = ⊤`
