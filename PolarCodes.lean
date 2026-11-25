@@ -9,9 +9,11 @@ import PolarCodes.ChannelDuality
 import PolarCodes.Channels
 import PolarCodes.DataProcessing
 import PolarCodes.DephasingSDPI
+import PolarCodes.FrenkelHelpers
 import PolarCodes.FrenkelIntegral
 import PolarCodes.GramDephasing
 import PolarCodes.HockeyStick
+import PolarCodes.HockeyStickMeasure
 import PolarCodes.MainTheorem
 import PolarCodes.MrsGerber
 import PolarCodes.Polarization
