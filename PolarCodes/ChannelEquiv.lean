@@ -49,13 +49,10 @@ lemma CQChannel.ChannelEquiv.refl {d : Type u} [Fintype d] [DecidableEq d] (W : 
     W.ChannelEquiv W := by
   refine ⟨CPTPMap.id d, CPTPMap.id d, fun b ↦ ?_, fun b ↦ ?_⟩ <;>
   · ext i j
-    change ∑ k : PUnit.{u + 1},
-      ((CPTPMap.id d).isom * (W.out b).mat * (CPTPMap.id d).isomᴴ) (i, k) (j, k) =
-      (W.out b).mat i j
+    let V : Matrix (d × PUnit.{u + 1}) d ℂ := Matrix.of fun p k ↦ if p.1 = k then 1 else 0
+    change ∑ k : PUnit.{u + 1}, (V * (W.out b).mat * Vᴴ) (i, k) (j, k) = (W.out b).mat i j
     rw [Fintype.sum_unique]
-    dsimp only [CPTPMap.id]
-    rw [Matrix.mul_apply]
-    simp_rw [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply]
+    simp only [V, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply]
     rw [Finset.sum_eq_single j]
     · rw [Finset.sum_eq_single i]
       · simp
@@ -570,7 +567,6 @@ lemma dual_isoEquiv_of_purification {d E : Type u} [Fintype d] [DecidableEq d]
                 simp [smul_eq_mul]; ring } }
     W.dual.IsoEquiv W_E := by
   intro M₀ M₁ W_E
-  -- Factor lemma: if `A * Aᴴ = τ.mat`, there is an isometry `V : d → E ⊕ d` with `V * τ.sqrtMat = [Aᴴ; 0]`.
   have hfactor : ∀ (τ : DensityOp d) (A : Matrix d E ℂ), A * Aᴴ = τ.mat →
       ∃ V : Matrix (E ⊕ d) d ℂ, Vᴴ * V = 1 ∧
         ∀ (y : E ⊕ d) (x : d), (V * τ.sqrtMat) y x =
@@ -896,7 +892,6 @@ theorem prop_2_2_D3_isoEquiv_pure {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) 
         Matrix.of_apply, Fintype.sum_unique, h1pf, h1mf]
   obtain ⟨γ, _, _, V₁, V₂, h1, h2, heq⟩ :=
     dual_isoEquiv_of_purification (pureChannel f hf0 hf1) A₀ A₁ hA₀ hA₁
-  -- Conjugate `W_E` by the Hadamard unitary `H : Bool → Bool × PUnit` to get `BSC(p)`!
   let H : Matrix (Bool × PUnit.{1}) Bool ℂ :=
     Matrix.of fun r c ↦ ((Real.sqrt 2 : ℂ)⁻¹) * (if r.1 = true ∧ c = true then -1 else 1)
   have hsq2 : star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) = (1 / 2 : ℂ) := by

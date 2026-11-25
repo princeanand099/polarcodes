@@ -32,7 +32,7 @@ universe u
 
 variable {α β : Type*} [Fintype α] [DecidableEq α] [Fintype β] [DecidableEq β]
 
-/-! ### Orthogonal Projectors -/
+/-! ### Orthogonal Projectors and Density-Operator Square-Root Positivity -/
 
 /-- An orthogonal projector `P` on `ℂ^α`: Hermitian (`Pᴴ = P`) and idempotent (`P * P = P`). -/
 def IsProjector (P : Matrix α α ℂ) : Prop :=
@@ -50,6 +50,46 @@ lemma IsProjector.posSemidef {P : Matrix α α ℂ} (hP : IsProjector P) : P.Pos
   have : P = Pᴴ * P := by rw [hP.1, hP.2]
   rw [this]; exact Matrix.posSemidef_conjTranspose_mul_self P
 
+lemma DensityOp.sqrtMat_posSemidef (ρ : DensityOp α) : ρ.sqrtMat.PosSemidef := by
+  let U : Matrix α α ℂ := (ρ.eigUnitary : Matrix α α ℂ)
+  let A : Matrix α α ℂ :=
+    Matrix.diagonal (fun i : α ↦ (Real.sqrt (Real.sqrt (ρ.eigvals i)) : ℂ)) * star U
+  have hA : Aᴴ * A = ρ.sqrtMat := by
+    have hd : (Matrix.diagonal (fun i : α ↦ (Real.sqrt (Real.sqrt (ρ.eigvals i)) : ℂ)))ᴴ =
+        Matrix.diagonal (fun i : α ↦ (Real.sqrt (Real.sqrt (ρ.eigvals i)) : ℂ)) := by
+      ext i j; by_cases h : i = j
+      · subst h; simp [Matrix.conjTranspose_apply, Matrix.diagonal_apply_eq]
+      · simp [h, Ne.symm h, Matrix.conjTranspose_apply, Matrix.diagonal_apply_ne]
+    have hmul : Matrix.diagonal (fun i : α ↦ (Real.sqrt (Real.sqrt (ρ.eigvals i)) : ℂ)) *
+        Matrix.diagonal (fun i : α ↦ (Real.sqrt (Real.sqrt (ρ.eigvals i)) : ℂ)) =
+        Matrix.diagonal (fun i : α ↦ (Real.sqrt (ρ.eigvals i) : ℂ)) := by
+      rw [Matrix.diagonal_mul_diagonal]; congr 1; funext i
+      rw [← Complex.ofReal_mul, Real.mul_self_sqrt (Real.sqrt_nonneg _)]
+    calc Aᴴ * A = U * (Matrix.diagonal (fun i : α ↦ (Real.sqrt (Real.sqrt (ρ.eigvals i)) : ℂ)) *
+            Matrix.diagonal (fun i : α ↦ (Real.sqrt (Real.sqrt (ρ.eigvals i)) : ℂ))) * star U := by
+              simp only [A, Matrix.conjTranspose_mul, hd, Matrix.star_eq_conjTranspose,
+                Matrix.conjTranspose_conjTranspose, Matrix.mul_assoc]
+      _ = U * Matrix.diagonal (fun i : α ↦ (Real.sqrt (ρ.eigvals i) : ℂ)) * star U := by rw [hmul]
+      _ = ρ.sqrtMat := rfl
+  rw [← hA]
+  exact Matrix.posSemidef_conjTranspose_mul_self A
+
+private lemma posSemidef_diag_re_nonneg {M : Matrix α α ℂ} (hM : M.PosSemidef) (i : α) :
+    0 ≤ (M i i).re := by
+  set V : Matrix α α ℂ := (hM.isHermitian.eigenvectorUnitary : Matrix α α ℂ)
+  have hspec : M = V * Matrix.diagonal (Complex.ofReal ∘ hM.isHermitian.eigenvalues) * star V := by
+    simpa [V, Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply] using hM.isHermitian.spectral_theorem
+  have hval : M i i = ∑ k : α, ((hM.isHermitian.eigenvalues k : ℝ) : ℂ) * (V i k * star (V i k)) := by
+    conv_lhs => rw [hspec]
+    simp only [Matrix.mul_diagonal, Matrix.mul_apply, Matrix.star_apply, Function.comp_apply]
+    apply Finset.sum_congr rfl; intro k _; ring
+  rw [hval, Complex.re_sum]
+  apply Finset.sum_nonneg; intro k _
+  have hnorm : V i k * star (V i k) = ((‖V i k‖ ^ 2 : ℝ) : ℂ) := by
+    rw [RCLike.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
+  rw [hnorm, ← Complex.ofReal_mul, Complex.ofReal_re]
+  exact mul_nonneg (hM.eigenvalues_nonneg k) (sq_nonneg _)
+
 /-! ### Trace Norm of Hermitian Matrices and Helstrom Projector -/
 
 private lemma traceNorm_hermitian_eq_sum_abs {Δ : Matrix α α ℂ} (hΔ : Δ.IsHermitian) :
@@ -61,26 +101,6 @@ private lemma traceNorm_hermitian_eq_sum_abs {Δ : Matrix α α ℂ} (hΔ : Δ.I
   have hU_star : star U * U = 1 := Unitary.coe_star_mul_self hΔ.eigenvectorUnitary
   let sgn : α → ℂ := fun i ↦ if 0 ≤ hΔ.eigenvalues i then 1 else -1
   let S : Matrix α α ℂ := U * Matrix.diagonal sgn * star U
-  have hS_mem : S ∈ Matrix.unitaryGroup α ℂ := by
-    rw [Matrix.mem_unitaryGroup_iff']
-    have hsgn_mul : Matrix.diagonal sgn * Matrix.diagonal sgn = 1 := by
-      rw [Matrix.diagonal_mul_diagonal]
-      ext i j; by_cases h : i = j
-      · subst h; simp only [Matrix.diagonal_apply_eq, Matrix.one_apply_eq, sgn]; split_ifs <;> ring
-      · simp [h, Matrix.diagonal_apply_ne, Matrix.one_apply_ne]
-    have hS_herm : Sᴴ = S := by
-      have hd : (Matrix.diagonal sgn)ᴴ = Matrix.diagonal sgn := by
-        ext i j; by_cases h : i = j
-        · subst h; simp only [Matrix.conjTranspose_apply, Matrix.diagonal_apply_eq, sgn]
-          split_ifs <;> simp
-        · simp [h, Ne.symm h, Matrix.conjTranspose_apply, Matrix.diagonal_apply_ne]
-      simp only [S, Matrix.conjTranspose_mul, Matrix.mul_assoc, hd, Matrix.star_eq_conjTranspose,
-        Matrix.conjTranspose_conjTranspose]
-    rw [Matrix.star_eq_conjTranspose, hS_herm]
-    calc S * S = U * (Matrix.diagonal sgn * (star U * U) * Matrix.diagonal sgn) * star U := by
-            simp only [S, Matrix.mul_assoc]
-      _ = U * star U := by rw [hU_star, Matrix.mul_one, hsgn_mul, Matrix.mul_one]
-      _ = 1 := hU_mul
   have hS_herm : Sᴴ = S := by
     have hd : (Matrix.diagonal sgn)ᴴ = Matrix.diagonal sgn := by
       ext i j; by_cases h : i = j
@@ -89,10 +109,22 @@ private lemma traceNorm_hermitian_eq_sum_abs {Δ : Matrix α α ℂ} (hΔ : Δ.I
       · simp [h, Ne.symm h, Matrix.conjTranspose_apply, Matrix.diagonal_apply_ne]
     simp only [S, Matrix.conjTranspose_mul, Matrix.mul_assoc, hd, Matrix.star_eq_conjTranspose,
       Matrix.conjTranspose_conjTranspose]
+  have hS_mem : S ∈ Matrix.unitaryGroup α ℂ := by
+    rw [Matrix.mem_unitaryGroup_iff', Matrix.star_eq_conjTranspose, hS_herm]
+    have hsgn_mul : Matrix.diagonal sgn * Matrix.diagonal sgn = 1 := by
+      rw [Matrix.diagonal_mul_diagonal]
+      ext i j; by_cases h : i = j
+      · subst h; simp only [Matrix.diagonal_apply_eq, Matrix.one_apply_eq, sgn]; split_ifs <;> ring
+      · simp [h, Matrix.diagonal_apply_ne, Matrix.one_apply_ne]
+    calc S * S = U * (Matrix.diagonal sgn * (star U * U) * Matrix.diagonal sgn) * star U := by
+            simp only [S, Matrix.mul_assoc]
+      _ = U * star U := by rw [hU_star, Matrix.mul_one, hsgn_mul, Matrix.mul_one]
+      _ = 1 := hU_mul
   have hge : ∑ i : α, |hΔ.eigenvalues i| ≤ traceNorm Δ := by
     have hle := re_trace_unitary_mul_le_traceNorm ⟨S, hS_mem⟩ Δ
     have htr : (Sᴴ * Δ).trace = ∑ i : α, ((|hΔ.eigenvalues i| : ℝ) : ℂ) := by
-      rw [hS_herm, hspec]
+      rw [hS_herm]
+      conv_lhs => rw [hspec]
       have h1 : S * (U * Matrix.diagonal (Complex.ofReal ∘ hΔ.eigenvalues) * star U) =
           U * (Matrix.diagonal sgn * Matrix.diagonal (Complex.ofReal ∘ hΔ.eigenvalues)) * star U := by
         calc (U * Matrix.diagonal sgn * star U) * (U * Matrix.diagonal (Complex.ofReal ∘ hΔ.eigenvalues) * star U)
@@ -119,7 +151,7 @@ private lemma traceNorm_hermitian_eq_sum_abs {Δ : Matrix α α ℂ} (hΔ : Δ.I
     let Q : Matrix α α ℂ := (Q_unit : Matrix α α ℂ)
     have htrQ : ((W : Matrix α α ℂ)ᴴ * Δ).trace =
         (Q * Matrix.diagonal (Complex.ofReal ∘ hΔ.eigenvalues)).trace := by
-      rw [hspec]
+      conv_lhs => rw [hspec]
       have hQ : Q = star U * (W : Matrix α α ℂ)ᴴ * U := by
         simp [Q, Q_unit, U, Matrix.star_eq_conjTranspose, Matrix.mul_assoc]
       rw [hQ]
@@ -206,7 +238,7 @@ theorem helstrom_error_eq (ρ₀ ρ₁ : DensityOp α) :
       (1 / 2) * traceNorm (ρ₀.mat - ρ₁.mat) := by
     have hmul : helstromProjector ρ₀ ρ₁ * (ρ₀.mat - ρ₁.mat) =
         U * Matrix.diagonal (fun i : α ↦ if 0 ≤ hΔ.eigenvalues i then (hΔ.eigenvalues i : ℂ) else 0) * star U := by
-      rw [hspec]
+      conv_lhs => rw [hspec]
       calc (U * Matrix.diagonal (fun i : α ↦ if 0 ≤ hΔ.eigenvalues i then (1 : ℂ) else 0) * star U) *
             (U * Matrix.diagonal (Complex.ofReal ∘ hΔ.eigenvalues) * star U)
           = U * (Matrix.diagonal (fun i : α ↦ if 0 ≤ hΔ.eigenvalues i then (1 : ℂ) else 0) *
@@ -281,7 +313,7 @@ theorem powers_stormer_traceNorm (ρ₀ ρ₁ : DensityOp α) :
       Matrix.add_apply, Matrix.sub_apply, Matrix.smul_apply, smul_eq_mul]
     ring
   have hSX : S * X = U * Matrix.diagonal (fun i : α ↦ ((|hX.eigenvalues i| : ℝ) : ℂ)) * star U := by
-    rw [hX_spec]
+    conv_lhs => rw [hX_spec]
     calc (U * Matrix.diagonal sgn * star U) * (U * Matrix.diagonal (Complex.ofReal ∘ hX.eigenvalues) * star U)
         = U * (Matrix.diagonal sgn * (star U * U) * Matrix.diagonal (Complex.ofReal ∘ hX.eigenvalues)) * star U := by
             simp only [Matrix.mul_assoc]
@@ -293,7 +325,8 @@ theorem powers_stormer_traceNorm (ρ₀ ρ₁ : DensityOp α) :
             · rw [one_mul, abs_of_nonneg hi]
             · rw [neg_one_mul, abs_of_neg (lt_of_not_ge hi), Complex.ofReal_neg]
   have hXS : X * S = S * X := by
-    rw [hSX, hX_spec]
+    rw [hSX]
+    conv_lhs => rw [hX_spec]
     calc (U * Matrix.diagonal (Complex.ofReal ∘ hX.eigenvalues) * star U) * (U * Matrix.diagonal sgn * star U)
         = U * (Matrix.diagonal (Complex.ofReal ∘ hX.eigenvalues) * (star U * U) * Matrix.diagonal sgn) * star U := by
             simp only [Matrix.mul_assoc]
@@ -315,9 +348,11 @@ theorem powers_stormer_traceNorm (ρ₀ ρ₁ : DensityOp α) :
       simp only [smul_eq_mul]; ring
     rw [hhalf, hSX]
     calc (U * Matrix.diagonal (fun i : α ↦ ((|hX.eigenvalues i| : ℝ) : ℂ)) * star U * Y).trace
-        = (Matrix.diagonal (fun i : α ↦ ((|hX.eigenvalues i| : ℝ) : ℂ)) * (star U * Y * U)).trace := by
+        = (U * (Matrix.diagonal (fun i : α ↦ ((|hX.eigenvalues i| : ℝ) : ℂ)) * star U * Y)).trace := by
             simp only [Matrix.mul_assoc]
-            rw [Matrix.trace_mul_cycle]
+      _ = (Matrix.diagonal (fun i : α ↦ ((|hX.eigenvalues i| : ℝ) : ℂ)) * star U * Y * U).trace := by
+            rw [Matrix.trace_mul_comm]
+      _ = (Matrix.diagonal (fun i : α ↦ ((|hX.eigenvalues i| : ℝ) : ℂ)) * (star U * Y * U)).trace := by
             simp only [Matrix.mul_assoc]
       _ = ∑ i : α, ((|hX.eigenvalues i| : ℝ) : ℂ) * (star U * Y * U) i i := by
             simp only [Matrix.trace, Matrix.diag, Matrix.mul_apply, Matrix.diagonal_apply,
@@ -327,19 +362,14 @@ theorem powers_stormer_traceNorm (ρ₀ ρ₁ : DensityOp α) :
     have hpsd : (star U * M * U).PosSemidef := by
       rw [Matrix.star_eq_conjTranspose]
       exact hM.conjTranspose_mul_mul_same U
-    have hquad := hpsd.2 (Pi.single i (1 : ℂ))
-    have hval : star (Pi.single i (1 : ℂ)) ⬝ᵥ (star U * M * U).mulVec (Pi.single i (1 : ℂ)) =
-        (star U * M * U) i i := by
-      simp [dotProduct, Matrix.mulVec, Pi.single_apply]
-    rw [hval] at hquad
-    exact (Complex.nonneg_iff.mp hquad).1
+    exact posSemidef_diag_re_nonneg hpsd i
   have hA_nn : ∀ i : α, 0 ≤ ((star U * A * U) i i).re := hdiag_nn A ρ₀.sqrtMat_posSemidef
   have hB_nn : ∀ i : α, 0 ≤ ((star U * B * U) i i).re := hdiag_nn B ρ₁.sqrtMat_posSemidef
   have hY_ge : ∀ i : α, |hX.eigenvalues i| ≤ ((star U * Y * U) i i).re := by
     intro i
     have hsub : ((star U * A * U) i i).re - ((star U * B * U) i i).re = hX.eigenvalues i := by
       have h1 : star U * X * U = Matrix.diagonal (Complex.ofReal ∘ hX.eigenvalues) := by
-        rw [hX_spec]
+        conv_lhs => rw [hX_spec]
         calc star U * (U * Matrix.diagonal (Complex.ofReal ∘ hX.eigenvalues) * star U) * U
             = (star U * U) * Matrix.diagonal (Complex.ofReal ∘ hX.eigenvalues) * (star U * U) := by
                 simp only [Matrix.mul_assoc]
@@ -359,7 +389,7 @@ theorem powers_stormer_traceNorm (ρ₀ ρ₁ : DensityOp α) :
     constructor <;> linarith [hA_nn i, hB_nn i]
   have htr_XX : ∑ i : α, hX.eigenvalues i ^ 2 = 2 - 2 * ((A * B).trace).re := by
     have hXX : (X * X).trace = ∑ i : α, ((hX.eigenvalues i ^ 2 : ℝ) : ℂ) := by
-      rw [hX_spec]
+      conv_lhs => rw [hX_spec]
       calc (U * Matrix.diagonal (Complex.ofReal ∘ hX.eigenvalues) * star U *
               (U * Matrix.diagonal (Complex.ofReal ∘ hX.eigenvalues) * star U)).trace
           = (U * (Matrix.diagonal (Complex.ofReal ∘ hX.eigenvalues) * (star U * U) *
@@ -425,7 +455,7 @@ lemma seqProd_nil : seqProd ([] : List (Matrix α α ℂ)) = 1 := rfl
 lemma seqProd_cons (P : Matrix α α ℂ) (Ps : List (Matrix α α ℂ)) :
     seqProd (P :: Ps) = seqProd Ps * P := rfl
 
-private def vecNormSq (v : α → ℂ) : ℝ := ∑ i : α, ‖v i‖ ^ 2
+private noncomputable def vecNormSq (v : α → ℂ) : ℝ := ∑ i : α, ‖v i‖ ^ 2
 private def vecInner (u v : α → ℂ) : ℂ := ∑ i : α, star (u i) * v i
 
 private lemma vecNormSq_nonneg (v : α → ℂ) : 0 ≤ vecNormSq v :=
@@ -477,6 +507,12 @@ private lemma vecInner_re_le (u v : α → ℂ) :
     exact Real.le_sqrt_of_sq_le hcs
   exact le_trans h1 h2
 
+private lemma projector_mulVec_add (P : Matrix α α ℂ) (v : α → ℂ) (i : α) :
+    (P.mulVec v) i + ((1 - P).mulVec v) i = v i := by
+  have h1 := congr_fun (Matrix.add_mulVec P (1 - P) v) i
+  simp only [add_sub_cancel, Matrix.one_mulVec, Pi.add_apply] at h1
+  exact h1.symm
+
 private lemma projector_pythagoras {P : Matrix α α ℂ} (hP : IsProjector P) (v : α → ℂ) :
     vecNormSq (P.mulVec v) + vecNormSq ((1 - P).mulVec v) = vecNormSq v := by
   rw [← vecInner_self_re, ← vecInner_self_re, ← vecInner_self_re, ← Complex.add_re]
@@ -489,11 +525,7 @@ private lemma projector_pythagoras {P : Matrix α α ℂ} (hP : IsProjector P) (
   unfold vecInner
   rw [← Finset.sum_add_distrib]
   apply Finset.sum_congr rfl; intro i _
-  have : (P.mulVec v) i + ((1 - P).mulVec v) i = v i := by
-    have hsum : (P + (1 - P)).mulVec v = v := by simp
-    have := congr_fun hsum i
-    simpa [Matrix.add_mulVec] using this
-  rw [← mul_add, this]
+  rw [← mul_add, projector_mulVec_add P v i]
 
 /-- Vector form of **Gao's Sharp Quantum Union Bound** (via O'Donnell–Venkateswaran):
 for any vector `ψ` with `‖ψ‖² = 1` and any list of orthogonal projectors `Ps`,
@@ -502,7 +534,6 @@ private lemma gao_union_bound_vec (Ps : List (Matrix α α ℂ))
     (hPs : ∀ P ∈ Ps, IsProjector P) (ψ : α → ℂ) (hψ : vecNormSq ψ = 1) :
     1 - vecNormSq ((seqProd Ps).mulVec ψ) ≤
       4 * (Ps.map (fun P ↦ vecNormSq ((1 - P).mulVec ψ))).sum := by
-  -- Step 1: Inductive helper tracking both telescoping error and inner-product bound
   have hstep : ∀ (Qs : List (Matrix α α ℂ)), (∀ P ∈ Qs, IsProjector P) →
       ∀ (v : α → ℂ),
         vecNormSq v - vecNormSq ((seqProd Qs).mulVec v) ≥ 0 ∧
@@ -527,13 +558,10 @@ private lemma gao_union_bound_vec (Ps : List (Matrix α α ℂ))
             (vecNormSq (P.mulVec v) - vecNormSq ((seqProd Qs).mulVec (P.mulVec v))) := by
         rw [hseq]; linarith
       refine ⟨by rw [hdiff_eq]; linarith [vecNormSq_nonneg ((1 - P).mulVec v)], ?_⟩
-      -- Decompose `v - seqProd (P :: Qs) v = (1 - P) v + (P v - seqProd Qs (P v))`
       have hv_split : v - (seqProd (P :: Qs)).mulVec v =
           (1 - P).mulVec v + (P.mulVec v - (seqProd Qs).mulVec (P.mulVec v)) := by
         ext i
-        have h1 : (P.mulVec v) i + ((1 - P).mulVec v) i = v i := by
-          have : (P + (1 - P)).mulVec v = v := by simp
-          simpa [Matrix.add_mulVec] using congr_fun this i
+        have h1 := projector_mulVec_add P v i
         rw [hseq]; simp only [Pi.sub_apply, Pi.add_apply]; linear_combination -h1
       have hfirst : (vecInner ((1 - P).mulVec v) ψ).re ≤
           Real.sqrt (vecNormSq ((1 - P).mulVec v)) * Real.sqrt (vecNormSq ((1 - P).mulVec ψ)) := by
@@ -543,7 +571,6 @@ private lemma gao_union_bound_vec (Ps : List (Matrix α α ℂ))
         rw [heq]
         exact vecInner_re_le _ _
       rw [hv_split, vecInner_add_left, Complex.add_re]
-      -- Cauchy-Schwarz for 2 terms: `√a₁ √b₁ + √a₂ √b₂ ≤ √(a₁ + a₂) √(b₁ + b₂)`
       set a₁ := vecNormSq ((1 - P).mulVec v)
       set a₂ := vecNormSq (P.mulVec v) - vecNormSq ((seqProd Qs).mulVec (P.mulVec v))
       set b₁ := vecNormSq ((1 - P).mulVec ψ)
@@ -560,7 +587,9 @@ private lemma gao_union_bound_vec (Ps : List (Matrix α α ℂ))
           have h3 : Real.sqrt b₁ ^ 2 = b₁ := Real.sq_sqrt hb₁
           have h4 : Real.sqrt b₂ ^ 2 = b₂ := Real.sq_sqrt hb₂
           nlinarith [sq_nonneg (Real.sqrt a₁ * Real.sqrt b₂ - Real.sqrt a₂ * Real.sqrt b₁)]
-        rw [← Real.sqrt_mul (by linarith)]
+        have hmul_rt : Real.sqrt (a₁ + a₂) * Real.sqrt (b₁ + b₂) = Real.sqrt ((a₁ + a₂) * (b₁ + b₂)) :=
+          (Real.sqrt_mul (by linarith)).symm
+        rw [hmul_rt]
         exact Real.le_sqrt_of_sq_le hsq
       have hmap : ((P :: Qs).map (fun Q ↦ vecNormSq ((1 - Q).mulVec ψ))).sum = b₁ + b₂ := by
         simp [b₁, b₂]
@@ -631,7 +660,7 @@ theorem gao_union_bound_density (ρ : DensityOp α) (Ps : List (Matrix α α ℂ
     intro M
     have h1 : (M * ρ.mat * Mᴴ).trace =
         ∑ a : α, (ρ.eigvals a : ℂ) * vecInner (M.mulVec (col a)) (M.mulVec (col a)) := by
-      rw [hspec]
+      conv_lhs => rw [hspec]
       calc (M * (U * Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) * star U) * Mᴴ).trace
           = ((M * U) * Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) * (M * U)ᴴ).trace := by
               simp only [Matrix.conjTranspose_mul, Matrix.star_eq_conjTranspose, Matrix.mul_assoc]
@@ -742,9 +771,10 @@ lemma vonNeumannEntropy_of_reindex (e : α ≃ β) (ρ : DensityOp α) (σ : Den
     ext x y
     simpa [Matrix.reindex_apply, Matrix.submatrix_apply] using heq (e.symm x) (e.symm y)
   unfold vonNeumannEntropy
-  apply spectral_sum_eq_of_charpoly_mul_X_pow σ.isHermitian ρ.isHermitian (k := 0) (l := 0)
-  · rw [pow_zero, mul_one, mul_one, hmat, Matrix.charpoly_reindex]
-  · simp [Real.negMulLog]
+  congr 1
+  exact spectral_sum_eq_of_charpoly_mul_X_pow σ.isHermitian ρ.isHermitian (k := 0) (l := 0)
+    (by rw [pow_zero, mul_one, mul_one, hmat, Matrix.charpoly_reindex])
+    (by simp [Real.negMulLog])
 
 /-- Reindexing a pair of `DensityOp`s by a bijection `e : α ≃ β` preserves `rootFidelity`. -/
 lemma rootFidelity_of_reindex (e : α ≃ β) (ρ₁ ρ₂ : DensityOp α) (σ₁ σ₂ : DensityOp β)
@@ -755,13 +785,11 @@ lemma rootFidelity_of_reindex (e : α ≃ β) (ρ₁ ρ₂ : DensityOp α) (σ�
     ext x y; simpa [Matrix.reindex_apply, Matrix.submatrix_apply] using heq₁ (e.symm x) (e.symm y)
   have hmat₂ : σ₂.mat = Matrix.reindex e e ρ₂.mat := by
     ext x y; simpa [Matrix.reindex_apply, Matrix.submatrix_apply] using heq₂ (e.symm x) (e.symm y)
-  -- `Matrix.reindex e e ρ₁.sqrtMat` is PSD and squares to `σ₁.mat`, hence equals `σ₁.sqrtMat`
   let R : Matrix β β ℂ := Matrix.reindex e e ρ₁.sqrtMat
   have hR_sq : R * R = σ₁.mat := by
     rw [hmat₁, ← ρ₁.sqrtMat_mul_self]
-    exact (Matrix.reindexAlgEquiv ℂ ℂ e).map_mul ρ₁.sqrtMat ρ₁.sqrtMat |>.symm
+    exact ((Matrix.reindexAlgEquiv ℂ ℂ e).map_mul ρ₁.sqrtMat ρ₁.sqrtMat).symm
   have hR_psd : R.PosSemidef := by
-    have h1 : R = Matrix.reindex e e (ρ₁.sqrtMat) := rfl
     let P : Matrix β α ℂ := Matrix.of fun y x ↦ if y = e x then 1 else 0
     have hPR : R = P * ρ₁.sqrtMat * Pᴴ := by
       ext y₁ y₂
@@ -778,13 +806,7 @@ lemma rootFidelity_of_reindex (e : α ≃ β) (ρ₁ ρ₂ : DensityOp α) (σ�
       · intro h; exact absurd (Finset.mem_univ _) h
     rw [hPR]
     exact ρ₁.sqrtMat_posSemidef.mul_mul_conjTranspose_same P
-  -- Compare `σ₁.sqrtMat * σ₂.mat * σ₁.sqrtMat` via `R` using `posSemidef_sqrt_unique`
   have hR_eq : R = σ₁.sqrtMat := by
-    -- Both `R` and `σ₁.sqrtMat` are PSD with square `σ₁.mat`; their difference has zero trace norm
-    -- via `powers_stormer`-style spectral uniqueness: use `R * R = σ₁.sqrtMat * σ₁.sqrtMat`
-    have hcomm : R * σ₁.mat = σ₁.mat * R := by rw [← hR_sq, Matrix.mul_assoc]
-    -- Diagonalize `R` and `σ₁.sqrtMat`: for every eigenvector `v` of `R` with eigenvalue `r ≥ 0`,
-    -- `σ₁.mat v = r^2 v`, so `σ₁.sqrtMat` and `R` agree on every eigenspace.
     set U := (σ₁.eigUnitary : Matrix β β ℂ)
     have hU_star : star U * U = 1 := Unitary.coe_star_mul_self σ₁.eigUnitary
     have hU_mul : U * star U = 1 := Unitary.coe_mul_star_self σ₁.eigUnitary
@@ -793,42 +815,37 @@ lemma rootFidelity_of_reindex (e : α ≃ β) (ρ₁ ρ₂ : DensityOp α) (σ�
         Unitary.conjStarAlgAut_apply] using σ₁.isHermitian.spectral_theorem
     let M : Matrix β β ℂ := star U * R * U
     have hM_psd : M.PosSemidef := by
-      rw [Matrix.star_eq_conjTranspose]; exact hR_psd.conjTranspose_mul_mul_same U
+      change (star U * R * U).PosSemidef
+      rw [Matrix.star_eq_conjTranspose]
+      exact hR_psd.conjTranspose_mul_mul_same U
     have hM_sq : M * M = Matrix.diagonal (Complex.ofReal ∘ σ₁.eigvals) := by
       calc M * M = star U * (R * (U * star U) * R) * U := by simp only [M, Matrix.mul_assoc]
         _ = star U * σ₁.mat * U := by rw [hU_mul, Matrix.mul_one, hR_sq]
         _ = Matrix.diagonal (Complex.ofReal ∘ σ₁.eigvals) := by
-              rw [hspec]
+              conv_lhs => rw [hspec]
               calc star U * (U * Matrix.diagonal (Complex.ofReal ∘ σ₁.eigvals) * star U) * U
                   = (star U * U) * Matrix.diagonal (Complex.ofReal ∘ σ₁.eigvals) * (star U * U) := by
                       simp only [Matrix.mul_assoc]
                 _ = _ := by rw [hU_star, Matrix.one_mul, Matrix.mul_one]
     have hM_diag : M = Matrix.diagonal (fun i : β ↦ (Real.sqrt (σ₁.eigvals i) : ℂ)) := by
-      have hcomm_M : M * Matrix.diagonal (Complex.ofReal ∘ σ₁.eigvals) =
-          Matrix.diagonal (Complex.ofReal ∘ σ₁.eigvals) * M := by
-        rw [← hM_sq, Matrix.mul_assoc]
-      have hM_herm : Mᴴ = M := hM_psd.isHermitian.eq
-      -- Off-diagonal entries vanish when `σ₁.eigvals i ≠ σ₁.eigvals j`; within equal-eigenvalue blocks
-      -- `M` is PSD and squares to `λ I`, hence equals `√λ I`!
       set V := (hM_psd.isHermitian.eigenvectorUnitary : Matrix β β ℂ)
       have hV_star : star V * V = 1 := Unitary.coe_star_mul_self hM_psd.isHermitian.eigenvectorUnitary
+      have hV_mul : V * star V = 1 := Unitary.coe_mul_star_self hM_psd.isHermitian.eigenvectorUnitary
       have hM_spec : M = V * Matrix.diagonal (Complex.ofReal ∘ hM_psd.isHermitian.eigenvalues) * star V := by
         simpa [V, Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply] using
           hM_psd.isHermitian.spectral_theorem
       have hM_sq_spec : V * Matrix.diagonal (fun k : β ↦ ((hM_psd.isHermitian.eigenvalues k ^ 2 : ℝ) : ℂ)) * star V =
           Matrix.diagonal (Complex.ofReal ∘ σ₁.eigvals) := by
-        rw [← hM_sq, hM_spec]
-        calc V * Matrix.diagonal (Complex.ofReal ∘ hM_psd.isHermitian.eigenvalues) * star V *
-              (V * Matrix.diagonal (Complex.ofReal ∘ hM_psd.isHermitian.eigenvalues) * star V)
-            = V * (Matrix.diagonal (Complex.ofReal ∘ hM_psd.isHermitian.eigenvalues) * (star V * V) *
+        rw [← hM_sq]
+        conv_rhs => rw [hM_spec]
+        calc V * Matrix.diagonal (fun k : β ↦ ((hM_psd.isHermitian.eigenvalues k ^ 2 : ℝ) : ℂ)) * star V
+            = V * (Matrix.diagonal (Complex.ofReal ∘ hM_psd.isHermitian.eigenvalues) *
                 Matrix.diagonal (Complex.ofReal ∘ hM_psd.isHermitian.eigenvalues)) * star V := by
-                  simp only [Matrix.mul_assoc]
-          _ = V * (Matrix.diagonal (Complex.ofReal ∘ hM_psd.isHermitian.eigenvalues) *
+                  rw [Matrix.diagonal_mul_diagonal]; congr 2; funext k; simp [sq]
+          _ = V * (Matrix.diagonal (Complex.ofReal ∘ hM_psd.isHermitian.eigenvalues) * (star V * V) *
                 Matrix.diagonal (Complex.ofReal ∘ hM_psd.isHermitian.eigenvalues)) * star V := by
                   rw [hV_star, Matrix.mul_one]
-          _ = _ := by
-                rw [Matrix.diagonal_mul_diagonal]; congr 2; funext k; simp [sq]
-      -- Multiply by `V` on the right: `V i k * (μ_k^2 - λ_i) = 0`, so `V i k ≠ 0 → μ_k = √(λ_i)`!
+          _ = _ := by simp only [Matrix.mul_assoc]
       have hV_eig : ∀ i k : β,
           V i k * ((hM_psd.isHermitian.eigenvalues k : ℝ) : ℂ) =
           V i k * (Real.sqrt (σ₁.eigvals i) : ℂ) := by
@@ -851,8 +868,8 @@ lemma rootFidelity_of_reindex (e : α ≃ β) (ρ₁ ρ₂ : DensityOp α) (σ�
             rw [← hsq_eq, Real.sqrt_sq (hM_psd.eigenvalues_nonneg k)]
           rw [hval]
       ext i j
-      rw [hM_spec]
-      simp only [Matrix.mul_apply, Matrix.mul_diagonal, Matrix.star_apply, Function.comp_apply,
+      conv_lhs => rw [hM_spec]
+      simp only [Matrix.mul_diagonal, Matrix.mul_apply, Matrix.star_apply, Function.comp_apply,
         Matrix.diagonal_apply]
       calc ∑ k : β, V i k * (hM_psd.isHermitian.eigenvalues k : ℂ) * star (V j k)
           = ∑ k : β, (Real.sqrt (σ₁.eigvals i) : ℂ) * (V i k * star (V j k)) := by
@@ -861,11 +878,11 @@ lemma rootFidelity_of_reindex (e : α ≃ β) (ρ₁ ρ₂ : DensityOp α) (σ�
         _ = (Real.sqrt (σ₁.eigvals i) : ℂ) * (V * star V) i j := by
               rw [← Finset.mul_sum]; simp [Matrix.mul_apply, Matrix.star_apply]
         _ = if i = j then (Real.sqrt (σ₁.eigvals i) : ℂ) else 0 := by
-              rw [Unitary.coe_mul_star_self hM_psd.isHermitian.eigenvectorUnitary, Matrix.one_apply]
+              rw [hV_mul, Matrix.one_apply]
               split_ifs <;> simp
-    calc R = U * (star U * R * U) * star U := by
-            simp only [Matrix.mul_assoc]; rw [← Matrix.mul_assoc U, hU_mul, Matrix.one_mul, hU_mul, Matrix.mul_one]
-      _ = U * Matrix.diagonal (fun i : β ↦ (Real.sqrt (σ₁.eigvals i) : ℂ)) * star U := by rw [← hM_diag]
+    calc R = (U * star U) * R * (U * star U) := by rw [hU_mul, Matrix.one_mul, Matrix.mul_one]
+      _ = U * M * star U := by simp only [M, Matrix.mul_assoc]
+      _ = U * Matrix.diagonal (fun i : β ↦ (Real.sqrt (σ₁.eigvals i) : ℂ)) * star U := by rw [hM_diag]
       _ = σ₁.sqrtMat := rfl
   have hprod : σ₁.sqrtMat * σ₂.mat * σ₁.sqrtMat =
       Matrix.reindex e e (ρ₁.sqrtMat * ρ₂.mat * ρ₁.sqrtMat) := by
