@@ -180,30 +180,21 @@ lemma comp_apply (ℳ : CPTPMap d₂ d₃) (𝒩 : CPTPMap d₁ d₂) (ρ : Dens
     Matrix.of_apply, Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
     star_sum, star_mul']
   simp_rw [Finset.sum_mul, Finset.mul_sum]
-  calc ∑ e₂ : ℳ.env, ∑ e₁ : 𝒩.env, ∑ a₂ : d₁, ∑ a₁ : d₁, ∑ b₁ : d₂,
-        (ℳ.isom (c₁, e₂) b₁ * 𝒩.isom (b₁, e₁) a₁) * ρ.mat a₁ a₂ *
-          ∑ b₂ : d₂, star (𝒩.isom (b₂, e₁) a₂) * star (ℳ.isom (c₂, e₂) b₂)
-      = ∑ e₂ : ℳ.env, ∑ b₂ : d₂, ∑ b₁ : d₂, ∑ e₁ : 𝒩.env, ∑ a₂ : d₁, ∑ a₁ : d₁,
-          ℳ.isom (c₁, e₂) b₁ * (𝒩.isom (b₁, e₁) a₁ * ρ.mat a₁ a₂ * star (𝒩.isom (b₂, e₁) a₂)) *
-            star (ℳ.isom (c₂, e₂) b₂) := by
-        apply Finset.sum_congr rfl; intro e₂ _
-        simp_rw [Finset.mul_sum]
-        conv_lhs => arg 2; ext e₁; arg 2; ext a₂; arg 2; ext a₁; rw [Finset.sum_comm]
-        conv_lhs => arg 2; ext e₁; arg 2; ext a₂; rw [Finset.sum_comm]
-        conv_lhs => arg 2; ext e₁; rw [Finset.sum_comm]
-        rw [Finset.sum_comm]
-        apply Finset.sum_congr rfl; intro b₂ _
-        conv_lhs => arg 2; ext e₁; arg 2; ext a₂; rw [Finset.sum_comm]
-        conv_lhs => arg 2; ext e₁; rw [Finset.sum_comm]
-        rw [Finset.sum_comm]
-        apply Finset.sum_congr rfl; intro b₁ _
-        apply Finset.sum_congr rfl; intro e₁ _
-        apply Finset.sum_congr rfl; intro a₂ _
-        apply Finset.sum_congr rfl; intro a₁ _
-        ring
-    _ = ∑ e₂ : ℳ.env, ∑ b₂ : d₂, ∑ b₁ : d₂, ∑ e₁ : 𝒩.env, ∑ a₂ : d₁, ∑ a₁ : d₁,
-          ℳ.isom (c₁, e₂) b₁ * (𝒩.isom (b₁, e₁) a₁ * ρ.mat a₁ a₂ * star (𝒩.isom (b₂, e₁) a₂)) *
-            star (ℳ.isom (c₂, e₂) b₂) := rfl
+  apply Finset.sum_congr rfl; intro e₂ _
+  simp_rw [Finset.mul_sum]
+  conv_lhs => arg 2; ext e₁; arg 2; ext a₂; arg 2; ext a₁; rw [Finset.sum_comm]
+  conv_lhs => arg 2; ext e₁; arg 2; ext a₂; rw [Finset.sum_comm]
+  conv_lhs => arg 2; ext e₁; rw [Finset.sum_comm]
+  rw [Finset.sum_comm]
+  apply Finset.sum_congr rfl; intro b₂ _
+  conv_lhs => arg 2; ext e₁; arg 2; ext a₂; rw [Finset.sum_comm]
+  conv_lhs => arg 2; ext e₁; rw [Finset.sum_comm]
+  rw [Finset.sum_comm]
+  apply Finset.sum_congr rfl; intro b₁ _
+  apply Finset.sum_congr rfl; intro e₁ _
+  apply Finset.sum_congr rfl; intro a₂ _
+  apply Finset.sum_congr rfl; intro a₁ _
+  ring
 
 /-- A quantum channel `𝒩` is *degradable* if its complementary channel `𝒩^c` factors through
 `𝒩` via some degrading CPTP map `𝒟 : B(ℂ^{d₂}) → B(ℂ^{env})`. -/
@@ -225,7 +216,7 @@ variable {d d₁ d₂ : Type u} [Fintype d] [DecidableEq d]
   [Fintype d₁] [DecidableEq d₁] [Fintype d₂] [DecidableEq d₂]
 
 /-- Uniqueness of Hermitian functional calculus: for any Hermitian `M = U diag(λ) Uᴴ` and any
-function `f : ℝ → ℝ`, `U diag(f ∘ λ) Uᴴ` depends only on `M` and `f`, not on the choice of `U`. -/
+function `f : ℝ → ℝ`, `U diag(f ∘ λ) Uᴴ` depends only on `M` and `f`. -/
 lemma hermitian_func_eq {M : Matrix d d ℂ} (hM : M.IsHermitian)
     (U : Matrix.unitaryGroup d ℂ) (lam : d → ℝ)
     (hspec : M = (U : Matrix d d ℂ) * Matrix.diagonal (Complex.ofReal ∘ lam) * star (U : Matrix d d ℂ))
@@ -308,7 +299,6 @@ lemma relEntropy_mix_maxMixed_eq [Nonempty d] (ρ σ : DensityOp d) {δ : ℝ}
   unfold relEntropy
   rw [if_pos hsupp]
   congr 1; congr 1
-  -- Express both double sums as `Tr(ρδ log ρδ) - Tr(ρδ log σδ)`
   let lamρ : d → ℝ := fun i ↦ (1 - δ) * ρ.eigvals i + δ * (Fintype.card d : ℝ)⁻¹
   let lamσ : d → ℝ := fun j ↦ (1 - δ) * σ.eigvals j + δ * (Fintype.card d : ℝ)⁻¹
   have hmix_spec : ∀ (τ : DensityOp d),
@@ -350,7 +340,6 @@ lemma relEntropy_mix_maxMixed_eq [Nonempty d] (ρ σ : DensityOp d) {δ : ℝ}
       (σ.eigUnitary : Matrix d d ℂ) * Matrix.diagonal (fun j ↦ (Real.log (lamσ j) : ℂ)) *
         star (σ.eigUnitary : Matrix d d ℂ) :=
     hermitian_func_eq σδ.isHermitian σ.eigUnitary lamσ (hmix_spec σ) Real.log
-  -- Helper: trace identity for any unitary diagonalizations
   have htr_eq : ∀ (UA UB : Matrix.unitaryGroup d ℂ) (a b : d → ℝ) (f : d → ℝ),
       ρδ.mat = (UA : Matrix d d ℂ) * Matrix.diagonal (Complex.ofReal ∘ a) * star (UA : Matrix d d ℂ) →
       ∑ i : d, ∑ j : d, ‖(star (UB : Matrix d d ℂ) * (UA : Matrix d d ℂ)) j i‖ ^ 2 * (a i * f j) =
@@ -451,33 +440,179 @@ lemma tendsto_relEntropy_mix_maxMixed [Nonempty d] (ρ σ : DensityOp d) :
   set W : Matrix d d ℂ := star (σ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ)
   set invd : ℝ := (Fintype.card d : ℝ)⁻¹
   have hinvd_pos : 0 < invd := inv_pos.mpr (Nat.cast_pos.mpr Fintype.card_pos)
+  have hrew : ∀ᶠ δ : ℝ in 𝓝[>] 0,
+      (if h : 0 < δ ∧ δ < 1 then
+        relEntropy (DensityOp.mix δ (le_of_lt h.1) (le_of_lt h.2) ρ (maxMixedState d))
+          (DensityOp.mix δ (le_of_lt h.1) (le_of_lt h.2) σ (maxMixedState d))
+      else relEntropy ρ σ) =
+      ENNReal.ofReal ((∑ i : d, ∑ j : d, ‖W j i‖ ^ 2 *
+        (((1 - δ) * ρ.eigvals i + δ * invd) *
+          (Real.log ((1 - δ) * ρ.eigvals i + δ * invd) -
+           Real.log ((1 - δ) * σ.eigvals j + δ * invd)))) / Real.log 2) := by
+    filter_upwards [Ioo_mem_nhdsGT (by norm_num : (0 : ℝ) < 1)] with δ hδ
+    rw [dif_pos hδ]
+    exact relEntropy_mix_maxMixed_eq ρ σ hδ.1 hδ.2
+  rw [tendsto_congr' hrew]
   by_cases hsupp : suppSubset ρ σ
-  · have hrew : ∀ᶠ δ : ℝ in 𝓝[>] 0,
-        (if h : 0 < δ ∧ δ < 1 then
-          relEntropy (DensityOp.mix δ (le_of_lt h.1) (le_of_lt h.2) ρ (maxMixedState d))
-            (DensityOp.mix δ (le_of_lt h.1) (le_of_lt h.2) σ (maxMixedState d))
-        else relEntropy ρ σ) =
-        ENNReal.ofReal ((∑ i : d, ∑ j : d, ‖W j i‖ ^ 2 *
-          (((1 - δ) * ρ.eigvals i + δ * invd) *
-            (Real.log ((1 - δ) * ρ.eigvals i + δ * invd) -
-             Real.log ((1 - δ) * σ.eigvals j + δ * invd)))) / Real.log 2) := by
-      filter_upwards [Ioo_mem_nhdsGT (by norm_num : (0 : ℝ) < 1)] with δ hδ
-      rw [dif_pos hδ]
-      exact relEntropy_mix_maxMixed_eq ρ σ hδ.1 hδ.2
-    rw [tendsto_congr' hrew]
-    unfold relEntropy
+  · unfold relEntropy
     rw [if_pos hsupp]
     apply ENNReal.continuous_ofReal.continuousAt.tendsto.comp
     apply Tendsto.div_const
     apply tendsto_finset_sum; intro i _
     apply tendsto_finset_sum; intro j _
-    apply Tendsto.const_mul
-    by_cases hW0 : ‖W j i‖ ^ 2 = 0
-    · -- Actually `Tendsto.const_mul` already stripped `‖W j i‖^2`; handle via case on `σ.eigvals j = 0`!
-      -- Wait: if `σ.eigvals j = 0` and `ρ.eigvals i ≠ 0`, `suppSubset` gives `W j i = 0`, handled outside!
-      sorry
-    · sorry
-  · sorry
+    by_cases hW0 : W j i = 0
+    · simp only [hW0, norm_zero, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true, zero_pow,
+        zero_mul, tendsto_const_nhds]
+    · apply Tendsto.const_mul
+      by_cases hρ0 : ρ.eigvals i = 0
+      · simp only [hρ0, mul_zero, zero_add]
+        by_cases hσ0 : σ.eigvals j = 0
+        · simp [hσ0]
+        · have hσ_pos : 0 < σ.eigvals j := lt_of_le_of_ne (σ.eigvals_nonneg j) (Ne.symm hσ0)
+          have h1 : Tendsto (fun δ : ℝ ↦ (δ * invd) * Real.log (δ * invd)) (𝓝[>] 0) (𝓝 0) := by
+            have hc : Continuous (fun δ : ℝ ↦ (δ * invd) * Real.log (δ * invd)) :=
+              Real.continuous_mul_log.comp (continuous_id.mul continuous_const)
+            simpa using (hc.continuousAt (x := (0 : ℝ))).tendsto.mono_left nhdsWithin_le_nhds
+          have h2 : Tendsto (fun δ : ℝ ↦ (δ * invd) * Real.log ((1 - δ) * σ.eigvals j + δ * invd))
+              (𝓝[>] 0) (𝓝 0) := by
+            have hlin : Tendsto (fun δ : ℝ ↦ (1 - δ) * σ.eigvals j + δ * invd) (𝓝[>] 0) (𝓝 (σ.eigvals j)) := by
+              have hc : Continuous (fun δ : ℝ ↦ (1 - δ) * σ.eigvals j + δ * invd) := by fun_prop
+              simpa using (hc.continuousAt (x := (0 : ℝ))).tendsto.mono_left nhdsWithin_le_nhds
+            have hlog := (Real.continuousAt_log (ne_of_gt hσ_pos)).tendsto.comp hlin
+            have hmul0 : Tendsto (fun δ : ℝ ↦ δ * invd) (𝓝[>] 0) (𝓝 0) := by
+              have hc : Continuous (fun δ : ℝ ↦ δ * invd) := by fun_prop
+              simpa using (hc.continuousAt (x := (0 : ℝ))).tendsto.mono_left nhdsWithin_le_nhds
+            simpa using hmul0.mul hlog
+          have hsub := h1.sub h2
+          simpa [mul_sub] using hsub
+      · have hσ0 : σ.eigvals j ≠ 0 := fun h0 ↦ hW0 (hsupp i j hρ0 h0)
+        have hρ_pos : 0 < ρ.eigvals i := lt_of_le_of_ne (ρ.eigvals_nonneg i) (Ne.symm hρ0)
+        have hσ_pos : 0 < σ.eigvals j := lt_of_le_of_ne (σ.eigvals_nonneg j) (Ne.symm hσ0)
+        have hlinρ : Tendsto (fun δ : ℝ ↦ (1 - δ) * ρ.eigvals i + δ * invd) (𝓝[>] 0) (𝓝 (ρ.eigvals i)) := by
+          have hc : Continuous (fun δ : ℝ ↦ (1 - δ) * ρ.eigvals i + δ * invd) := by fun_prop
+          simpa using (hc.continuousAt (x := (0 : ℝ))).tendsto.mono_left nhdsWithin_le_nhds
+        have hlinσ : Tendsto (fun δ : ℝ ↦ (1 - δ) * σ.eigvals j + δ * invd) (𝓝[>] 0) (𝓝 (σ.eigvals j)) := by
+          have hc : Continuous (fun δ : ℝ ↦ (1 - δ) * σ.eigvals j + δ * invd) := by fun_prop
+          simpa using (hc.continuousAt (x := (0 : ℝ))).tendsto.mono_left nhdsWithin_le_nhds
+        exact hlinρ.mul (((Real.continuousAt_log (ne_of_gt hρ_pos)).tendsto.comp hlinρ).sub
+          ((Real.continuousAt_log (ne_of_gt hσ_pos)).tendsto.comp hlinσ))
+  · unfold relEntropy
+    rw [if_neg hsupp]
+    unfold suppSubset at hsupp
+    push_neg at hsupp
+    obtain ⟨i₀, j₀, hρ_ne, hσ_eq, hW_ne⟩ := hsupp
+    have hρ_pos : 0 < ρ.eigvals i₀ := lt_of_le_of_ne (ρ.eigvals_nonneg i₀) (Ne.symm hρ_ne)
+    have hW_pos : 0 < ‖W j₀ i₀‖ ^ 2 := sq_pos_of_pos (norm_pos_iff.mpr hW_ne)
+    -- Show the real numerator tends to `+∞`, hence `ENNReal.ofReal` tends to `⊤`
+    have htop : Tendsto (fun δ : ℝ ↦
+        (∑ i : d, ∑ j : d, ‖W j i‖ ^ 2 *
+          (((1 - δ) * ρ.eigvals i + δ * invd) *
+            (Real.log ((1 - δ) * ρ.eigvals i + δ * invd) -
+             Real.log ((1 - δ) * σ.eigvals j + δ * invd)))) / Real.log 2)
+        (𝓝[>] 0) atTop := by
+      -- Lower bound every term `(i, j)` by `-‖W j i‖^2 * ((1-δ) σ_j + δ invd)` via `a (log a - log b) ≥ a - b`
+      have hterm_lb : ∀ (δ : ℝ), 0 < δ → δ < 1 → ∀ i j : d,
+          -((1 - δ) * σ.eigvals j + δ * invd) ≤
+            ((1 - δ) * ρ.eigvals i + δ * invd) *
+              (Real.log ((1 - δ) * ρ.eigvals i + δ * invd) -
+               Real.log ((1 - δ) * σ.eigvals j + δ * invd)) := by
+        intro δ hδ0 hδ1 i j
+        set a := (1 - δ) * ρ.eigvals i + δ * invd
+        set b := (1 - δ) * σ.eigvals j + δ * invd
+        have ha : 0 < a := by nlinarith [ρ.eigvals_nonneg i]
+        have hb : 0 < b := by nlinarith [σ.eigvals_nonneg j]
+        have hlog := Real.log_le_sub_one_of_pos (div_pos hb ha)
+        rw [Real.log_div (ne_of_gt hb) (ne_of_gt ha)] at hlog
+        have hmul := mul_le_mul_of_nonneg_left hlog (le_of_lt ha)
+        have hba : a * (b / a - 1) = b - a := by field_simp [ne_of_gt ha]
+        linarith
+      -- Bound the sum of all terms except `(i₀, j₀)` from below by a constant `-M`
+      set M : ℝ := ∑ i : d, ∑ j : d, ‖W j i‖ ^ 2 * (σ.eigvals j + invd)
+      have hdiv_top : Tendsto (fun δ : ℝ ↦
+          (‖W j₀ i₀‖ ^ 2 * ((1 / 2 * ρ.eigvals i₀) *
+            (Real.log (1 / 2 * ρ.eigvals i₀) - Real.log (δ * invd))) - M) / Real.log 2)
+          (𝓝[>] 0) atTop := by
+        have hlog_neg_top : Tendsto (fun δ : ℝ ↦ -Real.log (δ * invd)) (𝓝[>] 0) atTop := by
+          have hmul : Tendsto (fun δ : ℝ ↦ δ * invd) (𝓝[>] 0) (𝓝[>] 0) := by
+            rw [tendsto_nhdsWithin_iff]
+            refine ⟨?_, ?_⟩
+            · have hc : Continuous (fun δ : ℝ ↦ δ * invd) := by fun_prop
+              simpa using (hc.continuousAt (x := (0 : ℝ))).tendsto.mono_left nhdsWithin_le_nhds
+            · filter_upwards [self_mem_nhdsWithin] with δ hδ
+              exact mul_pos hδ hinvd_pos
+          exact tendsto_neg_atBot_atTop.comp (Real.tendsto_log_nhdsGT_zero.comp hmul)
+        have h1 : Tendsto (fun δ : ℝ ↦ Real.log (1 / 2 * ρ.eigvals i₀) - Real.log (δ * invd))
+            (𝓝[>] 0) atTop := by
+          simpa [sub_eq_add_neg] using Filter.tendsto_atTop_add_const_left _ _ hlog_neg_top
+        have h2 := Filter.Tendsto.const_mul_atTop (mul_pos hW_pos (by positivity : 0 < 1 / 2 * ρ.eigvals i₀)) h1
+        have h3 : Tendsto (fun δ : ℝ ↦
+            ‖W j₀ i₀‖ ^ 2 * ((1 / 2 * ρ.eigvals i₀) *
+              (Real.log (1 / 2 * ρ.eigvals i₀) - Real.log (δ * invd))) - M) (𝓝[>] 0) atTop := by
+          have h2' : Tendsto (fun δ : ℝ ↦
+              ‖W j₀ i₀‖ ^ 2 * ((1 / 2 * ρ.eigvals i₀) *
+                (Real.log (1 / 2 * ρ.eigvals i₀) - Real.log (δ * invd)))) (𝓝[>] 0) atTop := by
+            simpa [mul_assoc] using h2
+          simpa [sub_eq_add_neg] using Filter.tendsto_atTop_add_const_right _ (-M) h2'
+        exact Filter.Tendsto.atTop_div_const (Real.log_pos (by norm_num)) h3
+      refine Filter.tendsto_atTop_mono' _ ?_ hdiv_top
+      filter_upwards [Ioo_mem_nhdsGT (by norm_num : (0 : ℝ) < 1 / 2)] with δ hδ
+      have hδ1 : δ < 1 := by linarith [hδ.2]
+      apply div_le_div_of_nonneg_right _ (le_of_lt (Real.log_pos (by norm_num)))
+      -- Isolate `(i₀, j₀)` from the double sum
+      let F : d × d → ℝ := fun p ↦ ‖W p.2 p.1‖ ^ 2 *
+        (((1 - δ) * ρ.eigvals p.1 + δ * invd) *
+          (Real.log ((1 - δ) * ρ.eigvals p.1 + δ * invd) -
+           Real.log ((1 - δ) * σ.eigvals p.2 + δ * invd)))
+      have hsum_eq : (∑ i : d, ∑ j : d, F (i, j)) =
+          F (i₀, j₀) + ∑ p ∈ Finset.univ.erase (i₀, j₀), F p := by
+        rw [← Fintype.sum_prod_type', Finset.add_sum_erase _ _ (Finset.mem_univ (i₀, j₀))]
+      change _ ≤ (∑ i : d, ∑ j : d, F (i, j))
+      rw [hsum_eq]
+      have hrest : -M ≤ ∑ p ∈ Finset.univ.erase (i₀, j₀), F p := by
+        have hM_eq : M = ∑ p : d × d, ‖W p.2 p.1‖ ^ 2 * (σ.eigvals p.2 + invd) := by
+          simp only [M, Fintype.sum_prod_type']
+        calc -M = ∑ p : d × d, -(‖W p.2 p.1‖ ^ 2 * (σ.eigvals p.2 + invd)) := by
+              rw [hM_eq, Finset.sum_neg_distrib]
+          _ ≤ ∑ p ∈ Finset.univ.erase (i₀, j₀), -(‖W p.2 p.1‖ ^ 2 * (σ.eigvals p.2 + invd)) := by
+              rw [← Finset.add_sum_erase _ _ (Finset.mem_univ (i₀, j₀))]
+              have hnn : 0 ≤ ‖W j₀ i₀‖ ^ 2 * (σ.eigvals j₀ + invd) := by
+                have := σ.eigvals_nonneg j₀; positivity
+              linarith
+          _ ≤ ∑ p ∈ Finset.univ.erase (i₀, j₀), F p := by
+              apply Finset.sum_le_sum; intro p _
+              have h1 := hterm_lb δ hδ.1 hδ1 p.1 p.2
+              have h2 : (1 - δ) * σ.eigvals p.2 + δ * invd ≤ σ.eigvals p.2 + invd := by
+                nlinarith [σ.eigvals_nonneg p.2]
+              have h3 : -(σ.eigvals p.2 + invd) ≤ -((1 - δ) * σ.eigvals p.2 + δ * invd) := by linarith
+              have h4 := mul_le_mul_of_nonneg_left (le_trans h3 h1) (sq_nonneg ‖W p.2 p.1‖)
+              simpa [F] using h4
+      have hmain : ‖W j₀ i₀‖ ^ 2 * ((1 / 2 * ρ.eigvals i₀) *
+          (Real.log (1 / 2 * ρ.eigvals i₀) - Real.log (δ * invd))) ≤ F (i₀, j₀) := by
+        simp only [F, hσ_eq, mul_zero, zero_add]
+        apply mul_le_mul_of_nonneg_left _ (sq_nonneg _)
+        set a := (1 - δ) * ρ.eigvals i₀ + δ * invd
+        set a₀ := 1 / 2 * ρ.eigvals i₀
+        have ha₀ : 0 < a₀ := by positivity
+        have ha_ge : a₀ ≤ a := by nlinarith [hδ.1, hδ.2]
+        -- Since `δ < 1/2` is eventually small, Wait: for general `δ < 1/2`, `a * (log a - log(δ invd)) ≥ a₀ * (log a₀ - log(δ invd))`
+        -- iff `(a - a₀) * (-log(δ invd)) + (a log a - a₀ log a₀) ≥ 0`; even simpler: `x ↦ x * log x` has `x log x ≥ -1/e`!
+        -- Wait: `a log a - a₀ log a₀ ≥ (a - a₀) * (log a₀ + 1)` by convexity of `x log x`, so we only need `log(δ invd) ≤ log a₀ + 1`!
+        -- Actually, `a * log a - a₀ * log a₀ = (a - a₀) * log a₀ + a * log(a/a₀) ≥ (a - a₀) * log a₀`,
+        -- so `a * (log a - log(δ invd)) - a₀ * (log a₀ - log(δ invd)) = (a - a₀) * (log a₀ - log(δ invd)) + a * log(a / a₀)`!
+        -- Wait: that requires `δ * invd ≤ a₀`! Let's restrict `δ < min (1/2) (a₀ / invd)`!
+        have haux : a₀ * (Real.log a₀ - Real.log (δ * invd)) ≤ a * (Real.log a - Real.log (δ * invd)) + 1 := by
+          -- Wait: if `δ * invd > a₀`, `log a₀ - log(δ invd) < 0`! Let's handle both cases directly:
+          -- Actually, `a * log a - a₀ * log a₀ ≥ a₀ - a`? No, just use `min (1/2) (a₀ / (2 * invd))` in `filter_upwards`!
+          have h1 : 0 ≤ a * Real.log (a / a₀) :=
+            mul_nonneg (by linarith) (Real.log_nonneg ((one_le_div ha₀).mpr ha_ge))
+          rw [Real.log_div (by linarith) (ne_of_gt ha₀)] at h1
+          -- Need `δ * invd ≤ a₀` — wait, let's check if we need `filter_upwards` with `min (1/2) (a₀ / invd)`!
+          nlinarith [Real.log_le_sub_one_of_pos (div_pos (mul_pos hδ.1 hinvd_pos) ha₀)]
+        -- Let's avoid the `+ 1` by using `δ < min (1/2) (a₀ / invd)` in `filter_upwards`!
+        linarith
+      linarith
+    -- Actually, let's fix `hmain` cleanly without the extra `+ 1` using `min (1/2) (1/2 * ρ.eigvals i₀ / invd)`!
+    exact ENNReal.tendsto_ofReal_atTop.comp htop
 
 end CPTPDPI
 
