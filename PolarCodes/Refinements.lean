@@ -690,16 +690,21 @@ theorem lemma_3_2_hockeyStick_measure_equalSupport {d : Type*} [Fintype d] [Deci
       simp only [Complex.re_sum, f] at hre
       unfold vonNeumannEntropy
       rw [div_left_inj' (ne_of_gt (Real.log_pos (by norm_num : (1 : ℝ) < 2)))]
-      have hconv : ∀ {β : Type*} [Fintype β] [DecidableEq β] (X : DensityOp β),
-          ∑ i : β, (if X.eigvals i = 0 then (0 : ℂ) else ↑(X.eigvals i * Real.logb 2 (X.eigvals i))).re =
-            -(∑ i : β, Real.negMulLog (X.eigvals i)) / Real.log 2 := by
-        intro β _ _ X
-        rw [← neg_div, ← Finset.sum_neg_distrib, Finset.sum_div]
+      have hconvA : ∑ i : d, (if A.eigvals i = 0 then (0 : ℂ) else ↑(A.eigvals i * Real.logb 2 (A.eigvals i))).re =
+          (-∑ i : d, Real.negMulLog (A.eigvals i)) / Real.log 2 := by
+        rw [← Finset.sum_neg_distrib, Finset.sum_div]
         apply Finset.sum_congr rfl; intro i _
         split_ifs with hi
         · simp [hi, Real.negMulLog]
         · simp [Real.negMulLog, Real.logb]; ring
-      rw [hconv A, hconv A'] at hre
+      have hconvA' : ∑ i : d', (if A'.eigvals i = 0 then (0 : ℂ) else ↑(A'.eigvals i * Real.logb 2 (A'.eigvals i))).re =
+          (-∑ i : d', Real.negMulLog (A'.eigvals i)) / Real.log 2 := by
+        rw [← Finset.sum_neg_distrib, Finset.sum_div]
+        apply Finset.sum_congr rfl; intro i _
+        split_ifs with hi
+        · simp [hi, Real.negMulLog]
+        · simp [Real.negMulLog, Real.logb]; ring
+      rw [hconvA, hconvA'] at hre
       have hlog : Real.log 2 ≠ 0 := ne_of_gt (Real.log_pos (by norm_num))
       have := (div_left_inj' hlog).mp hre
       linarith
