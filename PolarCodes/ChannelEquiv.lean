@@ -53,9 +53,16 @@ lemma CQChannel.ChannelEquiv.refl {d : Type u} [Fintype d] [DecidableEq d] (W : 
       ((CPTPMap.id d).isom * (W.out b).mat * (CPTPMap.id d).isomᴴ) (i, k) (j, k) =
       (W.out b).mat i j
     rw [Fintype.sum_unique]
-    simp [CPTPMap.id, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
-      apply_ite star, ite_mul, zero_mul, one_mul, mul_ite, mul_zero, mul_one,
-      Finset.sum_ite_eq, Finset.sum_ite_eq']
+    dsimp only [CPTPMap.id]
+    rw [Matrix.mul_apply]
+    simp_rw [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply]
+    rw [Finset.sum_eq_single j]
+    · rw [Finset.sum_eq_single i]
+      · simp
+      · intro x _ hne; simp [Ne.symm hne]
+      · intro h; exact absurd (Finset.mem_univ i) h
+    · intro y _ hne; simp [Ne.symm hne]
+    · intro h; exact absurd (Finset.mem_univ j) h
 
 lemma CQChannel.ChannelEquiv.symm {d₁ d₂ : Type u} [Fintype d₁] [DecidableEq d₁]
     [Fintype d₂] [DecidableEq d₂] {W₁ : CQChannel d₁} {W₂ : CQChannel d₂}
