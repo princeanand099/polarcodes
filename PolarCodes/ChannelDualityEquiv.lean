@@ -173,7 +173,7 @@ theorem prop_2_2_D2_check_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Deci
                   ((Real.sqrt 2 : ℂ)⁻¹) * (if p.1 = false then A₀ᴴ p.2 x else A₁ᴴ p.2 x)) *
                 (Matrix.of fun (p : Bool × (Bool × d₁ × d₂)) (x : d₁ × d₂) ↦
                   ((Real.sqrt 2 : ℂ)⁻¹) * (if p.1 = false then A₀ᴴ p.2 x else A₁ᴴ p.2 x))ᴴ
-              posSemidef := Matrix.posSemidef_mul_conjTranspose_self _
+              posSemidef := posSemidef_mul_conjTranspose _
               trace_one := by
                 rw [Matrix.trace_mul_comm]
                 have hMM : (Matrix.of fun (p : Bool × (Bool × d₁ × d₂)) (x : d₁ × d₂) ↦
@@ -189,13 +189,11 @@ theorem prop_2_2_D2_check_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Deci
                   rw [← hA₀, ← hA₁]
                   simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
                     Finset.mul_sum]
-                  rw [Finset.sum_add_distrib]
+                  rw [add_comm]
                   congr 1 <;>
                     (apply Finset.sum_congr rfl; intro v _; apply Finset.sum_congr rfl; intro r _;
                      apply Finset.sum_congr rfl; intro s _;
-                     simp only [star_star]
-                     calc _ = (((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) * _ := by ring
-                       _ = _ := by rw [hmul2])
+                     simp only [star_star]; rw [← hmul2]; ring)
                 rw [hMM, Matrix.trace_add, Matrix.trace_smul, Matrix.trace_smul,
                     ((W₁.checkCombine W₂).out false).trace_one, ((W₁.checkCombine W₂).out true).trace_one]
                 simp [smul_eq_mul]; ring }
@@ -205,7 +203,7 @@ theorem prop_2_2_D2_check_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Deci
                   ((Real.sqrt 2 : ℂ)⁻¹) * (if p.1 = false then A₀ᴴ p.2 x else -A₁ᴴ p.2 x)) *
                 (Matrix.of fun (p : Bool × (Bool × d₁ × d₂)) (x : d₁ × d₂) ↦
                   ((Real.sqrt 2 : ℂ)⁻¹) * (if p.1 = false then A₀ᴴ p.2 x else -A₁ᴴ p.2 x))ᴴ
-              posSemidef := Matrix.posSemidef_mul_conjTranspose_self _
+              posSemidef := posSemidef_mul_conjTranspose _
               trace_one := by
                 rw [Matrix.trace_mul_comm]
                 have hMM : (Matrix.of fun (p : Bool × (Bool × d₁ × d₂)) (x : d₁ × d₂) ↦
@@ -221,13 +219,11 @@ theorem prop_2_2_D2_check_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Deci
                   rw [← hA₀, ← hA₁]
                   simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
                     Finset.mul_sum]
-                  rw [Finset.sum_add_distrib]
+                  rw [add_comm]
                   congr 1 <;>
                     (apply Finset.sum_congr rfl; intro v _; apply Finset.sum_congr rfl; intro r _;
                      apply Finset.sum_congr rfl; intro s _;
-                     simp only [star_star]
-                     calc _ = (((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) * _ := by ring
-                       _ = _ := by rw [hmul2])
+                     simp only [star_star]; rw [← hmul2]; ring)
                 rw [hMM, Matrix.trace_add, Matrix.trace_smul, Matrix.trace_smul,
                     ((W₁.checkCombine W₂).out false).trace_one, ((W₁.checkCombine W₂).out true).trace_one]
                 simp [smul_eq_mul]; ring } } : CQChannel (Bool × (Bool × d₁ × d₂)))
@@ -318,13 +314,13 @@ theorem prop_2_2_D2_check_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Deci
               star (pauliZTensorI d₁ : Matrix (Bool × d₁) (Bool × d₁) ℂ))) (a₁, r₁) (a₂, r₂) =
               (((pauliZTensorI d₁ : Matrix (Bool × d₁) (Bool × d₁) ℂ) * gramFactor ρ₀ ρ₁) *
               ((pauliZTensorI d₁ : Matrix (Bool × d₁) (Bool × d₁) ℂ) * gramFactor ρ₀ ρ₁)ᴴ) (a₁, r₁) (a₂, r₂) := by
-            simp [Matrix.conjTranspose_mul, Matrix.mul_assoc]
+            simp [Matrix.conjTranspose_mul, Matrix.mul_assoc, Matrix.star_eq_conjTranspose]
           have h2 : (((pauliZTensorI d₂ : Matrix (Bool × d₂) (Bool × d₂) ℂ) *
               (gramFactor σ₀ σ₁ * (gramFactor σ₀ σ₁)ᴴ) *
               star (pauliZTensorI d₂ : Matrix (Bool × d₂) (Bool × d₂) ℂ))) (c₁, s₁) (c₂, s₂) =
               (((pauliZTensorI d₂ : Matrix (Bool × d₂) (Bool × d₂) ℂ) * gramFactor σ₀ σ₁) *
               ((pauliZTensorI d₂ : Matrix (Bool × d₂) (Bool × d₂) ℂ) * gramFactor σ₀ σ₁)ᴴ) (c₁, s₁) (c₂, s₂) := by
-            simp [Matrix.conjTranspose_mul, Matrix.mul_assoc]
+            simp [Matrix.conjTranspose_mul, Matrix.mul_assoc, Matrix.star_eq_conjTranspose]
           rw [h1, h2]
           simp only [Matrix.mul_apply, Matrix.conjTranspose_apply]
           rw [Finset.sum_mul]
@@ -387,6 +383,7 @@ theorem prop_2_2_D2_check_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Deci
                   CQChannel.varCombine, DensityOp.tensor, maxMixedState, CQChannel.dual,
                   DensityOp.conjUnitary, pauliZTensorI, Matrix.kroneckerMap_apply,
                   Matrix.smul_apply, Matrix.one_apply, Matrix.diagonal_apply, smul_eq_mul,
+                  Complex.real_smul, Complex.ofReal_inv, Complex.ofReal_natCast,
                   Fintype.card_ulift, Fintype.card_bool, Nat.cast_ofNat]
                 by_cases hw : w₁ = w₂
                 · subst hw
@@ -577,7 +574,7 @@ theorem prop_2_2_D2_var_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Decida
                   ((Real.sqrt 2 : ℂ)⁻¹) * (if p.1 = false then A₀ᴴ p.2 x else A₁ᴴ p.2 x)) *
                 (Matrix.of fun (p : Bool × (Bool × (d₁ × d₂))) (x : Bool × (d₁ × d₂)) ↦
                   ((Real.sqrt 2 : ℂ)⁻¹) * (if p.1 = false then A₀ᴴ p.2 x else A₁ᴴ p.2 x))ᴴ
-              posSemidef := Matrix.posSemidef_mul_conjTranspose_self _
+              posSemidef := posSemidef_mul_conjTranspose _
               trace_one := by
                 rw [Matrix.trace_mul_comm]
                 have hMM : (Matrix.of fun (p : Bool × (Bool × (d₁ × d₂))) (x : Bool × (d₁ × d₂)) ↦
@@ -593,13 +590,11 @@ theorem prop_2_2_D2_var_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Decida
                   rw [← hA₀, ← hA₁]
                   simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
                     Finset.mul_sum]
-                  rw [Finset.sum_add_distrib]
+                  rw [add_comm]
                   congr 1 <;>
                     (apply Finset.sum_congr rfl; intro v _; apply Finset.sum_congr rfl; intro r _;
                      apply Finset.sum_congr rfl; intro s _;
-                     simp only [star_star]
-                     calc _ = (((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) * _ := by ring
-                       _ = _ := by rw [hmul2])
+                     simp only [star_star]; rw [← hmul2]; ring)
                 rw [hMM, Matrix.trace_add, Matrix.trace_smul, Matrix.trace_smul,
                     ((W₁.varCombine W₂).out false).trace_one, ((W₁.varCombine W₂).out true).trace_one]
                 simp [smul_eq_mul]; ring }
@@ -609,7 +604,7 @@ theorem prop_2_2_D2_var_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Decida
                   ((Real.sqrt 2 : ℂ)⁻¹) * (if p.1 = false then A₀ᴴ p.2 x else -A₁ᴴ p.2 x)) *
                 (Matrix.of fun (p : Bool × (Bool × (d₁ × d₂))) (x : Bool × (d₁ × d₂)) ↦
                   ((Real.sqrt 2 : ℂ)⁻¹) * (if p.1 = false then A₀ᴴ p.2 x else -A₁ᴴ p.2 x))ᴴ
-              posSemidef := Matrix.posSemidef_mul_conjTranspose_self _
+              posSemidef := posSemidef_mul_conjTranspose _
               trace_one := by
                 rw [Matrix.trace_mul_comm]
                 have hMM : (Matrix.of fun (p : Bool × (Bool × (d₁ × d₂))) (x : Bool × (d₁ × d₂)) ↦
@@ -625,13 +620,11 @@ theorem prop_2_2_D2_var_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Decida
                   rw [← hA₀, ← hA₁]
                   simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
                     Finset.mul_sum]
-                  rw [Finset.sum_add_distrib]
+                  rw [add_comm]
                   congr 1 <;>
                     (apply Finset.sum_congr rfl; intro v _; apply Finset.sum_congr rfl; intro r _;
                      apply Finset.sum_congr rfl; intro s _;
-                     simp only [star_star]
-                     calc _ = (((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) * _ := by ring
-                       _ = _ := by rw [hmul2])
+                     simp only [star_star]; rw [← hmul2]; ring)
                 rw [hMM, Matrix.trace_add, Matrix.trace_smul, Matrix.trace_smul,
                     ((W₁.varCombine W₂).out false).trace_one, ((W₁.varCombine W₂).out true).trace_one]
                 simp [smul_eq_mul]; ring } } : CQChannel (Bool × (Bool × (d₁ × d₂))))
