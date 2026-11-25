@@ -49,10 +49,6 @@ private lemma maxMixedState_posDef' (α : Type*) [Fintype α] [DecidableEq α] [
   have hpos : (0 : ℝ) < ((Fintype.card α : ℝ)⁻¹) := inv_pos.mpr (Nat.cast_pos.mpr Fintype.card_pos)
   simpa [maxMixedState, Complex.real_smul] using (Matrix.PosDef.one (n := α) (R := ℂ)).smul hpos
 
-private lemma dephaseP_le_one (t : ℝ) : (1 - Real.exp (-t)) / 2 ≤ 1 := by
-  have hpos : 0 < Real.exp (-t) := Real.exp_pos _
-  linarith
-
 private lemma qjs_lt_one_posDef {α : Type*} [Fintype α] [DecidableEq α]
     {ρ σ : DensityOp α} (hρ : ρ.mat.PosDef) (hσ : σ.mat.PosDef) :
     qjs ρ σ < 1 := by
@@ -403,7 +399,8 @@ private lemma conjUnitary_natLogMat {ρ : DensityOp d} (hρ : ρ.mat.PosDef)
   have hUσ_mul : Uσ * star Uσ = 1 := Unitary.coe_mul_star_self σ.eigUnitary
   calc (U : Matrix d d ℂ) * natLogMat ρ * star (U : Matrix d d ℂ)
       = ((U : Matrix d d ℂ) * natLogMat ρ * star (U : Matrix d d ℂ) * Uσ) * star Uσ := by
-        rw [Matrix.mul_assoc, hUσ_mul, Matrix.mul_one]
+        rw [Matrix.mul_assoc ((U : Matrix d d ℂ) * natLogMat ρ * star (U : Matrix d d ℂ)),
+          hUσ_mul, Matrix.mul_one]
     _ = (natLogMat σ * Uσ) * star Uσ := by rw [hmulU]
     _ = natLogMat σ := by rw [Matrix.mul_assoc, hUσ_mul, Matrix.mul_one]
 
@@ -419,7 +416,7 @@ private lemma trace_diff_log_pauliZ {ρ : DensityOp (Bool × d)} (hρ : ρ.mat.P
     ext ⟨b, x⟩ ⟨c, y⟩
     simp only [Z, pauliZTensorI, Matrix.mul_apply, Matrix.diagonal_apply, Matrix.one_apply]
     by_cases hpq : (b, x) = (c, y)
-    · subst hpq; simp only [↓reduceIte, Finset.sum_ite_eq', Finset.mem_univ]; cases b <;> simp
+    · rcases Prod.mk.inj hpq with ⟨rfl, rfl⟩; simp only [↓reduceIte, Finset.sum_ite_eq', Finset.mem_univ]; cases b <;> simp
     · simp only [hpq, ↓reduceIte]
       apply Finset.sum_eq_zero; intro r _
       by_cases h : (b, x) = r
@@ -492,6 +489,9 @@ private lemma dephaseP_lt_half (t : ℝ) : dephaseP t < 1 / 2 := by
   have hpos : 0 < Real.exp (-t) := Real.exp_pos _
   linarith
 
+private lemma dephaseP_le_one (t : ℝ) : dephaseP t ≤ 1 :=
+  le_trans (le_of_lt (dephaseP_lt_half t)) (by norm_num)
+
 /-- For `Ψ ≻ 0` and `p ∈ [0, 1/2]`, `dephaseState p Ψ ≻ 0`. -/
 private lemma dephaseState_posDef {Ψ : DensityOp (Bool × d)} (hΨ : Ψ.mat.PosDef)
     {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) :
@@ -518,7 +518,7 @@ private lemma dephaseState_semigroup_sub (Ψ : DensityOp (Bool × d)) {t h : ℝ
     ext ⟨b, x⟩ ⟨c, y⟩
     simp only [Z, pauliZTensorI, Matrix.mul_apply, Matrix.diagonal_apply, Matrix.one_apply]
     by_cases hpq : (b, x) = (c, y)
-    · subst hpq; simp only [↓reduceIte, Finset.sum_ite_eq', Finset.mem_univ]; cases b <;> simp
+    · rcases Prod.mk.inj hpq with ⟨rfl, rfl⟩; simp only [↓reduceIte, Finset.sum_ite_eq', Finset.mem_univ]; cases b <;> simp
     · simp only [hpq, ↓reduceIte]
       apply Finset.sum_eq_zero; intro r _
       by_cases h1 : (b, x) = r
@@ -534,12 +534,12 @@ private lemma dephaseState_semigroup_sub (Ψ : DensityOp (Bool × d)) {t h : ℝ
       (DensityOp.conjUnitary Z (dephaseState (dephaseP u) (dephaseP_nonneg hu0) (dephaseP_le_one u) Ψ)).mat =
         ((dephaseP u : ℝ) : ℂ) • Ψ.mat + (((1 - dephaseP u : ℝ) : ℂ) • (DensityOp.conjUnitary Z Ψ).mat) := by
     intro u hu0
-    simp only [DensityOp.conjUnitary, dephaseState, DensityOp.mix, Matrix.mul_add, Matrix.add_mul,
-      Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_assoc, Complex.real_smul]
-    change (1 - dephaseP u : ℂ) • ((Z : Matrix _ _ ℂ) * (Ψ.mat * star (Z : Matrix _ _ ℂ))) +
-      (dephaseP u : ℂ) • ((Z : Matrix _ _ ℂ) * ((Z : Matrix _ _ ℂ) * (Ψ.mat * (star (Z : Matrix _ _ ℂ) * star (Z : Matrix _ _ ℂ))))) = _
-    rw [hZ_star, ← Matrix.mul_assoc (Z : Matrix _ _ ℂ) (Z : Matrix _ _ ℂ), hZ_self, Matrix.one_mul,
+    have hZeq : (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ) = (Z : Matrix (Bool × d) (Bool × d) ℂ) := rfl
+    simp only [DensityOp.conjUnitary, dephaseState, DensityOp.mix, hZeq, Matrix.mul_add, Matrix.add_mul,
+      Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_assoc, hZ_star]
+    rw [← Matrix.mul_assoc (Z : Matrix _ _ ℂ) (Z : Matrix _ _ ℂ), hZ_self, Matrix.one_mul,
       hZ_self, Matrix.mul_one, add_comm]
+    ext i j; simp [Complex.real_smul]
   have hdiff_u : ∀ (u : ℝ) (hu0 : 0 ≤ u),
       (dephaseState (dephaseP u) (dephaseP_nonneg hu0) (dephaseP_le_one u) Ψ).mat -
       (DensityOp.conjUnitary Z (dephaseState (dephaseP u) (dephaseP_nonneg hu0) (dephaseP_le_one u) Ψ)).mat =
@@ -572,6 +572,303 @@ private lemma dephaseState_semigroup_sub (Ψ : DensityOp (Bool × d)) {t h : ℝ
     have hexp : Real.exp (-(t + h)) = Real.exp (-t) * Real.exp (-h) := by
       rw [← Real.exp_add]; congr 1; ring
     rw [hexp]; ring
+
+/-- Pure real-analysis ODE contraction lemma for Theorem 1.3:
+if `C : ℝ → ℝ` takes values in `[0, 1)`, is Lipschitz-decreasing with constant `L ≥ 0`,
+and satisfies `C(t) - C(t + h) ≥ (e^h - 1) * φ(C(t + h))` for all `t, h ≥ 0`, then
+`x(t) = 1 - 2 h₂⁻¹(1 - C(t))` satisfies `x(T) ≤ e^{-T} x(0)`. -/
+private lemma ode_log_contraction (C : ℝ → ℝ) (T L : ℝ) (hT_nn : 0 ≤ T) (hL_nn : 0 ≤ L)
+    (hC_bounds : ∀ t, 0 ≤ t → 0 ≤ C t ∧ C t < 1)
+    (hstep_lower : ∀ t h, 0 ≤ t → 0 ≤ h → (Real.exp h - 1) * phi (C (t + h)) ≤ C t - C (t + h))
+    (hstep_upper : ∀ t h, 0 ≤ t → 0 ≤ h → C t - C (t + h) ≤ L * h) :
+    1 - 2 * h2Inv (1 - C T) ≤ Real.exp (-T) * (1 - 2 * h2Inv (1 - C 0)) := by
+  let x : ℝ → ℝ := fun t ↦ 1 - 2 * h2Inv (1 - C t)
+  have hx_eq : ∀ t (ht : 0 ≤ t), x t ∈ Ico (0 : ℝ) 1 ∧ C t = cParam (x t) ∧ phi (C t) = phiParam (x t) := by
+    intro t ht
+    obtain ⟨hC0', hC1'⟩ := hC_bounds t ht
+    have hinv_mem : h2Inv (1 - C t) ∈ Icc (0 : ℝ) (1 / 2) := h2Inv_mem_Icc ⟨by linarith, by linarith⟩
+    have hh2_inv : h2 (h2Inv (1 - C t)) = 1 - C t := h2_h2Inv ⟨by linarith, by linarith⟩
+    have hx0 : 0 ≤ x t := by simp only [x]; linarith [hinv_mem.2]
+    have hx1 : x t < 1 := by
+      by_contra hge; push Not at hge
+      have hinv0 : h2Inv (1 - C t) = 0 := by simp only [x] at hge; linarith [hinv_mem.1]
+      rw [hinv0, h2_zero] at hh2_inv; linarith
+    have hC_eq_c : C t = cParam (x t) := by
+      unfold cParam; simp only [x]
+      have harg : (1 - (1 - 2 * h2Inv (1 - C t))) / 2 = h2Inv (1 - C t) := by ring
+      rw [harg, hh2_inv]; ring
+    have hphi_eq : phi (C t) = phiParam (x t) := by
+      unfold phi phiParam
+      have harg : (1 + (1 - 2 * h2Inv (1 - C t))) / (1 - (1 - 2 * h2Inv (1 - C t))) =
+          (1 - h2Inv (1 - C t)) / h2Inv (1 - C t) := by
+        by_cases h0 : h2Inv (1 - C t) = 0
+        · simp [h0]
+        · field_simp [h0]; ring
+      simp only [x, harg]
+    exact ⟨⟨hx0, hx1⟩, hC_eq_c, hphi_eq⟩
+  show x T ≤ Real.exp (-T) * x 0
+  by_cases hCT0 : C T = 0
+  · have hinv : h2Inv (1 - C T) = 1 / 2 := by rw [hCT0, sub_zero]; exact h2Inv_one
+    have hxT0 : x T = 0 := by simp [x, hinv]
+    rw [hxT0]
+    exact mul_nonneg (le_of_lt (Real.exp_pos _)) (hx_eq 0 le_rfl).1.1
+  · have hCT_pos : 0 < C T := lt_of_le_of_ne (hC_bounds T hT_nn).1 (Ne.symm hCT0)
+    have hC_anti : ∀ s t, 0 ≤ s → s ≤ t → C t ≤ C s := by
+      intro s t hs hst
+      have hstep := hstep_lower s (t - s) hs (by linarith)
+      have hphi_nn : 0 ≤ phi (C t) := by
+        rw [(hx_eq t (by linarith)).2.2]
+        unfold phiParam
+        have hx0 := (hx_eq t (by linarith)).1.1
+        have hx1 := (hx_eq t (by linarith)).1.2
+        have hge1 : 1 ≤ (1 + x t) / (1 - x t) := by rw [one_le_div (by linarith)]; linarith
+        exact mul_nonneg (by linarith) (Real.logb_nonneg (by norm_num) hge1)
+      have hexp_nn : 0 ≤ Real.exp (t - s) - 1 := by linarith [Real.add_one_le_exp (t - s)]
+      rw [show s + (t - s) = t by ring] at hstep
+      nlinarith
+    have hC_cont : ContinuousOn C (Icc 0 T) := by
+      rw [Metric.continuousOn_iff]
+      intro t ht ε hε
+      refine ⟨ε / (L + 1), div_pos hε (by linarith), fun s hs hdist ↦ ?_⟩
+      rw [Real.dist_eq] at hdist ⊢
+      rcases le_or_gt s t with hst | hts
+      · have h1 := hC_anti s t hs.1 hst
+        have h2 := hstep_upper s (t - s) hs.1 (by linarith)
+        rw [show s + (t - s) = t by ring] at h2
+        rw [abs_of_nonneg (by linarith)]
+        have habs : t - s < ε / (L + 1) := by linarith [(abs_lt.mp hdist).1]
+        have hL1 : L * (t - s) < (L + 1) * (ε / (L + 1)) := by nlinarith
+        rw [mul_div_cancel₀ _ (by linarith : L + 1 ≠ 0)] at hL1; linarith
+      · have h1 := hC_anti t s ht.1 (le_of_lt hts)
+        have h2 := hstep_upper t (s - t) ht.1 (by linarith)
+        rw [show t + (s - t) = s by ring] at h2
+        rw [abs_of_nonpos (by linarith)]
+        have habs : s - t < ε / (L + 1) := by linarith [(abs_lt.mp hdist).2]
+        have hL1 : L * (s - t) < (L + 1) * (ε / (L + 1)) := by nlinarith
+        rw [mul_div_cancel₀ _ (by linarith : L + 1 ≠ 0)] at hL1; linarith
+    have hx_cont : ContinuousOn x (Icc 0 T) := by
+      refine continuousOn_const.sub (continuousOn_const.mul ?_)
+      refine continuousOn_h2Inv.comp (continuousOn_const.sub hC_cont) fun t ht ↦ ?_
+      obtain ⟨h0, h1⟩ := hC_bounds t ht.1
+      exact ⟨by linarith, by linarith⟩
+    have hx_anti : ∀ s t, 0 ≤ s → s ≤ t → x t ≤ x s := by
+      intro s t hs hst
+      have hle : C t ≤ C s := hC_anti s t hs hst
+      have hinv_le : h2Inv (1 - C s) ≤ h2Inv (1 - C t) := by
+        have hs_mem : 1 - C s ∈ Icc (0 : ℝ) 1 := ⟨by linarith [(hC_bounds s hs).2], by linarith [(hC_bounds s hs).1]⟩
+        have ht_mem : 1 - C t ∈ Icc (0 : ℝ) 1 := ⟨by linarith [(hC_bounds t (by linarith)).2], by linarith [(hC_bounds t (by linarith)).1]⟩
+        by_contra hlt; push Not at hlt
+        have h1 := h2_mono_Icc (h2Inv_mem_Icc ht_mem).1 (h2Inv_mem_Icc hs_mem).2 (le_of_lt hlt)
+        rw [h2_h2Inv ht_mem, h2_h2Inv hs_mem] at h1
+        have heq : 1 - C t = 1 - C s := le_antisymm (by linarith) h1
+        rw [heq] at hlt; exact lt_irrefl _ hlt
+      simp only [x]; linarith
+    have hxT_pos : 0 < x T := by
+      by_contra hle; push Not at hle
+      have hxT0 : x T = 0 := le_antisymm hle (hx_eq T hT_nn).1.1
+      have hCT' := (hx_eq T hT_nn).2.1
+      rw [hxT0] at hCT'
+      unfold cParam at hCT'; norm_num at hCT'; rw [h2_half] at hCT'; linarith
+    have hx0_lt1 : x 0 < 1 := (hx_eq 0 le_rfl).1.2
+    let cDeriv : ℝ → ℝ := fun u ↦ (1 / 2 : ℝ) * Real.logb 2 ((1 + u) / (1 - u))
+    have hcParam_deriv : ∀ u ∈ Ioo (0 : ℝ) 1, HasDerivAt cParam (cDeriv u) u := by
+      intro u hu
+      have h1mu : 0 < 1 - u := by linarith [hu.2]
+      have h1pu : 0 < 1 + u := by linarith [hu.1]
+      have hhalf_mem : (1 - u) / 2 ∈ Ioo (0 : ℝ) 1 := ⟨by linarith, by linarith⟩
+      have hd_h2 := hasDerivAt_h2 hhalf_mem.1 hhalf_mem.2
+      have hd_lin : HasDerivAt (fun v : ℝ ↦ (1 - v) / 2) (-1 / 2) u := by
+        have h1 : HasDerivAt (fun v : ℝ ↦ 1 - v) (0 - 1) u :=
+          (hasDerivAt_const u (1 : ℝ)).sub (hasDerivAt_id u)
+        simpa using h1.div_const (2 : ℝ)
+      have hcomp : HasDerivAt (fun v : ℝ ↦ 1 - h2 ((1 - v) / 2))
+          (0 - Real.logb 2 ((1 - (1 - u) / 2) / ((1 - u) / 2)) * (-1 / 2)) u :=
+        (hasDerivAt_const u (1 : ℝ)).sub (hd_h2.comp u hd_lin)
+      have hderiv_eq : 0 - Real.logb 2 ((1 - (1 - u) / 2) / ((1 - u) / 2)) * (-1 / 2) = cDeriv u := by
+        unfold cDeriv
+        have harg : (1 - (1 - u) / 2) / ((1 - u) / 2) = (1 + u) / (1 - u) := by
+          field_simp [ne_of_gt h1mu]; ring
+        rw [harg]; ring
+      rw [hderiv_eq] at hcomp
+      exact hcomp
+    have hcDeriv_mono : StrictMonoOn cDeriv (Ioo 0 1) := by
+      intro u hu v hv huv
+      unfold cDeriv
+      apply mul_lt_mul_of_pos_left _ (by norm_num)
+      apply Real.logb_lt_logb (by norm_num) (div_pos (by linarith [hu.1]) (by linarith [hu.2]))
+      rw [div_lt_div_iff₀ (by linarith [hu.2]) (by linarith [hv.2])]; nlinarith
+    have hcDeriv_pos : ∀ u ∈ Ioo (0 : ℝ) 1, 0 < cDeriv u := by
+      intro u hu
+      unfold cDeriv
+      apply mul_pos (by norm_num)
+      exact Real.logb_pos (by norm_num) (by rw [one_lt_div (by linarith [hu.2])]; linarith [hu.1])
+    have hcDeriv_cont : ContinuousOn cDeriv (Icc (x T) (x 0)) := by
+      refine continuousOn_const.mul (ContinuousOn.div_const ?_ _)
+      refine Real.continuousOn_log.comp ?_ ?_
+      · exact (continuousOn_const.add continuousOn_id).div (continuousOn_const.sub continuousOn_id)
+          fun u hu ↦ ne_of_gt (by linarith [hu.2])
+      · intro u hu; exact ne_of_gt (div_pos (by linarith [hu.1]) (by linarith [hu.2]))
+    have hlog_bound : ∀ ε : ℝ, 0 < ε → T ≤ (1 + ε) ^ 2 * (Real.log (x 0) - Real.log (x T)) := by
+      intro ε hε
+      rcases eq_or_lt_of_le hT_nn with hT0 | hT_pos
+      · rw [← hT0]; simp
+      have huc_cD := isCompact_Icc.uniformContinuousOn_of_continuous hcDeriv_cont
+      have huc_x := isCompact_Icc.uniformContinuousOn_of_continuous hx_cont
+      rw [Metric.uniformContinuousOn_iff] at huc_cD huc_x
+      have hcDT_pos : 0 < cDeriv (x T) := hcDeriv_pos (x T) ⟨hxT_pos, lt_of_le_of_lt (hx_anti 0 T le_rfl hT_nn) hx0_lt1⟩
+      obtain ⟨δ₁, hδ₁_pos, hδ₁⟩ := huc_cD (ε * cDeriv (x T)) (mul_pos hε hcDT_pos)
+      set δ_x := min δ₁ (ε * x T)
+      have hδx_pos : 0 < δ_x := lt_min hδ₁_pos (mul_pos hε hxT_pos)
+      obtain ⟨δ_t, hδt_pos, hδt⟩ := huc_x δ_x hδx_pos
+      obtain ⟨N, hN⟩ := exists_nat_gt (T / δ_t)
+      have hN_pos : 0 < N := by
+        by_contra h0; push Not at h0
+        have hN0 : N = 0 := Nat.eq_zero_of_le_zero h0
+        subst hN0; simp at hN; linarith [div_pos hT_pos hδt_pos]
+      set h : ℝ := T / (N : ℝ)
+      have hh_pos : 0 < h := div_pos hT_pos (Nat.cast_pos.mpr hN_pos)
+      have hh_lt : h < δ_t := by
+        rw [div_lt_iff₀ (Nat.cast_pos.mpr hN_pos)]
+        have := (div_lt_iff₀ hδt_pos).mp hN; linarith
+      have hstep_k : ∀ k ∈ Finset.range N,
+          h ≤ (1 + ε) ^ 2 * (Real.log (x (k * h)) - Real.log (x ((k + 1) * h))) := by
+        intro k hk
+        have hk_lt : k < N := Finset.mem_range.mp hk
+        have htk_nn : 0 ≤ (k : ℝ) * h := mul_nonneg (Nat.cast_nonneg k) (le_of_lt hh_pos)
+        have htk1_le : ((k + 1 : ℕ) : ℝ) * h ≤ T := by
+          simp only [h]; rw [mul_div_assoc', div_le_iff₀ (Nat.cast_pos.mpr hN_pos)]
+          have : ((k + 1 : ℕ) : ℝ) ≤ (N : ℝ) := by exact_mod_cast Nat.succ_le_of_lt hk_lt
+          nlinarith
+        have htk_le : (k : ℝ) * h ≤ T := by
+          have : (k : ℝ) * h ≤ ((k + 1 : ℕ) : ℝ) * h := by push_cast; nlinarith
+          linarith
+        have htk1_eq : (k : ℝ) * h + h = ((k + 1 : ℕ) : ℝ) * h := by push_cast; ring
+        set a := x ((k + 1) * h)
+        set b := x (k * h)
+        have hab : a ≤ b := by
+          have := hx_anti (k * h) (((k + 1 : ℕ) : ℝ) * h) htk_nn (by push_cast; linarith)
+          simpa [a, b, Nat.cast_add, Nat.cast_one] using this
+        have ha_pos : 0 < a := lt_of_lt_of_le hxT_pos (by
+          have := hx_anti (((k + 1 : ℕ) : ℝ) * h) T (by positivity) htk1_le
+          simpa [a, Nat.cast_add, Nat.cast_one] using this)
+        have hb_lt1 : b < 1 := lt_of_le_of_lt (hx_anti 0 (k * h) le_rfl htk_nn) hx0_lt1
+        have hlow : h * (a * cDeriv a) ≤ C (k * h) - C (((k + 1 : ℕ) : ℝ) * h) := by
+          have h1 := hstep_lower (k * h) h htk_nn (le_of_lt hh_pos)
+          rw [htk1_eq] at h1
+          have hphi_eq : phi (C (((k + 1 : ℕ) : ℝ) * h)) = a * cDeriv a := by
+            rw [(hx_eq _ (by positivity)).2.2]
+            unfold phiParam cDeriv
+            simp only [a, Nat.cast_add, Nat.cast_one]; ring
+          rw [hphi_eq] at h1
+          have hexp : h ≤ Real.exp h - 1 := by linarith [Real.add_one_le_exp h]
+          have ha_cD_nn : 0 ≤ a * cDeriv a := mul_nonneg (le_of_lt ha_pos) (le_of_lt (hcDeriv_pos a ⟨ha_pos, lt_of_le_of_lt hab hb_lt1⟩))
+          nlinarith
+        have hup : C (k * h) - C (((k + 1 : ℕ) : ℝ) * h) ≤ cDeriv b * (b - a) := by
+          rw [(hx_eq (k * h) htk_nn).2.1, (hx_eq (((k + 1 : ℕ) : ℝ) * h) (by positivity)).2.1]
+          change cParam b - cParam a ≤ cDeriv b * (b - a)
+          rcases eq_or_lt_of_le hab with heq | hlt
+          · rw [heq, sub_self, sub_self, mul_zero]
+          · obtain ⟨ξ, hξ, hslope⟩ := exists_hasDerivAt_eq_slope cParam cDeriv hlt
+              (fun u hu ↦ (hcParam_deriv u ⟨lt_of_lt_of_le ha_pos hu.1, lt_of_le_of_lt hu.2 hb_lt1⟩).continuousAt.continuousWithinAt)
+              (fun u hu ↦ hcParam_deriv u ⟨lt_trans ha_pos hu.1, lt_trans hu.2 hb_lt1⟩)
+            have hdiff : cParam b - cParam a = cDeriv ξ * (b - a) := by
+              rw [hslope, div_mul_cancel₀ _ (sub_ne_zero.mpr (ne_of_gt hlt))]
+            rw [hdiff]
+            have hcD_le : cDeriv ξ ≤ cDeriv b :=
+              le_of_lt (hcDeriv_mono ⟨lt_trans ha_pos hξ.1, lt_trans hξ.2 hb_lt1⟩
+                ⟨lt_of_lt_of_le ha_pos hab, hb_lt1⟩ hξ.2)
+            exact mul_le_mul_of_nonneg_right hcD_le (sub_nonneg.mpr hab)
+        have hdist_t : dist (k * h) (((k + 1 : ℕ) : ℝ) * h) < δ_t := by
+          rw [Real.dist_eq, show (k : ℝ) * h - ((k + 1 : ℕ) : ℝ) * h = -h by push_cast; ring,
+            abs_neg, abs_of_pos hh_pos]; exact hh_lt
+        have hba_lt : b - a < δ_x := by
+          have := hδt (k * h) ⟨htk_nn, htk_le⟩ (((k + 1 : ℕ) : ℝ) * h) ⟨by positivity, htk1_le⟩ hdist_t
+          rw [Real.dist_eq] at this
+          simpa [a, b, Nat.cast_add, Nat.cast_one, abs_of_nonneg (sub_nonneg.mpr hab)] using this
+        have hb_le : b ≤ (1 + ε) * a := by
+          have h1 : b - a < ε * x T := lt_of_lt_of_le hba_lt (min_le_right _ _)
+          have ha_ge : x T ≤ a := by
+            have := hx_anti (((k + 1 : ℕ) : ℝ) * h) T (by positivity) htk1_le
+            simpa [a, Nat.cast_add, Nat.cast_one] using this
+          nlinarith
+        have hcDb_le : cDeriv b ≤ (1 + ε) * cDeriv a := by
+          have hdist_x : dist b a < δ₁ := by
+            rw [Real.dist_eq, abs_of_nonneg (sub_nonneg.mpr hab)]
+            exact lt_of_lt_of_le hba_lt (min_le_left _ _)
+          have ha_mem : a ∈ Icc (x T) (x 0) :=
+            ⟨by simpa [a, Nat.cast_add, Nat.cast_one] using hx_anti (((k + 1 : ℕ) : ℝ) * h) T (by positivity) htk1_le,
+             by simpa [a, Nat.cast_add, Nat.cast_one] using hx_anti 0 (((k + 1 : ℕ) : ℝ) * h) le_rfl (by positivity)⟩
+          have hb_mem : b ∈ Icc (x T) (x 0) :=
+            ⟨hx_anti (k * h) T htk_nn htk_le, hx_anti 0 (k * h) le_rfl htk_nn⟩
+          have h1 := hδ₁ b hb_mem a ha_mem hdist_x
+          rw [Real.dist_eq] at h1
+          have hcDa_ge : cDeriv (x T) ≤ cDeriv a := by
+            rcases eq_or_lt_of_le ha_mem.1 with heq | hlt
+            · rw [heq]
+            · exact le_of_lt (hcDeriv_mono ⟨hxT_pos, lt_of_le_of_lt (hx_anti 0 T le_rfl hT_nn) hx0_lt1⟩
+                ⟨ha_pos, lt_of_le_of_lt hab hb_lt1⟩ hlt)
+          linarith [(abs_lt.mp h1).2]
+        have hlog_step : (b - a) / b ≤ Real.log b - Real.log a := by
+          have hb_pos : 0 < b := lt_of_lt_of_le ha_pos hab
+          have h := Real.log_le_sub_one_of_pos (div_pos ha_pos hb_pos)
+          rw [Real.log_div (ne_of_gt ha_pos) (ne_of_gt hb_pos)] at h
+          have hrew : 1 - a / b = (b - a) / b := by field_simp [ne_of_gt hb_pos]
+          linarith
+        have hcDa_pos : 0 < cDeriv a := hcDeriv_pos a ⟨ha_pos, lt_of_le_of_lt hab hb_lt1⟩
+        have hb_pos : 0 < b := lt_of_lt_of_le ha_pos hab
+        have hcomb : h * (a * cDeriv a) ≤ (1 + ε) ^ 2 * (a * cDeriv a) * (Real.log b - Real.log a) := by
+          have hba_log : b - a ≤ b * (Real.log b - Real.log a) := by
+            have := mul_le_mul_of_nonneg_left hlog_step (le_of_lt hb_pos)
+            rwa [mul_div_cancel₀ _ (ne_of_gt hb_pos)] at this
+          have hlog_nn : 0 ≤ Real.log b - Real.log a := sub_nonneg.mpr (Real.log_le_log ha_pos hab)
+          calc h * (a * cDeriv a)
+              ≤ cDeriv b * (b - a) := le_trans hlow hup
+            _ ≤ ((1 + ε) * cDeriv a) * (b * (Real.log b - Real.log a)) :=
+                mul_le_mul hcDb_le hba_log (sub_nonneg.mpr hab) (mul_nonneg (by linarith) (le_of_lt hcDa_pos))
+            _ = (1 + ε) * cDeriv a * b * (Real.log b - Real.log a) := by ring
+            _ ≤ (1 + ε) * cDeriv a * ((1 + ε) * a) * (Real.log b - Real.log a) := by
+                apply mul_le_mul_of_nonneg_right _ hlog_nn
+                exact mul_le_mul_of_nonneg_left hb_le (mul_nonneg (by linarith) (le_of_lt hcDa_pos))
+            _ = (1 + ε) ^ 2 * (a * cDeriv a) * (Real.log b - Real.log a) := by ring
+        have hpos_acD : 0 < a * cDeriv a := mul_pos ha_pos hcDa_pos
+        have hdiv := le_of_mul_le_mul_right (show h * (a * cDeriv a) ≤
+            ((1 + ε) ^ 2 * (Real.log b - Real.log a)) * (a * cDeriv a) by linarith) hpos_acD
+        simpa [a, b] using hdiv
+      have hsum := Finset.sum_le_sum hstep_k
+      have hlhs : ∑ _k ∈ Finset.range N, h = T := by
+        simp only [Finset.sum_const, Finset.card_range, nsmul_eq_mul, h]
+        exact mul_div_cancel₀ T (Nat.cast_ne_zero.mpr (ne_of_gt hN_pos))
+      have hrhs : ∑ k ∈ Finset.range N,
+          (1 + ε) ^ 2 * (Real.log (x ((k : ℝ) * h)) - Real.log (x (((k : ℝ) + 1) * h))) =
+          (1 + ε) ^ 2 * (Real.log (x 0) - Real.log (x T)) := by
+        rw [← Finset.mul_sum]
+        congr 1
+        have htele := Finset.sum_range_sub' (fun k : ℕ ↦ Real.log (x ((k : ℝ) * h))) N
+        have hN_eq : (N : ℝ) * h = T := mul_div_cancel₀ T (Nat.cast_ne_zero.mpr (ne_of_gt hN_pos))
+        simp only [Nat.cast_zero, zero_mul, hN_eq] at htele
+        convert htele using 2 with k
+        push_cast; ring
+      linarith
+    have hT_le_log : T ≤ Real.log (x 0) - Real.log (x T) := by
+      by_contra hgt; push Not at hgt
+      set D := Real.log (x 0) - Real.log (x T)
+      have hD_nn : 0 ≤ D := sub_nonneg.mpr (Real.log_le_log hxT_pos (hx_anti 0 T le_rfl hT_nn))
+      set gap := T - D
+      have hgap_pos : 0 < gap := sub_pos.mpr hgt
+      set ε := min 1 (gap / (4 * (D + 1)))
+      have hε_pos : 0 < ε := lt_min one_pos (div_pos hgap_pos (by linarith))
+      have hε_le1 : ε ≤ 1 := min_le_left _ _
+      have hε_le2 : ε ≤ gap / (4 * (D + 1)) := min_le_right _ _
+      have hb := hlog_bound ε hε_pos
+      have hsq : (1 + ε) ^ 2 * D ≤ D + 3 * ε * D := by nlinarith
+      have h3ε : 3 * ε * D < gap := by
+        have h1 : ε * (4 * (D + 1)) ≤ gap := (le_div_iff₀ (by linarith)).mp hε_le2
+        nlinarith
+      linarith
+    have hx0_pos : 0 < x 0 := lt_of_lt_of_le hxT_pos (hx_anti 0 T le_rfl hT_nn)
+    have hlog_eq : Real.log (x T) ≤ Real.log (Real.exp (-T) * x 0) := by
+      rw [Real.log_mul (ne_of_gt (Real.exp_pos _)) (ne_of_gt hx0_pos), Real.log_exp]; linarith
+    exact (Real.log_le_log_iff hxT_pos (mul_pos (Real.exp_pos _) hx0_pos)).mp hlog_eq
 
 /-- **Theorem 1.3 for Full-Rank States** (`Ψ ≻ 0`). -/
 private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (hΨ : Ψ.mat.PosDef)
@@ -644,10 +941,12 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
         ((Real.exp h - 1) / 2) *
           (((Ψt (t + h) hth).mat - (DensityOp.conjUnitary (pauliZTensorI d) (Ψt (t + h) hth)).mat) *
             natLogMat (Ψt (t + h) hth)).trace.re := by
+      dsimp only [Ψt]
       rw [hsemi, Matrix.smul_mul, Matrix.trace_smul, Complex.real_smul, Complex.mul_re,
         Complex.ofReal_re, Complex.ofReal_im]; ring
     rw [htr_eq, hsym, ← hdiff_C] at hklein
     have hqjjs := prop_3_3_qjjs_posDef hpd_th hpd_th'
+    dsimp only [Ψt] at hqjjs hklein
     rw [← dephaseCoherence_eq_qjs (dephaseP (t + h)) (dephaseP_nonneg hth) (dephaseP_le_one (t + h)) Ψ,
       ← hC_eq (t + h) hth] at hqjjs
     have hexp_nn : 0 ≤ Real.exp h - 1 := by linarith [Real.add_one_le_exp h]
@@ -697,7 +996,10 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
                 Matrix.mul_apply, star_sum, star_mul', star_star, Finset.sum_mul, Finset.mul_sum]
               rw [Finset.sum_comm]
               apply Finset.sum_congr rfl; intro a _; apply Finset.sum_congr rfl; intro b _; ring
-            rw [hvec, Unitary.coe_mul_star_self Ψ.eigUnitary, Matrix.vecMul_one]
+            have hUmul : (Ψ.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *
+                star (Ψ.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) = 1 :=
+              Unitary.coe_mul_star_self Ψ.eigUnitary
+            rw [hvec, hUmul, Matrix.vecMul_one]
           have hre := congr_arg Complex.re h1
           simp only [dotProduct, Pi.star_apply, Complex.re_sum] at hre
           convert hre using 1 <;>
@@ -723,6 +1025,7 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
           have h := congr_fun (congr_fun (Unitary.coe_star_mul_self (Ψt t ht).eigUnitary) k) j
           simpa [v, Matrix.mulVec, dotProduct, Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply,
             Pi.single_apply, eq_comm] using h
+        dsimp only [DensityOp.eigUnitary] at hcol
         rw [hcol, Finset.sum_eq_single j]
         · simp [DensityOp.eigvals]
         · intro k _ hkj; simp [Pi.single_eq_of_ne hkj]
@@ -735,7 +1038,7 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
         have hq2 : star v ⬝ᵥ (DensityOp.conjUnitary (pauliZTensorI d) Ψ).mat.mulVec v =
             star ((star (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ)).mulVec v) ⬝ᵥ
               Ψ.mat.mulVec ((star (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ)).mulVec v) := by
-          simp only [DensityOp.conjUnitary, Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec]
+          rw [DensityOp.conjUnitary, ← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec]
           congr 1; ext k
           simp only [Matrix.vecMul, Matrix.mulVec, dotProduct, Pi.star_apply, Matrix.star_apply,
             star_sum, star_mul', star_star]
@@ -778,6 +1081,7 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
           (((Ψt t ht).mat - (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht)).mat) *
             natLogMat (Ψt t ht)).trace.re := by
       have hneg_sub : (Ψt (t + h) hth).mat - (Ψt t ht).mat = -((Ψt t ht).mat - (Ψt (t + h) hth).mat) := by abel
+      dsimp only [Ψt] at hneg_sub ⊢
       rw [hneg_sub, hsemi, Matrix.neg_mul, Matrix.smul_mul, Matrix.trace_neg, Matrix.trace_smul,
         Complex.neg_re, Complex.real_smul, Complex.mul_re, Complex.ofReal_re, Complex.ofReal_im]; ring
     rw [htr_eq, hsym] at hklein
@@ -808,13 +1112,16 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
           star (B.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) * (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ)
         have hcol1 : ∀ i : Bool × d, ∑ j : Bool × d, ‖W j i‖ ^ 2 = 1 := by
           intro i
-          have hBU : (B.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) * star (B.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) = 1 :=
-            Unitary.coe_mul_star_self B.eigUnitary
-          have hAU : star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) * (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) = 1 :=
-            Unitary.coe_star_mul_self A.eigUnitary
           have hU : star W * W = 1 := by
             simp only [W, Matrix.star_mul, star_star, Matrix.mul_assoc]
-            rw [← Matrix.mul_assoc (B.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ), hBU, Matrix.one_mul, hAU]
+            have hBmul : (B.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *
+                star (B.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) = 1 :=
+              Unitary.coe_mul_star_self B.eigUnitary
+            have hAmul : star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *
+                (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) = 1 :=
+              Unitary.coe_star_mul_self A.eigUnitary
+            rw [← Matrix.mul_assoc (B.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ),
+              hBmul, Matrix.one_mul, hAmul]
           have hii := congr_arg Complex.re (congr_fun (congr_fun hU i) i)
           simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply_eq, Complex.one_re,
             Complex.re_sum] at hii
@@ -853,6 +1160,7 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
           have h := congr_fun (congr_fun (Unitary.coe_star_mul_self τ.eigUnitary) k) j
           simpa [v, Matrix.mulVec, dotProduct, Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply,
             Pi.single_apply, eq_comm] using h
+        dsimp only [DensityOp.eigUnitary] at hcol
         rw [hcol, Finset.sum_eq_single j]
         · simp [DensityOp.eigvals]
         · intro k _ hkj; simp [Pi.single_eq_of_ne hkj]
@@ -860,7 +1168,8 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
       rw [← hv_eig]
       set w : Bool × d → ℂ := (star (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ)).mulVec v
       have hq : star v ⬝ᵥ τ.mat.mulVec v = star w ⬝ᵥ (Ψt t ht).mat.mulVec w := by
-        simp only [τ, DensityOp.conjUnitary, w, Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec]
+        simp only [τ, w]
+        rw [DensityOp.conjUnitary, ← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec]
         congr 1; ext k
         simp only [Matrix.vecMul, Matrix.mulVec, dotProduct, Pi.star_apply, Matrix.star_apply,
           star_sum, star_mul', star_star]
@@ -879,7 +1188,10 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
               Matrix.mul_apply, star_sum, star_mul', star_star, Finset.sum_mul, Finset.mul_sum]
             rw [Finset.sum_comm]
             apply Finset.sum_congr rfl; intro a _; apply Finset.sum_congr rfl; intro b _; ring
-          rw [hvec, Unitary.coe_mul_star_self (Ψt t ht).eigUnitary, Matrix.vecMul_one]
+          have hUmul : ((Ψt t ht).eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *
+              star ((Ψt t ht).eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) = 1 :=
+            Unitary.coe_mul_star_self (Ψt t ht).eigUnitary
+          rw [hvec, hUmul, Matrix.vecMul_one]
         have h2 : star w ⬝ᵥ w = star v ⬝ᵥ v := by
           simp only [w, Matrix.dotProduct_mulVec]
           have hvec : star ((star (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ)).mulVec v) ᵥ*
@@ -891,7 +1203,10 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
               Matrix.mul_apply, star_sum, star_mul', star_star, Finset.sum_mul, Finset.mul_sum]
             rw [Finset.sum_comm]
             apply Finset.sum_congr rfl; intro a _; apply Finset.sum_congr rfl; intro b _; ring
-          rw [hvec, Unitary.coe_mul_star_self (pauliZTensorI d), Matrix.vecMul_one]
+          have hZmul : (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ) *
+              star (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ) = 1 :=
+            Unitary.coe_mul_star_self (pauliZTensorI d)
+          rw [hvec, hZmul, Matrix.vecMul_one]
         have h3 : (star v ⬝ᵥ v).re = 1 := by
           have h := congr_arg Complex.re (congr_fun (congr_fun (Unitary.coe_star_mul_self τ.eigUnitary) j) j)
           simpa [v, dotProduct, Pi.star_apply, Matrix.mul_apply, Matrix.star_apply] using h
@@ -924,298 +1239,14 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
       nlinarith
     rw [div_mul_eq_mul_div, le_div_iff₀ hlog2]
     exact hmul
-  -- Define `x(t) = 1 - 2 * h2Inv (1 - C(t)) ∈ [0, 1)` and prove `x(T) ≤ exp(-T) * x(0)`
-  let x : ℝ → ℝ := fun t ↦ 1 - 2 * h2Inv (1 - C t)
-  have hx_eq : ∀ t (ht : 0 ≤ t), x t ∈ Ico (0 : ℝ) 1 ∧ C t = cParam (x t) ∧ phi (C t) = phiParam (x t) := by
-    intro t ht
-    obtain ⟨hC0', hC1'⟩ := hC_bounds t ht
-    have hinv_mem : h2Inv (1 - C t) ∈ Icc (0 : ℝ) (1 / 2) := h2Inv_mem_Icc ⟨by linarith, by linarith⟩
-    have hh2_inv : h2 (h2Inv (1 - C t)) = 1 - C t := h2_h2Inv ⟨by linarith, by linarith⟩
-    have hx0 : 0 ≤ x t := by simp only [x]; linarith [hinv_mem.2]
-    have hx1 : x t < 1 := by
-      by_contra hge; push Not at hge
-      have hinv0 : h2Inv (1 - C t) = 0 := by simp only [x] at hge; linarith [hinv_mem.1]
-      rw [hinv0, h2_zero] at hh2_inv; linarith
-    have hC_eq_c : C t = cParam (x t) := by
-      unfold cParam; simp only [x]
-      have harg : (1 - (1 - 2 * h2Inv (1 - C t))) / 2 = h2Inv (1 - C t) := by ring
-      rw [harg, hh2_inv]; ring
-    have hphi_eq : phi (C t) = phiParam (x t) := rfl
-    exact ⟨⟨hx0, hx1⟩, hC_eq_c, hphi_eq⟩
-  have hx_main : x T ≤ Real.exp (-T) * x 0 := by
-    by_cases hCT0 : C T = 0
-    · have hinv : h2Inv (1 - C T) = 1 / 2 := by rw [hCT0, sub_zero]; exact h2Inv_one
-      have hxT0 : x T = 0 := by simp [x, hinv]
-      rw [hxT0]
-      exact mul_nonneg (le_of_lt (Real.exp_pos _)) (hx_eq 0 le_rfl).1.1
-    · have hCT_pos : 0 < C T := lt_of_le_of_ne (hC_bounds T hT_nn).1 (Ne.symm hCT0)
-      -- `C` is antitone on `[0, ∞)` (since `phi ≥ 0` and `hstep_lower`)
-      have hC_anti : ∀ s t, 0 ≤ s → s ≤ t → C t ≤ C s := by
-        intro s t hs hst
-        have hstep := hstep_lower s (t - s) hs (by linarith)
-        have hphi_nn : 0 ≤ phi (C t) := by
-          rw [(hx_eq t (by linarith)).2.2]
-          unfold phiParam
-          have hx0 := (hx_eq t (by linarith)).1.1
-          have hx1 := (hx_eq t (by linarith)).1.2
-          have hge1 : 1 ≤ (1 + x t) / (1 - x t) := by rw [one_le_div (by linarith)]; linarith
-          exact mul_nonneg (by linarith) (Real.logb_nonneg (by norm_num) hge1)
-        have hexp_nn : 0 ≤ Real.exp (t - s) - 1 := by linarith [Real.add_one_le_exp (t - s)]
-        rw [show s + (t - s) = t by ring] at hstep
-        nlinarith
-      -- `C` is continuous on `[0, T]` (Lipschitz with constant `L`)
-      have hC_cont : ContinuousOn C (Icc 0 T) := by
-        rw [Metric.continuousOn_iff]
-        intro t ht ε hε
-        refine ⟨ε / (L + 1), div_pos hε (by linarith), fun s hs hdist ↦ ?_⟩
-        rw [Real.dist_eq] at hdist ⊢
-        rcases le_or_gt s t with hst | hts
-        · have h1 := hC_anti s t hs.1 hst
-          have h2 := hstep_upper s (t - s) hs.1 (by linarith)
-          rw [show s + (t - s) = t by ring] at h2
-          rw [abs_of_nonneg (by linarith)]
-          have habs : t - s < ε / (L + 1) := by linarith [(abs_lt.mp hdist).1]
-          have hL1 : L * (t - s) < (L + 1) * (ε / (L + 1)) := by nlinarith
-          rw [mul_div_cancel₀ _ (by linarith : L + 1 ≠ 0)] at hL1; linarith
-        · have h1 := hC_anti t s ht.1 (le_of_lt hts)
-          have h2 := hstep_upper t (s - t) ht.1 (by linarith)
-          rw [show t + (s - t) = s by ring] at h2
-          rw [abs_of_nonpos (by linarith)]
-          have habs : s - t < ε / (L + 1) := by linarith [(abs_lt.mp hdist).2]
-          have hL1 : L * (s - t) < (L + 1) * (ε / (L + 1)) := by nlinarith
-          rw [mul_div_cancel₀ _ (by linarith : L + 1 ≠ 0)] at hL1; linarith
-      -- `x` is continuous and antitone on `[0, T]`, with `0 < x T ≤ x t ≤ x 0 < 1`
-      have hx_cont : ContinuousOn x (Icc 0 T) := by
-        refine continuousOn_const.sub (continuousOn_const.mul ?_)
-        refine continuousOn_h2Inv.comp (continuousOn_const.sub hC_cont) fun t ht ↦ ?_
-        obtain ⟨h0, h1⟩ := hC_bounds t ht.1
-        exact ⟨by linarith, by linarith⟩
-      have hx_anti : ∀ s t, 0 ≤ s → s ≤ t → x t ≤ x s := by
-        intro s t hs hst
-        have hle : C t ≤ C s := hC_anti s t hs hst
-        have hinv_le : h2Inv (1 - C s) ≤ h2Inv (1 - C t) :=
-          h2Inv_mono (by linarith [(hC_bounds s hs).2]) (by linarith [(hC_bounds t (by linarith)).1]) (by linarith)
-        simp only [x]; linarith
-      have hxT_pos : 0 < x T := by
-        by_contra hle; push Not at hle
-        have hxT0 : x T = 0 := le_antisymm hle (hx_eq T hT_nn).1.1
-        have hCT' := (hx_eq T hT_nn).2.1
-        rw [hxT0] at hCT'
-        unfold cParam at hCT'; norm_num at hCT'; rw [h2_half] at hCT'; linarith
-      have hx0_lt1 : x 0 < 1 := (hx_eq 0 le_rfl).1.2
-      -- Define `cDeriv(u) = (1/2) * log₂((1+u)/(1-u))`, derivative of `cParam` on `(0, 1)`
-      let cDeriv : ℝ → ℝ := fun u ↦ (1 / 2 : ℝ) * Real.logb 2 ((1 + u) / (1 - u))
-      have hcParam_deriv : ∀ u ∈ Ioo (0 : ℝ) 1, HasDerivAt cParam (cDeriv u) u := by
-        intro u hu
-        have h1mu : 0 < 1 - u := by linarith [hu.2]
-        have h1pu : 0 < 1 + u := by linarith [hu.1]
-        have hhalf_mem : (1 - u) / 2 ∈ Ioo (0 : ℝ) 1 := ⟨by linarith, by linarith⟩
-        have hd_h2 := hasDerivAt_h2 hhalf_mem.1 hhalf_mem.2
-        have hd_lin : HasDerivAt (fun v : ℝ ↦ (1 - v) / 2) (-1 / 2) u := by
-          convert ((hasDerivAt_const u (1 : ℝ)).sub (hasDerivAt_id u)).div_const 2 using 1; ring
-        have hcomp : HasDerivAt (fun v : ℝ ↦ 1 - h2 ((1 - v) / 2))
-            (-(Real.logb 2 ((1 - (1 - u) / 2) / ((1 - u) / 2)) * (-1 / 2))) u := by
-          exact (hasDerivAt_const u (1 : ℝ)).sub (hd_h2.comp u hd_lin)
-        convert hcomp using 1
-        · unfold cDeriv
-          have harg : (1 - (1 - u) / 2) / ((1 - u) / 2) = (1 + u) / (1 - u) := by
-            field_simp [ne_of_gt h1mu]; ring
-          rw [harg]; ring
-      have hcDeriv_mono : StrictMonoOn cDeriv (Ioo 0 1) := by
-        intro u hu v hv huv
-        unfold cDeriv
-        apply mul_lt_mul_of_pos_left _ (by norm_num)
-        apply Real.logb_lt_logb (by norm_num) (div_pos (by linarith [hu.1]) (by linarith [hu.2]))
-        rw [div_lt_div_iff₀ (by linarith [hu.2]) (by linarith [hv.2])]; nlinarith
-      have hcDeriv_pos : ∀ u ∈ Ioo (0 : ℝ) 1, 0 < cDeriv u := by
-        intro u hu
-        unfold cDeriv
-        apply mul_pos (by norm_num)
-        exact Real.logb_pos (by norm_num) (by rw [one_lt_div (by linarith [hu.2])]; linarith [hu.1])
-      have hcDeriv_cont : ContinuousOn cDeriv (Icc (x T) (x 0)) := by
-        refine continuousOn_const.mul (ContinuousOn.div_const ?_ _)
-        refine Real.continuousOn_log.comp ?_ ?_
-        · exact (continuousOn_const.add continuousOn_id).div (continuousOn_const.sub continuousOn_id)
-            fun u hu ↦ ne_of_gt (by linarith [hu.2])
-        · intro u hu; exact ne_of_gt (div_pos (by linarith [hu.1]) (by linarith [hu.2]))
-      -- Prove `T ≤ (1 + ε)^2 * (log (x 0) - log (x T))` for every `ε > 0`
-      have hlog_bound : ∀ ε : ℝ, 0 < ε → T ≤ (1 + ε) ^ 2 * (Real.log (x 0) - Real.log (x T)) := by
-        intro ε hε
-        rcases eq_or_lt_of_le hT_nn with hT0 | hT_pos
-        · rw [← hT0]
-          exact mul_nonneg (sq_nonneg _) (sub_nonneg.mpr (Real.log_le_log hxT_pos (hx_anti 0 T le_rfl hT_nn)))
-        -- Uniform continuity of `cDeriv` on `[x T, x 0]` and `x` on `[0, T]`
-        have huc_cD := isCompact_Icc.uniformContinuousOn_of_continuous hcDeriv_cont
-        have huc_x := isCompact_Icc.uniformContinuousOn_of_continuous hx_cont
-        rw [Metric.uniformContinuousOn_iff] at huc_cD huc_x
-        have hcDT_pos : 0 < cDeriv (x T) := hcDeriv_pos (x T) ⟨hxT_pos, lt_of_le_of_lt (hx_anti 0 T le_rfl hT_nn) hx0_lt1⟩
-        obtain ⟨δ₁, hδ₁_pos, hδ₁⟩ := huc_cD (ε * cDeriv (x T)) (mul_pos hε hcDT_pos)
-        set δ_x := min δ₁ (ε * x T)
-        have hδx_pos : 0 < δ_x := lt_min hδ₁_pos (mul_pos hε hxT_pos)
-        obtain ⟨δ_t, hδt_pos, hδt⟩ := huc_x δ_x hδx_pos
-        obtain ⟨N, hN⟩ := exists_nat_gt (T / δ_t)
-        have hN_pos : 0 < N := by
-          by_contra h0; push Not at h0
-          have hN0 : N = 0 := Nat.eq_zero_of_le_zero h0
-          subst hN0; simp at hN; linarith [div_pos hT_pos hδt_pos]
-        set h : ℝ := T / (N : ℝ)
-        have hh_pos : 0 < h := div_pos hT_pos (Nat.cast_pos.mpr hN_pos)
-        have hh_lt : h < δ_t := by
-          rw [div_lt_iff₀ (Nat.cast_pos.mpr hN_pos)]
-          have := (div_lt_iff₀ hδt_pos).mp hN; linarith
-        -- Stepwise bound for each `k < N`
-        have hstep_k : ∀ k ∈ Finset.range N,
-            h ≤ (1 + ε) ^ 2 * (Real.log (x (k * h)) - Real.log (x ((k + 1) * h))) := by
-          intro k hk
-          have hk_lt : k < N := Finset.mem_range.mp hk
-          have htk_nn : 0 ≤ (k : ℝ) * h := mul_nonneg (Nat.cast_nonneg k) (le_of_lt hh_pos)
-          have htk1_le : ((k + 1 : ℕ) : ℝ) * h ≤ T := by
-            simp only [h]; rw [mul_div_assoc', div_le_iff₀ (Nat.cast_pos.mpr hN_pos)]
-            have : ((k + 1 : ℕ) : ℝ) ≤ (N : ℝ) := by exact_mod_cast Nat.succ_le_of_lt hk_lt
-            nlinarith
-          have htk_le : (k : ℝ) * h ≤ T := by
-            have : (k : ℝ) * h ≤ ((k + 1 : ℕ) : ℝ) * h := by push_cast; nlinarith
-            linarith
-          have htk1_eq : (k : ℝ) * h + h = ((k + 1 : ℕ) : ℝ) * h := by push_cast; ring
-          set a := x ((k + 1) * h)
-          set b := x (k * h)
-          have hab : a ≤ b := by
-            have := hx_anti (k * h) (((k + 1 : ℕ) : ℝ) * h) htk_nn (by push_cast; linarith)
-            simpa [a, b, Nat.cast_add, Nat.cast_one] using this
-          have ha_pos : 0 < a := lt_of_lt_of_le hxT_pos (by
-            have := hx_anti (((k + 1 : ℕ) : ℝ) * h) T (by positivity) htk1_le
-            simpa [a, Nat.cast_add, Nat.cast_one] using this)
-          have hb_lt1 : b < 1 := lt_of_le_of_lt (hx_anti 0 (k * h) le_rfl htk_nn) hx0_lt1
-          -- Lower bound: `h * a * cDeriv a ≤ C(k*h) - C((k+1)*h)`
-          have hlow : h * (a * cDeriv a) ≤ C (k * h) - C (((k + 1 : ℕ) : ℝ) * h) := by
-            have h1 := hstep_lower (k * h) h htk_nn (le_of_lt hh_pos)
-            rw [htk1_eq] at h1
-            have hphi_eq : phi (C (((k + 1 : ℕ) : ℝ) * h)) = a * cDeriv a := by
-              rw [(hx_eq _ (by positivity)).2.2]
-              unfold phiParam cDeriv
-              simp only [a, Nat.cast_add, Nat.cast_one]; ring
-            rw [hphi_eq] at h1
-            have hexp : h ≤ Real.exp h - 1 := by linarith [Real.add_one_le_exp h]
-            have ha_cD_nn : 0 ≤ a * cDeriv a := mul_nonneg (le_of_lt ha_pos) (le_of_lt (hcDeriv_pos a ⟨ha_pos, lt_of_le_of_lt hab hb_lt1⟩))
-            nlinarith
-          -- Upper bound via MVT: `C(k*h) - C((k+1)*h) ≤ cDeriv b * (b - a)`
-          have hup : C (k * h) - C (((k + 1 : ℕ) : ℝ) * h) ≤ cDeriv b * (b - a) := by
-            rw [(hx_eq (k * h) htk_nn).2.1, (hx_eq (((k + 1 : ℕ) : ℝ) * h) (by positivity)).2.1]
-            change cParam b - cParam a ≤ cDeriv b * (b - a)
-            rcases eq_or_lt_of_le hab with heq | hlt
-            · rw [heq, sub_self, sub_self, mul_zero]
-            · obtain ⟨ξ, hξ, hslope⟩ := exists_hasDerivAt_eq_slope cParam cDeriv hlt
-                (fun u hu ↦ (hcParam_deriv u ⟨lt_of_lt_of_le ha_pos hu.1, lt_of_le_of_lt hu.2 hb_lt1⟩).continuousAt.continuousWithinAt)
-                (fun u hu ↦ hcParam_deriv u ⟨lt_trans ha_pos hu.1, lt_trans hu.2 hb_lt1⟩)
-              have hdiff : cParam b - cParam a = cDeriv ξ * (b - a) := by
-                rw [hslope, div_mul_cancel₀ _ (sub_ne_zero.mpr (ne_of_gt hlt))]
-              rw [hdiff]
-              have hcD_le : cDeriv ξ ≤ cDeriv b :=
-                le_of_lt (hcDeriv_mono ⟨lt_trans ha_pos hξ.1, lt_trans hξ.2 hb_lt1⟩
-                  ⟨lt_of_lt_of_le ha_pos hab, hb_lt1⟩ hξ.2)
-              exact mul_le_mul_of_nonneg_right hcD_le (sub_nonneg.mpr hab)
-          -- Uniform continuity bounds: `b - a < δ_x ≤ ε * x T ≤ ε * a`, so `b / a ≤ 1 + ε` and `cDeriv b / cDeriv a ≤ 1 + ε`
-          have hdist_t : dist (k * h) (((k + 1 : ℕ) : ℝ) * h) < δ_t := by
-            rw [Real.dist_eq, show (k : ℝ) * h - ((k + 1 : ℕ) : ℝ) * h = -h by push_cast; ring,
-              abs_neg, abs_of_pos hh_pos]; exact hh_lt
-          have hba_lt : b - a < δ_x := by
-            have := hδt (k * h) ⟨htk_nn, htk_le⟩ (((k + 1 : ℕ) : ℝ) * h) ⟨by positivity, htk1_le⟩ hdist_t
-            rw [Real.dist_eq] at this
-            simpa [a, b, Nat.cast_add, Nat.cast_one, abs_of_nonneg (sub_nonneg.mpr hab)] using this
-          have hb_le : b ≤ (1 + ε) * a := by
-            have h1 : b - a < ε * x T := lt_of_lt_of_le hba_lt (min_le_right _ _)
-            have ha_ge : x T ≤ a := by
-              have := hx_anti (((k + 1 : ℕ) : ℝ) * h) T (by positivity) htk1_le
-              simpa [a, Nat.cast_add, Nat.cast_one] using this
-            nlinarith
-          have hcDb_le : cDeriv b ≤ (1 + ε) * cDeriv a := by
-            have hdist_x : dist b a < δ₁ := by
-              rw [Real.dist_eq, abs_of_nonneg (sub_nonneg.mpr hab)]
-              exact lt_of_lt_of_le hba_lt (min_le_left _ _)
-            have ha_mem : a ∈ Icc (x T) (x 0) :=
-              ⟨by simpa [a, Nat.cast_add, Nat.cast_one] using hx_anti (((k + 1 : ℕ) : ℝ) * h) T (by positivity) htk1_le,
-               by simpa [a, Nat.cast_add, Nat.cast_one] using hx_anti 0 (((k + 1 : ℕ) : ℝ) * h) le_rfl (by positivity)⟩
-            have hb_mem : b ∈ Icc (x T) (x 0) :=
-              ⟨hx_anti (k * h) T htk_nn htk_le, hx_anti 0 (k * h) le_rfl htk_nn⟩
-            have h1 := hδ₁ b hb_mem a ha_mem hdist_x
-            rw [Real.dist_eq] at h1
-            have hcDa_ge : cDeriv (x T) ≤ cDeriv a := by
-              rcases eq_or_lt_of_le ha_mem.1 with heq | hlt
-              · rw [heq]
-              · exact le_of_lt (hcDeriv_mono ⟨hxT_pos, lt_of_le_of_lt (hx_anti 0 T le_rfl hT_nn) hx0_lt1⟩
-                  ⟨ha_pos, lt_of_le_of_lt hab hb_lt1⟩ hlt)
-            linarith [(abs_lt.mp h1).2]
-          -- Elementary log bound: `(b - a) / b ≤ log b - log a`
-          have hlog_step : (b - a) / b ≤ Real.log b - Real.log a := by
-            have hb_pos : 0 < b := lt_of_lt_of_le ha_pos hab
-            have h := Real.log_le_sub_one_of_pos (div_pos ha_pos hb_pos)
-            rw [Real.log_div (ne_of_gt ha_pos) (ne_of_gt hb_pos)] at h
-            have hrew : 1 - a / b = (b - a) / b := by field_simp [ne_of_gt hb_pos]
-            linarith
-          have hcDa_pos : 0 < cDeriv a := hcDeriv_pos a ⟨ha_pos, lt_of_le_of_lt hab hb_lt1⟩
-          have hb_pos : 0 < b := lt_of_lt_of_le ha_pos hab
-          -- Combine: `h * a * cDeriv a ≤ cDeriv b * (b - a) ≤ (1 + ε) * cDeriv a * (b * (log b - log a))`
-          -- `≤ (1 + ε)^2 * a * cDeriv a * (log b - log a)`
-          have hcomb : h * (a * cDeriv a) ≤ (1 + ε) ^ 2 * (a * cDeriv a) * (Real.log b - Real.log a) := by
-            have hba_log : b - a ≤ b * (Real.log b - Real.log a) := by
-              have := mul_le_mul_of_nonneg_left hlog_step (le_of_lt hb_pos)
-              rwa [mul_div_cancel₀ _ (ne_of_gt hb_pos)] at this
-            have hlog_nn : 0 ≤ Real.log b - Real.log a := sub_nonneg.mpr (Real.log_le_log ha_pos hab)
-            calc h * (a * cDeriv a)
-                ≤ cDeriv b * (b - a) := le_trans hlow hup
-              _ ≤ ((1 + ε) * cDeriv a) * (b * (Real.log b - Real.log a)) :=
-                  mul_le_mul hcDb_le hba_log (sub_nonneg.mpr hab) (mul_nonneg (by linarith) (le_of_lt hcDa_pos))
-              _ = (1 + ε) * cDeriv a * b * (Real.log b - Real.log a) := by ring
-              _ ≤ (1 + ε) * cDeriv a * ((1 + ε) * a) * (Real.log b - Real.log a) := by
-                  apply mul_le_mul_of_nonneg_right _ hlog_nn
-                  exact mul_le_mul_of_nonneg_left hb_le (mul_nonneg (by linarith) (le_of_lt hcDa_pos))
-              _ = (1 + ε) ^ 2 * (a * cDeriv a) * (Real.log b - Real.log a) := by ring
-          have hpos_acD : 0 < a * cDeriv a := mul_pos ha_pos hcDa_pos
-          have hdiv := le_of_mul_le_mul_right (show h * (a * cDeriv a) ≤
-              ((1 + ε) ^ 2 * (Real.log b - Real.log a)) * (a * cDeriv a) by linarith) hpos_acD
-          simpa [a, b] using hdiv
-        -- Sum over `k ∈ range N`
-        have hsum := Finset.sum_le_sum hstep_k
-        have hlhs : ∑ _k ∈ Finset.range N, h = T := by
-          simp only [Finset.sum_const, Finset.card_range, nsmul_eq_mul, h]
-          exact mul_div_cancel₀ T (Nat.cast_ne_zero.mpr (ne_of_gt hN_pos))
-        have hrhs : ∑ k ∈ Finset.range N,
-            (1 + ε) ^ 2 * (Real.log (x ((k : ℝ) * h)) - Real.log (x (((k : ℝ) + 1) * h))) =
-            (1 + ε) ^ 2 * (Real.log (x 0) - Real.log (x T)) := by
-          rw [← Finset.mul_sum]
-          congr 1
-          have htele := Finset.sum_range_sub' (fun k : ℕ ↦ Real.log (x ((k : ℝ) * h))) N
-          have hN_eq : (N : ℝ) * h = T := mul_div_cancel₀ T (Nat.cast_ne_zero.mpr (ne_of_gt hN_pos))
-          simp only [Nat.cast_zero, zero_mul, hN_eq] at htele
-          convert htele using 2 with k
-          push_cast; ring
-        linarith
-      -- Let `ε → 0⁺`
-      have hT_le_log : T ≤ Real.log (x 0) - Real.log (x T) := by
-        by_contra hgt; push Not at hgt
-        set D := Real.log (x 0) - Real.log (x T)
-        have hD_nn : 0 ≤ D := sub_nonneg.mpr (Real.log_le_log hxT_pos (hx_anti 0 T le_rfl hT_nn))
-        set gap := T - D
-        have hgap_pos : 0 < gap := sub_pos.mpr hgt
-        set ε := min 1 (gap / (4 * (D + 1)))
-        have hε_pos : 0 < ε := lt_min one_pos (div_pos hgap_pos (by linarith))
-        have hε_le1 : ε ≤ 1 := min_le_left _ _
-        have hε_le2 : ε ≤ gap / (4 * (D + 1)) := min_le_right _ _
-        have hb := hlog_bound ε hε_pos
-        have hsq : (1 + ε) ^ 2 * D ≤ D + 3 * ε * D := by nlinarith
-        have h3ε : 3 * ε * D < gap := by
-          have h1 : ε * (4 * (D + 1)) ≤ gap := (le_div_iff₀ (by linarith)).mp hε_le2
-          nlinarith
-        linarith
-      have hx0_pos : 0 < x 0 := lt_of_lt_of_le hxT_pos (hx_anti 0 T le_rfl hT_nn)
-      have hlog_eq : Real.log (x T) ≤ Real.log (Real.exp (-T) * x 0) := by
-        rw [Real.log_mul (ne_of_gt (Real.exp_pos _)) (ne_of_gt hx0_pos), Real.log_exp]; linarith
-      exact (Real.log_le_log_iff hxT_pos (mul_pos (Real.exp_pos _) hx0_pos)).mp hlog_eq
+  -- Apply `ode_log_contraction` to obtain `1 - 2 h₂⁻¹(1 - C(T)) ≤ e^{-T} (1 - 2 h₂⁻¹(1 - C(0)))`
+  have hx_main : 1 - 2 * h2Inv (1 - C T) ≤ Real.exp (-T) * (1 - 2 * h2Inv (1 - C 0)) :=
+    ode_log_contraction C T L hT_nn hL_nn hC_bounds hstep_lower hstep_upper
   -- Convert `x(T) ≤ exp(-T) * x(0)` back to `C(p) ≤ 1 - h2 (h2Inv (1 - C(0)) * p)`
   have hexp_eq : Real.exp (-T) = 1 - 2 * p := by
     simp only [T, neg_neg, Real.exp_log h12p_pos]
   rw [hexp_eq] at hx_main
-  simp only [x, hCT, hC0] at hx_main
+  rw [hCT, hC0] at hx_main
   have hconv_id : (1 - 2 * p) * (1 - 2 * h2Inv (1 - dephaseCoherence 0 le_rfl (by norm_num) Ψ)) =
       1 - 2 * binConv (h2Inv (1 - dephaseCoherence 0 le_rfl (by norm_num) Ψ)) p := by
     unfold binConv; ring
@@ -1283,8 +1314,9 @@ theorem theorem_1_3_dephasing_sdpi (Ψ : DensityOp (Bool × d))
     have hsub := h1.sub h2
     refine hsub.congr' ?_
     filter_upwards [Ioo_mem_nhdsGT (show (0 : ℝ) < 1 by norm_num)] with ε hε
+    have hε01 : 0 ≤ ε ∧ ε ≤ 1 := ⟨le_of_lt hε.1, le_of_lt hε.2⟩
     have hcond : 0 ≤ ε ∧ ε ≤ 1 ∧ 0 ≤ q ∧ q ≤ 1 / 2 := ⟨le_of_lt hε.1, le_of_lt hε.2, hq0, hq1⟩
-    simp only [fC, hcond, ↓reduceDIte, dephaseCoherence]
+    dsimp only [fC]; rw [dif_pos hε01, dif_pos hcond]; unfold dephaseCoherence
     have hm1 := hdeph_mix (1 / 2) (by norm_num) le_rfl ε (le_of_lt hε.1) (le_of_lt hε.2)
     have hm2 := hdeph_mix q hq0 hq1 ε (le_of_lt hε.1) (le_of_lt hε.2)
     rw [vonNeumannEntropy_eq_of_mat_eq hm1, vonNeumannEntropy_eq_of_mat_eq hm2]
@@ -1297,7 +1329,7 @@ theorem theorem_1_3_dephasing_sdpi (Ψ : DensityOp (Bool × d))
       refine le_of_tendsto hf0 ?_
       filter_upwards [Ioo_mem_nhdsGT (show (0 : ℝ) < 1 by norm_num)] with ε hε
       have hcond : 0 ≤ ε ∧ ε ≤ 1 ∧ (0 : ℝ) ≤ 0 ∧ (0 : ℝ) ≤ 1 / 2 := ⟨le_of_lt hε.1, le_of_lt hε.2, le_rfl, by norm_num⟩
-      simp only [fC, hcond, ↓reduceDIte, dephaseCoherence_eq_qjs]
+      dsimp only [fC]; rw [dif_pos hcond, dephaseCoherence_eq_qjs]
       have hpd1 := dephaseState_posDef (hΨε_pd ε hε.1 hε.2) le_rfl (by norm_num)
       have hpd2 := conjUnitary_posDef hpd1 (pauliZTensorI d)
       exact le_of_lt (qjs_lt_one_posDef hpd1 hpd2)
@@ -1305,7 +1337,7 @@ theorem theorem_1_3_dephasing_sdpi (Ψ : DensityOp (Bool × d))
       refine ge_of_tendsto hf0 ?_
       filter_upwards [Ioo_mem_nhdsGT (show (0 : ℝ) < 1 by norm_num)] with ε hε
       have hcond : 0 ≤ ε ∧ ε ≤ 1 ∧ (0 : ℝ) ≤ 0 ∧ (0 : ℝ) ≤ 1 / 2 := ⟨le_of_lt hε.1, le_of_lt hε.2, le_rfl, by norm_num⟩
-      simp only [fC, hcond, ↓reduceDIte, dephaseCoherence_eq_qjs]
+      dsimp only [fC]; rw [dif_pos hcond, dephaseCoherence_eq_qjs]
       have hpd1 := dephaseState_posDef (hΨε_pd ε hε.1 hε.2) le_rfl (by norm_num)
       have hpd2 := conjUnitary_posDef hpd1 (pauliZTensorI d)
       exact (qjs_eq_half_relEntropy_midpoint hpd1 hpd2).1
@@ -1317,7 +1349,7 @@ theorem theorem_1_3_dephasing_sdpi (Ψ : DensityOp (Bool × d))
     have hmem_ae : ∀ᶠ ε in 𝓝[>] (0 : ℝ), 1 - fC 0 ε ∈ Icc (0 : ℝ) 1 := by
       filter_upwards [Ioo_mem_nhdsGT (show (0 : ℝ) < 1 by norm_num)] with ε hε
       have hcond : 0 ≤ ε ∧ ε ≤ 1 ∧ (0 : ℝ) ≤ 0 ∧ (0 : ℝ) ≤ 1 / 2 := ⟨le_of_lt hε.1, le_of_lt hε.2, le_rfl, by norm_num⟩
-      simp only [fC, hcond, ↓reduceDIte, dephaseCoherence_eq_qjs]
+      dsimp only [fC]; rw [dif_pos hcond, dephaseCoherence_eq_qjs]
       have hpd1 := dephaseState_posDef (hΨε_pd ε hε.1 hε.2) le_rfl (by norm_num)
       have hpd2 := conjUnitary_posDef hpd1 (pauliZTensorI d)
       have hnn := (qjs_eq_half_relEntropy_midpoint hpd1 hpd2).1
@@ -1335,7 +1367,7 @@ theorem theorem_1_3_dephasing_sdpi (Ψ : DensityOp (Bool × d))
   filter_upwards [Ioo_mem_nhdsGT (show (0 : ℝ) < 1 by norm_num)] with ε hε
   have hcond1 : 0 ≤ ε ∧ ε ≤ 1 ∧ 0 ≤ p ∧ p ≤ 1 / 2 := ⟨le_of_lt hε.1, le_of_lt hε.2, hp0, hp1⟩
   have hcond0 : 0 ≤ ε ∧ ε ≤ 1 ∧ (0 : ℝ) ≤ 0 ∧ (0 : ℝ) ≤ 1 / 2 := ⟨le_of_lt hε.1, le_of_lt hε.2, le_rfl, by norm_num⟩
-  simp only [fC, hcond1, hcond0, ↓reduceDIte]
+  dsimp only [fC]; rw [dif_pos hcond1, dif_pos hcond0]
   exact theorem_1_3_dephasing_sdpi_posDef (hΨε_pd ε hε.1 hε.2) hp0 hp1
 
 /-- Equatorial single-qubit state `Ψ_A(x) = ½ (I + x X)` on `Bool × Unit` for `x ∈ [0, 1]`. -/
