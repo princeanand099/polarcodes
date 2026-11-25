@@ -13,6 +13,10 @@ namespace PolarCodes
 
 universe u
 
+lemma posSemidef_mul_conjTranspose {m n : Type*} [Fintype m] [Fintype n]
+    [DecidableEq m] [DecidableEq n] (A : Matrix m n ℂ) : (A * Aᴴ).PosSemidef := by
+  simpa [Matrix.conjTranspose_conjTranspose] using Matrix.posSemidef_conjTranspose_mul_self Aᴴ
+
 private lemma density_spectral_eq {d : Type*} [Fintype d] [DecidableEq d] (ρ : DensityOp d) :
     ρ.mat = (ρ.eigUnitary : Matrix d d ℂ) * Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) *
       star (ρ.eigUnitary : Matrix d d ℂ) := by
@@ -474,7 +478,7 @@ lemma dual_isoEquiv_of_purification {d E : Type u} [Fintype d] [DecidableEq d]
           match b with
           | false =>
             { mat := M₀ * M₀ᴴ
-              posSemidef := Matrix.posSemidef_mul_conjTranspose_self M₀
+              posSemidef := posSemidef_mul_conjTranspose M₀
               trace_one := by
                 rw [Matrix.trace_mul_comm]
                 have hsq2 : ((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹) = (1 / 2 : ℂ) := by
@@ -503,7 +507,7 @@ lemma dual_isoEquiv_of_purification {d E : Type u} [Fintype d] [DecidableEq d]
                 simp [smul_eq_mul]; ring }
           | true =>
             { mat := M₁ * M₁ᴴ
-              posSemidef := Matrix.posSemidef_mul_conjTranspose_self M₁
+              posSemidef := posSemidef_mul_conjTranspose M₁
               trace_one := by
                 rw [Matrix.trace_mul_comm]
                 have hsq2 : ((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹) = (1 / 2 : ℂ) := by
@@ -1002,34 +1006,38 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
         Matrix.of_apply, Matrix.kroneckerMap_apply, Matrix.smul_apply, Matrix.one_apply,
         smul_eq_mul, h1pf, h1mf, Fintype.card_bool, Nat.cast_ofNat]
       cases b <;> cases c₁ <;> cases s₁ <;> cases c₂ <;> cases s₂ <;>
-        simp [hstar2, hmul2, hsp1, hsp2] <;> ring
+        (simp [hstar2, hmul2, hsp1, hsp2]; try (ring_nf; simp only [sq, hmul2, hsp1, hsp2]; ring))
     have hstep2 : CQChannel.IsoEquiv
         ({ out := fun b ↦
             match b with
             | false =>
               { mat := M false * (M false)ᴴ
-                posSemidef := Matrix.posSemidef_mul_conjTranspose_self _
+                posSemidef := posSemidef_mul_conjTranspose (M false)
                 trace_one := by
                   have h := (((pureChannel f hf0 hf1).tensorMaxMixed Bool).out false).trace_one
                   rw [hMN false, Matrix.conjTranspose_mul, Matrix.mul_assoc,
-                    ← Matrix.mul_assoc (N false), hNN false, Matrix.trace_mul_cycle, hU_iso,
-                    Matrix.one_mul]
+                    ← Matrix.mul_assoc (N false), hNN false, ← Matrix.mul_assoc,
+                    Matrix.trace_mul_cycle, hU_iso, Matrix.one_mul]
                   exact h }
             | true =>
               { mat := M true * (M true)ᴴ
-                posSemidef := Matrix.posSemidef_mul_conjTranspose_self _
+                posSemidef := posSemidef_mul_conjTranspose (M true)
                 trace_one := by
                   have h := (((pureChannel f hf0 hf1).tensorMaxMixed Bool).out true).trace_one
                   rw [hMN true, Matrix.conjTranspose_mul, Matrix.mul_assoc,
-                    ← Matrix.mul_assoc (N true), hNN true, Matrix.trace_mul_cycle, hU_iso,
-                    Matrix.one_mul]
+                    ← Matrix.mul_assoc (N true), hNN true, ← Matrix.mul_assoc,
+                    Matrix.trace_mul_cycle, hU_iso, Matrix.one_mul]
                   exact h } } : CQChannel (Bool × Bool))
         ((pureChannel f hf0 hf1).tensorMaxMixed Bool) := by
       refine ⟨Bool × Bool, inferInstance, inferInstance, 1, U, by simp, hU_iso, ?_⟩
       intro b
-      cases b <;>
-        simp only [Matrix.one_mul, Matrix.conjTranspose_one, Matrix.mul_one] <;>
-        rw [hMN, Matrix.conjTranspose_mul, Matrix.mul_assoc, ← Matrix.mul_assoc (N _), hNN]
+      cases b
+      · simp only [Matrix.one_mul, Matrix.conjTranspose_one, Matrix.mul_one]
+        rw [hMN false, Matrix.conjTranspose_mul, Matrix.mul_assoc,
+          ← Matrix.mul_assoc (N false), hNN false, ← Matrix.mul_assoc]
+      · simp only [Matrix.one_mul, Matrix.conjTranspose_one, Matrix.mul_one]
+        rw [hMN true, Matrix.conjTranspose_mul, Matrix.mul_assoc,
+          ← Matrix.mul_assoc (N true), hNN true, ← Matrix.mul_assoc]
     exact (hstep1.trans hstep2.toChannelEquiv).trans
       ((pureChannel f hf0 hf1).channelEquiv_tensorMaxMixed Bool).symm
   · -- 3. `BEC(ε)⊥ ≃ BEC(1 - ε)`:
@@ -1076,10 +1084,9 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
     let 𝒩 : CPTPMap.{0} (Bool × Fin 3) (Fin 3) :=
       ⟨Bool × Fin 3, inferInstance, inferInstance,
         Matrix.of fun (p : Fin 3 × (Bool × Fin 3)) (q : Bool × Fin 3) ↦
-          match q.2 with
-          | ⟨0, _⟩ => if p.1 = 2 ∧ p.2 = (q.1, 0) then 1 else 0
-          | ⟨1, _⟩ => if p.1 = 2 ∧ p.2 = (q.1, 1) then 1 else 0
-          | ⟨2, _⟩ =>
+          if q.2 = 0 then (if p.1 = 2 ∧ p.2 = (q.1, 0) then 1 else 0)
+          else if q.2 = 1 then (if p.1 = 2 ∧ p.2 = (q.1, 1) then 1 else 0)
+          else
             if p.2 = (false, 2) then
               if p.1 = 0 then ((Real.sqrt 2 : ℂ)⁻¹)
               else if p.1 = 1 then (if q.1 = false then ((Real.sqrt 2 : ℂ)⁻¹) else -((Real.sqrt 2 : ℂ)⁻¹))
@@ -1089,7 +1096,7 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
         simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
           Fintype.sum_prod_type, Fintype.sum_bool, Fin.sum_univ_three, Matrix.one_apply]
         fin_cases k₁ <;> fin_cases k₂ <;> cases b₁ <;> cases b₂ <;>
-          simp [hstar2, hmul2] <;> ring⟩
+          (simp [hstar2, hmul2]; try (ring_nf; simp only [sq, hmul2]; ring))⟩
     let Q : Bool → Matrix (Fin 3 × (Bool × Fin 3)) (Fin 3) ℂ := fun b ↦
       Matrix.of fun p x ↦
         if p = (2, (false, 0)) ∧ x = 0 then ((Real.sqrt 2 : ℂ)⁻¹) * (Real.sqrt (1 - ε) : ℂ)
@@ -1102,32 +1109,28 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
       simp only [Matrix.mul_apply, Fintype.sum_prod_type, Fintype.sum_bool, Fin.sum_univ_three,
         𝒩, M, Q, A₀, A₁, Matrix.of_apply, Matrix.conjTranspose_apply, Matrix.diagonal_apply]
       fin_cases x
-      · -- x = 0: only q = (false, 0) contributes
-        cases b <;> fin_cases i <;> by_cases he : e = (false, 0) <;> simp [he]
-      · -- x = 1: only q = (true, 1) contributes
-        cases b <;> fin_cases i <;> by_cases he : e = (true, 1) <;> simp [he]
-      · -- x = 2: only q = (false, 2) and (true, 2) contribute
-        cases b <;> fin_cases i <;> by_cases he : e = (false, 2) <;>
+      · cases b <;> fin_cases i <;> by_cases he : e = (false, 0) <;> simp [he]
+      · cases b <;> fin_cases i <;> by_cases he : e = (true, 1) <;> simp [he]
+      · cases b <;> fin_cases i <;> by_cases he : e = (false, 2) <;>
           (simp [he]; try (ring_nf; simp only [sq, hmul2]; ring))
     let ℳ : CPTPMap.{0} (Fin 3) (Bool × Fin 3) :=
       ⟨Bool, inferInstance, inferInstance,
         Matrix.of fun (p : (Bool × Fin 3) × Bool) (k : Fin 3) ↦
-          match k with
-          | ⟨0, _⟩ => if p.2 = false ∧ p.1.2 = 2 then ((Real.sqrt 2 : ℂ)⁻¹) else 0
-          | ⟨1, _⟩ => if p.2 = false ∧ p.1.2 = 2 then (if p.1.1 = false then ((Real.sqrt 2 : ℂ)⁻¹) else -((Real.sqrt 2 : ℂ)⁻¹)) else 0
-          | ⟨2, _⟩ =>
+          if k = 0 then (if p.2 = false ∧ p.1.2 = 2 then ((Real.sqrt 2 : ℂ)⁻¹) else 0)
+          else if k = 1 then (if p.2 = false ∧ p.1.2 = 2 then (if p.1.1 = false then ((Real.sqrt 2 : ℂ)⁻¹) else -((Real.sqrt 2 : ℂ)⁻¹)) else 0)
+          else
             if (p.2 = false ∧ p.1 = (false, 0)) ∨ (p.2 = true ∧ p.1 = (true, 1)) then ((Real.sqrt 2 : ℂ)⁻¹) else 0, by
         ext k₁ k₂
         simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
           Fintype.sum_prod_type, Fintype.sum_bool, Fin.sum_univ_three, Matrix.one_apply]
         fin_cases k₁ <;> fin_cases k₂ <;>
-          simp [hstar2, hmul2] <;> ring⟩
+          (simp [hstar2, hmul2]; try (ring_nf; simp only [sq, hmul2]; ring))⟩
     have hstep2 : CQChannel.ChannelEquiv
         ({ out := fun b ↦
             match b with
             | false =>
               { mat := M false * (M false)ᴴ
-                posSemidef := Matrix.posSemidef_mul_conjTranspose_self _
+                posSemidef := posSemidef_mul_conjTranspose (M false)
                 trace_one := by
                   rw [hMD false]
                   simp only [Matrix.trace, Matrix.diag, D, Matrix.of_apply,
@@ -1135,7 +1138,7 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
                   simp; push_cast; ring }
             | true =>
               { mat := M true * (M true)ᴴ
-                posSemidef := Matrix.posSemidef_mul_conjTranspose_self _
+                posSemidef := posSemidef_mul_conjTranspose (M true)
                 trace_one := by
                   rw [hMD true]
                   simp only [Matrix.trace, Matrix.diag, D, Matrix.of_apply,
@@ -1145,8 +1148,8 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
       refine ⟨𝒩, ℳ, ?_, ?_⟩
       · intro b
         have hmat : 𝒩.isom * ((match b with
-            | false => ({ mat := M false * (M false)ᴴ, posSemidef := _, trace_one := _ } : DensityOp (Bool × Fin 3))
-            | true => ({ mat := M true * (M true)ᴴ, posSemidef := _, trace_one := _ } : DensityOp (Bool × Fin 3))).mat) * 𝒩.isomᴴ =
+            | false => ({ mat := M false * (M false)ᴴ, posSemidef := posSemidef_mul_conjTranspose (M false), trace_one := _ } : DensityOp (Bool × Fin 3))
+            | true => ({ mat := M true * (M true)ᴴ, posSemidef := posSemidef_mul_conjTranspose (M true), trace_one := _ } : DensityOp (Bool × Fin 3))).mat) * 𝒩.isomᴴ =
             Q b * (Q b)ᴴ := by
           cases b <;>
             calc 𝒩.isom * (M _ * (M _)ᴴ) * 𝒩.isomᴴ
@@ -1164,8 +1167,8 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
       · intro b
         ext ⟨r₁, k₁⟩ ⟨r₂, k₂⟩
         have hmat : ((match b with
-            | false => ({ mat := M false * (M false)ᴴ, posSemidef := _, trace_one := _ } : DensityOp (Bool × Fin 3))
-            | true => ({ mat := M true * (M true)ᴴ, posSemidef := _, trace_one := _ } : DensityOp (Bool × Fin 3))).mat) = D b := by
+            | false => ({ mat := M false * (M false)ᴴ, posSemidef := posSemidef_mul_conjTranspose (M false), trace_one := _ } : DensityOp (Bool × Fin 3))
+            | true => ({ mat := M true * (M true)ᴴ, posSemidef := posSemidef_mul_conjTranspose (M true), trace_one := _ } : DensityOp (Bool × Fin 3))).mat) = D b := by
           cases b <;> exact hMD _
         change (partialTrace₂Mat (ℳ.isom * ((becChannel (1 - ε) _ _).out b).mat * ℳ.isomᴴ))
           (r₁, k₁) (r₂, k₂) = _
