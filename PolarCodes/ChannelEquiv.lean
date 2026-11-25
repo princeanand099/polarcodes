@@ -897,16 +897,9 @@ theorem prop_2_2_D3_isoEquiv_pure {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) 
     intro b
     ext ⟨r₁, ⟨⟩⟩ ⟨r₂, ⟨⟩⟩
     cases b <;> cases r₁ <;> cases r₂ <;>
-    · simp only [H, A₀, A₁, bscChannel, Matrix.mul_apply, Matrix.conjTranspose_apply,
-        Matrix.of_apply, Matrix.diagonal_apply, Fintype.sum_bool, ↓reduceIte, Bool.true_eq_false,
-        and_self, and_false, false_and, star_mul', star_neg, star_one, hstar2, Complex.star_def,
-        Complex.conj_ofReal]
-      push_cast
-      linear_combination (by ring_nf; rfl) <|>
-        (have : ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) = 1 / 2 := hmul2;
-         linear_combination (hsp1 + hsp2) * 0) <|>
-        (simp only [hmul2, hsp1, hsp2]; ring) <|>
-        (ring_nf; simp only [sq, hmul2, hsp1, hsp2]; ring)
+      (simp [H, A₀, A₁, bscChannel, Matrix.mul_apply, Matrix.conjTranspose_apply,
+        Matrix.of_apply, Matrix.diagonal_apply, Fintype.sum_bool, hstar2, hmul2, hsp1, hsp2];
+       try (ring_nf; simp only [sq, hmul2, hsp1, hsp2]; push_cast; ring))
   refine ⟨γ, inferInstance, inferInstance, V₁, V₂ * H, h1, ?_, ?_⟩
   · calc (V₂ * H)ᴴ * (V₂ * H) = Hᴴ * (V₂ᴴ * V₂) * H := by
             simp [Matrix.conjTranspose_mul, Matrix.mul_assoc]
@@ -1096,7 +1089,7 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
       simp only [V𝒩, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
         Fintype.sum_prod_type, Fintype.sum_bool, Fin.sum_univ_three, Matrix.one_apply]
       fin_cases k₁ <;> fin_cases k₂ <;> cases b₁ <;> cases b₂ <;>
-        (simp [hstar2, hmul2]; try (ring_nf; simp only [sq, hmul2]; norm_num))
+        (simp [hstar2, hmul2]; try norm_num; try (ring_nf; simp only [sq, hmul2]; norm_num))
     let 𝒩 : CPTPMap.{0} (Bool × Fin 3) (Fin 3) :=
       ⟨Bool × Fin 3, inferInstance, inferInstance, V𝒩, hV𝒩⟩
     let Q : Bool → Matrix (Fin 3 × (Bool × Fin 3)) (Fin 3) ℂ := fun b ↦
@@ -1120,13 +1113,17 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
         if k = 0 then (if p.2 = false ∧ p.1.2 = 2 then ((Real.sqrt 2 : ℂ)⁻¹) else 0)
         else if k = 1 then (if p.2 = false ∧ p.1.2 = 2 then (if p.1.1 = false then ((Real.sqrt 2 : ℂ)⁻¹) else -((Real.sqrt 2 : ℂ)⁻¹)) else 0)
         else
-          if (p.2 = false ∧ p.1 = (false, 0)) ∨ (p.2 = true ∧ p.1 = (true, 1)) then ((Real.sqrt 2 : ℂ)⁻¹) else 0
+          if p = ((false, 0), false) ∨ p = ((true, 1), true) then ((Real.sqrt 2 : ℂ)⁻¹) else 0
     have hVℳ : Vℳᴴ * Vℳ = 1 := by
       ext k₁ k₂
       simp only [Vℳ, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
         Fintype.sum_prod_type, Fintype.sum_bool, Fin.sum_univ_three, Matrix.one_apply]
       fin_cases k₁ <;> fin_cases k₂ <;>
-        (simp [hstar2, hmul2]; try (ring_nf; simp only [sq, hmul2]; norm_num))
+        (simp only [Fin.reduceEq, Prod.mk.injEq, Bool.false_eq_true, Bool.true_eq_false,
+          ↓reduceIte, and_self, and_false, false_and, or_self, or_false, false_or,
+          star_zero, star_neg, hstar2, hmul2, zero_mul, mul_zero, add_zero, zero_add,
+          neg_mul, mul_neg, neg_neg];
+         try norm_num)
     let ℳ : CPTPMap.{0} (Fin 3) (Bool × Fin 3) :=
       ⟨Bool, inferInstance, inferInstance, Vℳ, hVℳ⟩
     have hstep2 : CQChannel.ChannelEquiv
