@@ -810,28 +810,31 @@ private lemma frenkel_integral_g_eq_F0 {ρ σ : DensityOp d}
   simp_rw [hval_n] at hlim_int
   simpa using tendsto_nhds_unique hlim_int hlim_rhs
 
+private lemma tonelli_mul_right {F : ℝ → ℝ → ℝ≥0∞} {w : ℝ → ℝ≥0∞}
+    (hF : Measurable (Function.uncurry F)) (hw : Measurable w) :
+    (∫⁻ r in Ioi (0 : ℝ), ∫⁻ t : ℝ, F r t * w t ∂volume ∂volume) =
+      ∫⁻ t : ℝ, (∫⁻ r in Ioi (0 : ℝ), F r t ∂volume) * w t ∂volume := by
+  have hprod : Measurable (Function.uncurry fun r t ↦ F r t * w t) :=
+    hF.mul (hw.comp measurable_snd)
+  rw [MeasureTheory.lintegral_lintegral_swap hprod.aemeasurable]
+  apply MeasureTheory.lintegral_congr
+  intro t
+  have ht : Measurable (fun r ↦ F r t) := hF.comp (measurable_id.prodMk measurable_const)
+  exact MeasureTheory.lintegral_mul_const (w t) ht
+
 private lemma frenkel_tonelli_swap (ρ σ : DensityOp d) :
     (∫⁻ r in Ioi (0 : ℝ), ∫⁻ t : ℝ,
         (negEigCount (isHermitian_pencil ρ σ r t) : ℝ≥0∞) *
           ENNReal.ofReal (1 / (|t| * (t - 1) ^ 2)) ∂volume ∂volume) =
       ∫⁻ t : ℝ, (∫⁻ r in Ioi (0 : ℝ),
         (negEigCount (isHermitian_pencil ρ σ r t) : ℝ≥0∞) ∂volume) *
-          ENNReal.ofReal (1 / (|t| * (t - 1) ^ 2)) ∂volume := by
-  have hmeas_prod : Measurable (fun p : ℝ × ℝ ↦
-      (negEigCount (isHermitian_pencil ρ σ p.1 p.2) : ℝ≥0∞) *
-        ENNReal.ofReal (1 / (|p.2| * (p.2 - 1) ^ 2))) :=
-    (measurable_negEigCount_pencil ρ σ).mul
-      (ENNReal.measurable_ofReal.comp (measurable_const.div
-        ((continuous_abs.measurable.comp measurable_snd).mul
-          ((measurable_snd.sub measurable_const).pow_const 2))))
-  rw [MeasureTheory.lintegral_lintegral_swap
-    (f := fun r t ↦ (negEigCount (isHermitian_pencil ρ σ r t) : ℝ≥0∞) *
-      ENNReal.ofReal (1 / (|t| * (t - 1) ^ 2))) hmeas_prod.aemeasurable]
-  apply MeasureTheory.lintegral_congr
-  intro t
-  have hmeas_t : Measurable (fun x : ℝ ↦ (negEigCount (isHermitian_pencil ρ σ x t) : ℝ≥0∞)) :=
-    (measurable_negEigCount_pencil ρ σ).comp (measurable_id.prodMk measurable_const)
-  exact MeasureTheory.lintegral_mul_const _ hmeas_t
+          ENNReal.ofReal (1 / (|t| * (t - 1) ^ 2)) ∂volume :=
+  tonelli_mul_right
+    (F := fun r t ↦ (negEigCount (isHermitian_pencil ρ σ r t) : ℝ≥0∞))
+    (w := fun t ↦ ENNReal.ofReal (1 / (|t| * (t - 1) ^ 2)))
+    (measurable_negEigCount_pencil ρ σ)
+    (ENNReal.measurable_ofReal.comp (measurable_const.div
+      (continuous_abs.measurable.mul ((measurable_id.sub measurable_const).pow_const 2))))
 
 /-! ### Main Theorem: Frenkel's Integral Formula (Eq. 3.7) -/
 
