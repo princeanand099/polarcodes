@@ -136,12 +136,7 @@ theorem prop_3_3_qjjs_posDef {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ : 
     simp only [cParam, x]
     have : (1 - (1 - 2 * h2Inv (1 - c))) / 2 = h2Inv (1 - c) := by ring
     rw [this, h2_h2Inv ⟨le_of_lt h1mc0, le_of_lt h1mc1⟩]; ring
-  have hphi_eq : phi c = phiParam x := by
-    unfold phi phiParam; simp only [x]
-    have harg : (1 + (1 - 2 * h2Inv (1 - c))) / (1 - (1 - 2 * h2Inv (1 - c))) =
-        (1 - h2Inv (1 - c)) / h2Inv (1 - c) := by
-      field_simp [ne_of_gt hinv_pos]; ring
-    rw [harg]
+  have hphi_eq : phi c = phiParam x := rfl
   -- Integrate `gx x t ≥ 0` (Lemma 3.1) against `μ`
   have hgx_nn : 0 ≤ ∫ t, gx x t ∂μ := by
     apply integral_nonneg_of_ae
