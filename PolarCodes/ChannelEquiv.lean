@@ -49,7 +49,7 @@ lemma CQChannel.ChannelEquiv.refl {d : Type u} [Fintype d] [DecidableEq d] (W : 
     W.ChannelEquiv W := by
   refine ⟨CPTPMap.id d, CPTPMap.id d, fun b ↦ ?_, fun b ↦ ?_⟩ <;>
   · ext i j
-    simp [CPTPMap.apply, CPTPMap.id, partialTrace₂Mat, Matrix.mul_apply,
+    simp [CPTPMap.apply, CPTPMap.toLinearMap, CPTPMap.id, partialTrace₂Mat, Matrix.mul_apply,
       Matrix.conjTranspose_apply]
 
 lemma CQChannel.ChannelEquiv.symm {d₁ d₂ : Type u} [Fintype d₁] [DecidableEq d₁]
@@ -89,7 +89,7 @@ theorem CQChannel.ChannelEquiv.condEntropy_eq {d₁ d₂ : Type u} [Fintype d₁
         cases W₂ with | mk out₂ =>
         change CQChannel.mk (fun b ↦ 𝒩.apply (W₁.out b)) = CQChannel.mk out₂
         congr 1; funext b
-        have hb := h1 b
+        have hb : (𝒩.apply (W₁.out b)).mat = (out₂ b).mat := h1 b
         cases hA : 𝒩.apply (W₁.out b); cases hB : out₂ b
         rw [hA, hB] at hb; simp_all
       rw [hch]
@@ -101,7 +101,7 @@ theorem CQChannel.ChannelEquiv.condEntropy_eq {d₁ d₂ : Type u} [Fintype d₁
         cases W₁ with | mk out₁ =>
         change CQChannel.mk (fun b ↦ ℳ.apply (W₂.out b)) = CQChannel.mk out₁
         congr 1; funext b
-        have hb := h2 b
+        have hb : (ℳ.apply (W₂.out b)).mat = (out₁ b).mat := h2 b
         cases hA : ℳ.apply (W₂.out b); cases hB : out₁ b
         rw [hA, hB] at hb; simp_all
       rw [hch]
@@ -136,7 +136,7 @@ noncomputable def CPTPMap.ofContraction {α β : Type u} [Fintype α] [Decidable
         Real.mul_self_sqrt (hK.eigenvalues_nonneg i)]
     calc D * D = U * (Matrix.diagonal (fun i : α ↦ (Real.sqrt (hK.isHermitian.eigenvalues i) : ℂ)) *
             (star U * U) * Matrix.diagonal (fun i : α ↦ (Real.sqrt (hK.isHermitian.eigenvalues i) : ℂ))) *
-            star U := by simp [D, U, Matrix.mul_assoc]
+            star U := by simp only [D, U, Matrix.mul_assoc]
       _ = U * Matrix.diagonal (Complex.ofReal ∘ hK.isHermitian.eigenvalues) * star U := by
             rw [Unitary.coe_star_mul_self, Matrix.mul_one, hdiag_sq]
       _ = 1 - Kᴴ * K := hspec.symm
@@ -186,7 +186,7 @@ lemma CPTPMap.ofContraction_apply_eq {α β : Type u} [Fintype α] [DecidableEq 
         Real.mul_self_sqrt (hK.eigenvalues_nonneg i)]
     calc D * D = U * (Matrix.diagonal (fun i : α ↦ (Real.sqrt (hK.isHermitian.eigenvalues i) : ℂ)) *
             (star U * U) * Matrix.diagonal (fun i : α ↦ (Real.sqrt (hK.isHermitian.eigenvalues i) : ℂ))) *
-            star U := by simp [D, U, Matrix.mul_assoc]
+            star U := by simp only [D, U, Matrix.mul_assoc]
       _ = U * Matrix.diagonal (Complex.ofReal ∘ hK.isHermitian.eigenvalues) * star U := by
             rw [Unitary.coe_star_mul_self, Matrix.mul_one, hdiag_sq]
       _ = 1 - Kᴴ * K := hspec.symm
@@ -199,7 +199,7 @@ lemma CPTPMap.ofContraction_apply_eq {α β : Type u} [Fintype α] [DecidableEq 
       have hsum : ∑ i : α, hpsd.isHermitian.eigenvalues i = 0 := by
         have htr := hpsd.isHermitian.trace_eq_sum_eigenvalues
         rw [hDρD_tr] at htr
-        exact_mod_cast htr.symm
+        exact Complex.ofReal_eq_zero.mp (by simpa using htr.symm)
       intro i
       exact (Finset.sum_eq_zero_iff_of_nonneg (fun k _ ↦ hpsd.eigenvalues_nonneg k)).mp hsum i
         (Finset.mem_univ i)
@@ -208,7 +208,7 @@ lemma CPTPMap.ofContraction_apply_eq {α β : Type u} [Fintype α] [DecidableEq 
       ext i j; simp [Matrix.diagonal_apply, heig_zero]
     rw [hdiag0, Matrix.mul_zero, Matrix.zero_mul]
   ext b₁ b₂
-  change (partialTrace₂Mat ((CPTPMap.ofContraction K hK).isom * ρ.mat *
+  change (partialTrace₂Mat β _ ((CPTPMap.ofContraction K hK).isom * ρ.mat *
     (CPTPMap.ofContraction K hK).isomᴴ)) b₁ b₂ = (K * ρ.mat * Kᴴ) b₁ b₂
   dsimp only [partialTrace₂Mat, LinearMap.coe_mk, AddHom.coe_mk, CPTPMap.ofContraction]
   simp only [Matrix.of_apply, Fintype.sum_sum_type, Fintype.sum_unique, Matrix.mul_apply,
@@ -405,7 +405,7 @@ lemma CQChannel.channelEquiv_tensorMaxMixed {d : Type u} [Fintype d] [DecidableE
   refine ⟨𝒩, ℳ, ?_, ?_⟩
   · intro b
     ext ⟨a₁, x₁⟩ ⟨a₂, x₂⟩
-    change (partialTrace₂Mat (𝒩.isom * (W.out b).mat * 𝒩.isomᴴ)) (a₁, x₁) (a₂, x₂) =
+    change (partialTrace₂Mat (α × d) α (𝒩.isom * (W.out b).mat * 𝒩.isomᴴ)) (a₁, x₁) (a₂, x₂) =
       (DensityOp.tensor (maxMixedState α) (W.out b)).mat (a₁, x₁) (a₂, x₂)
     dsimp only [partialTrace₂Mat, LinearMap.coe_mk, AddHom.coe_mk, 𝒩]
     simp only [Matrix.of_apply, Matrix.mul_apply, Matrix.conjTranspose_apply,
@@ -432,7 +432,7 @@ lemma CQChannel.channelEquiv_tensorMaxMixed {d : Type u} [Fintype d] [DecidableE
     · intro h; exact absurd (Finset.mem_univ a₁) h
   · intro b
     ext x₁ x₂
-    change (partialTrace₂Mat (ℳ.isom * (DensityOp.tensor (maxMixedState α) (W.out b)).mat *
+    change (partialTrace₂Mat d α (ℳ.isom * (DensityOp.tensor (maxMixedState α) (W.out b)).mat *
       ℳ.isomᴴ)) x₁ x₂ = (W.out b).mat x₁ x₂
     dsimp only [partialTrace₂Mat, LinearMap.coe_mk, AddHom.coe_mk, ℳ]
     simp only [Matrix.of_apply, Matrix.mul_apply, Matrix.conjTranspose_apply,
@@ -492,16 +492,16 @@ lemma dual_isoEquiv_of_purification {d E : Type u} [Fintype d] [DecidableEq d]
                     Matrix.add_apply, Matrix.smul_apply, smul_eq_mul, star_mul']
                   rw [← hA₀, ← hA₁]
                   simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Finset.mul_sum]
-                  rw [Finset.sum_add_distrib]
-                  congr 1 <;>
-                    (apply Finset.sum_congr rfl; intro e _;
-                     calc star (star (A₀ x e)) * star ((Real.sqrt 2 : ℂ)⁻¹) * (((Real.sqrt 2 : ℂ)⁻¹) * star (A₀ y e))
-                         = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) * (A₀ x e * star (A₀ y e)) := by simp; ring
-                       _ = (1 / 2 : ℂ) * (A₀ x e * star (A₀ y e)) := by rw [hsq2]
-                     <|>
-                     calc star (star (A₁ x e)) * star ((Real.sqrt 2 : ℂ)⁻¹) * (((Real.sqrt 2 : ℂ)⁻¹) * star (A₁ y e))
-                         = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) * (A₁ x e * star (A₁ y e)) := by simp; ring
-                       _ = (1 / 2 : ℂ) * (A₁ x e * star (A₁ y e)) := by rw [hsq2])
+                  rw [add_comm]
+                  congr 1
+                  · apply Finset.sum_congr rfl; intro e _
+                    calc star ((Real.sqrt 2 : ℂ)⁻¹) * star (star (A₀ x e)) * (((Real.sqrt 2 : ℂ)⁻¹) * star (A₀ y e))
+                        = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) * (A₀ x e * star (A₀ y e)) := by simp; ring
+                      _ = (1 / 2 : ℂ) * (A₀ x e * star (A₀ y e)) := by rw [hsq2]
+                  · apply Finset.sum_congr rfl; intro e _
+                    calc star ((Real.sqrt 2 : ℂ)⁻¹) * star (star (A₁ x e)) * (((Real.sqrt 2 : ℂ)⁻¹) * star (A₁ y e))
+                        = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) * (A₁ x e * star (A₁ y e)) := by simp; ring
+                      _ = (1 / 2 : ℂ) * (A₁ x e * star (A₁ y e)) := by rw [hsq2]
                 rw [hMM, Matrix.trace_add, Matrix.trace_smul, Matrix.trace_smul,
                     (W.out false).trace_one, (W.out true).trace_one]
                 simp [smul_eq_mul]; ring }
@@ -521,16 +521,16 @@ lemma dual_isoEquiv_of_purification {d E : Type u} [Fintype d] [DecidableEq d]
                     Matrix.add_apply, Matrix.smul_apply, smul_eq_mul, star_mul', star_neg]
                   rw [← hA₀, ← hA₁]
                   simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Finset.mul_sum]
-                  rw [Finset.sum_add_distrib]
-                  congr 1 <;>
-                    (apply Finset.sum_congr rfl; intro e _;
-                     calc star (star (A₀ x e)) * star ((Real.sqrt 2 : ℂ)⁻¹) * (((Real.sqrt 2 : ℂ)⁻¹) * star (A₀ y e))
-                         = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) * (A₀ x e * star (A₀ y e)) := by simp; ring
-                       _ = (1 / 2 : ℂ) * (A₀ x e * star (A₀ y e)) := by rw [hsq2]
-                     <|>
-                     calc -(star (star (A₁ x e))) * star ((Real.sqrt 2 : ℂ)⁻¹) * (((Real.sqrt 2 : ℂ)⁻¹) * -(star (A₁ y e)))
-                         = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) * (A₁ x e * star (A₁ y e)) := by simp; ring
-                       _ = (1 / 2 : ℂ) * (A₁ x e * star (A₁ y e)) := by rw [hsq2])
+                  rw [add_comm]
+                  congr 1
+                  · apply Finset.sum_congr rfl; intro e _
+                    calc star ((Real.sqrt 2 : ℂ)⁻¹) * star (star (A₀ x e)) * (((Real.sqrt 2 : ℂ)⁻¹) * star (A₀ y e))
+                        = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) * (A₀ x e * star (A₀ y e)) := by simp; ring
+                      _ = (1 / 2 : ℂ) * (A₀ x e * star (A₀ y e)) := by rw [hsq2]
+                  · apply Finset.sum_congr rfl; intro e _
+                    calc star ((Real.sqrt 2 : ℂ)⁻¹) * -(star (star (A₁ x e))) * (((Real.sqrt 2 : ℂ)⁻¹) * -(star (A₁ y e)))
+                        = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) * (A₁ x e * star (A₁ y e)) := by simp; ring
+                      _ = (1 / 2 : ℂ) * (A₁ x e * star (A₁ y e)) := by rw [hsq2]
                 rw [hMM, Matrix.trace_add, Matrix.trace_smul, Matrix.trace_smul,
                     (W.out false).trace_one, (W.out true).trace_one]
                 simp [smul_eq_mul]; ring } }
@@ -569,7 +569,7 @@ lemma dual_isoEquiv_of_purification {d E : Type u} [Fintype d] [DecidableEq d]
         rw [Matrix.diagonal_mul_diagonal]; congr 1; funext i; split_ifs <;> simp
       calc P * P = U * (Matrix.diagonal (fun i : d ↦ if 0 < τ.eigvals i then (1 : ℂ) else 0) *
               (star U * U) * Matrix.diagonal (fun i : d ↦ if 0 < τ.eigvals i then (1 : ℂ) else 0)) * star U := by
-                simp [P, Matrix.mul_assoc]
+                simp only [P, Matrix.mul_assoc]
         _ = P := by rw [hU_star, Matrix.mul_one, hd]
     have hpinv_herm : pinvᴴ = pinv := by
       simp only [pinv, Matrix.conjTranspose_mul, Matrix.mul_assoc]
@@ -598,7 +598,7 @@ lemma dual_isoEquiv_of_purification {d E : Type u} [Fintype d] [DecidableEq d]
           = U * (Matrix.diagonal (fun i : d ↦ if 0 < τ.eigvals i then ((Real.sqrt (τ.eigvals i) : ℂ)⁻¹) else 0) *
             (star U * U) * Matrix.diagonal (Complex.ofReal ∘ τ.eigvals) * (star U * U) *
             Matrix.diagonal (fun i : d ↦ if 0 < τ.eigvals i then ((Real.sqrt (τ.eigvals i) : ℂ)⁻¹) else 0)) * star U := by
-              rw [hspec]; simp [pinv, Matrix.mul_assoc]
+              rw [hspec]; simp only [pinv, Matrix.mul_assoc]
         _ = P := by rw [hU_star, Matrix.mul_one, Matrix.mul_one, hd]
     have hsq_spec : τ.sqrtMat = U * Matrix.diagonal (fun i : d ↦ (Real.sqrt (τ.eigvals i) : ℂ)) * star U := rfl
     have hpinv_sqrt : pinv * τ.sqrtMat = P := by
@@ -612,7 +612,7 @@ lemma dual_isoEquiv_of_purification {d E : Type u} [Fintype d] [DecidableEq d]
       calc pinv * τ.sqrtMat
           = U * (Matrix.diagonal (fun i : d ↦ if 0 < τ.eigvals i then ((Real.sqrt (τ.eigvals i) : ℂ)⁻¹) else 0) *
             (star U * U) * Matrix.diagonal (fun i : d ↦ (Real.sqrt (τ.eigvals i) : ℂ))) * star U := by
-              rw [hsq_spec]; simp [pinv, Matrix.mul_assoc]
+              rw [hsq_spec]; simp only [pinv, Matrix.mul_assoc]
         _ = P := by rw [hU_star, Matrix.mul_one, hd]
     have hQ_sqrt : Q * τ.sqrtMat = 0 := by
       have hP_sqrt : P * τ.sqrtMat = τ.sqrtMat := by
@@ -627,7 +627,7 @@ lemma dual_isoEquiv_of_purification {d E : Type u} [Fintype d] [DecidableEq d]
         calc P * τ.sqrtMat
             = U * (Matrix.diagonal (fun i : d ↦ if 0 < τ.eigvals i then (1 : ℂ) else 0) *
               (star U * U) * Matrix.diagonal (fun i : d ↦ (Real.sqrt (τ.eigvals i) : ℂ))) * star U := by
-                rw [hsq_spec]; simp [P, Matrix.mul_assoc]
+                rw [hsq_spec]; simp only [P, Matrix.mul_assoc]
           _ = τ.sqrtMat := by rw [hU_star, Matrix.mul_one, hd, ← hsq_spec]
       simp [Q, Matrix.sub_mul, Matrix.one_mul, hP_sqrt]
     have hQ_herm : Qᴴ = Q := by simp [Q, hP_herm]
@@ -644,8 +644,9 @@ lemma dual_isoEquiv_of_purification {d E : Type u} [Fintype d] [DecidableEq d]
           _ = Q * τ.mat * Qᴴ := by rw [hA, hQ_herm]
           _ = 0 := hQ_mat
       ext e x
-      have hdiag := congr_fun (congr_fun hAQ x) x
-      simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.zero_apply] at hdiag
+      have hdiag : ∑ e' : E, star ((Aᴴ * Q) e' x) * (Aᴴ * Q) e' x = 0 := by
+        have h := congr_fun (congr_fun hAQ x) x
+        simpa [Matrix.mul_apply, Matrix.conjTranspose_apply] using h
       have hre := congr_arg Complex.re hdiag
       simp only [Complex.zero_re, Complex.re_sum] at hre
       have hsum : ∑ e' : E, ‖(Aᴴ * Q) e' x‖ ^ 2 = 0 := by
@@ -798,7 +799,7 @@ lemma dual_isoEquiv_of_purification {d E : Type u} [Fintype d] [DecidableEq d]
         ι * (pauliZTensorI E : Matrix (Bool × E) (Bool × E) ℂ) := by
       ext ⟨b₁, y⟩ ⟨b₂, e⟩
       simp only [ι, pauliZTensorI, Matrix.mul_diagonal, Matrix.diagonal_mul, Matrix.of_apply]
-      cases b₁ <;> cases b₂ <;> simp
+      cases b₁ <;> cases b₂ <;> (simp; try (split_ifs <;> simp))
     have hZ_M₀ : (pauliZTensorI E : Matrix (Bool × E) (Bool × E) ℂ) * M₀ = M₁ := by
       ext ⟨b, e⟩ x
       simp only [pauliZTensorI, M₀, M₁, Matrix.diagonal_mul, Matrix.of_apply]
@@ -1112,13 +1113,13 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
         if k = 0 then (if p.2 = false ∧ p.1.2 = 2 then ((Real.sqrt 2 : ℂ)⁻¹) else 0)
         else if k = 1 then (if p.2 = false ∧ p.1.2 = 2 then (if p.1.1 = false then ((Real.sqrt 2 : ℂ)⁻¹) else -((Real.sqrt 2 : ℂ)⁻¹)) else 0)
         else
-          if p = ((false, 0), false) ∨ p = ((true, 1), true) then ((Real.sqrt 2 : ℂ)⁻¹) else 0
+          if (p.1.1 = false ∧ p.1.2 = 0 ∧ p.2 = false) ∨ (p.1.1 = true ∧ p.1.2 = 1 ∧ p.2 = true) then ((Real.sqrt 2 : ℂ)⁻¹) else 0
     have hVℳ : Vℳᴴ * Vℳ = 1 := by
       ext k₁ k₂
-      simp only [Vℳ, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
-        Fintype.sum_prod_type, Fintype.sum_bool, Fin.sum_univ_three, Matrix.one_apply]
       fin_cases k₁ <;> fin_cases k₂ <;>
-        (simp [hstar2, hmul2]; try norm_num; try (ring_nf; simp only [sq, hmul2]; norm_num))
+        (simp [Vℳ, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+          Fintype.sum_prod_type, Fintype.sum_bool, Fin.sum_univ_three, Matrix.one_apply,
+          hstar2, hmul2]; try norm_num)
     let ℳ : CPTPMap.{0} (Fin 3) (Bool × Fin 3) :=
       ⟨Bool, inferInstance, inferInstance, Vℳ, hVℳ⟩
     have hstep2 : CQChannel.ChannelEquiv
@@ -1152,7 +1153,7 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
                 = (V𝒩 * M _) * (V𝒩 * M _)ᴴ := by simp [Matrix.conjTranspose_mul, Matrix.mul_assoc]
               _ = Q _ * (Q _)ᴴ := by rw [hNQ]
         ext i j
-        change (partialTrace₂Mat (V𝒩 * _ * V𝒩ᴴ)) i j = ((becChannel (1 - ε) _ _).out b).mat i j
+        change (partialTrace₂Mat (Fin 3) (Bool × Fin 3) (V𝒩 * _ * V𝒩ᴴ)) i j = ((becChannel (1 - ε) _ _).out b).mat i j
         rw [hmat]
         dsimp only [partialTrace₂Mat, LinearMap.coe_mk, AddHom.coe_mk]
         cases b <;> fin_cases i <;> fin_cases j <;>
@@ -1166,7 +1167,7 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
             | false => ({ mat := M false * (M false)ᴴ, posSemidef := posSemidef_mul_conjTranspose (M false), trace_one := _ } : DensityOp (Bool × Fin 3))
             | true => ({ mat := M true * (M true)ᴴ, posSemidef := posSemidef_mul_conjTranspose (M true), trace_one := _ } : DensityOp (Bool × Fin 3))).mat) = D b := by
           cases b <;> exact hMD _
-        change (partialTrace₂Mat (Vℳ * ((becChannel (1 - ε) _ _).out b).mat * Vℳᴴ))
+        change (partialTrace₂Mat (Bool × Fin 3) Bool (Vℳ * ((becChannel (1 - ε) _ _).out b).mat * Vℳᴴ))
           (r₁, k₁) (r₂, k₂) = _
         rw [hmat]
         dsimp only [partialTrace₂Mat, LinearMap.coe_mk, AddHom.coe_mk, Vℳ]
