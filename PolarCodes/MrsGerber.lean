@@ -226,7 +226,7 @@ lemma condEntropy_mem_Icc (W : CQChannel d) : W.condEntropy ∈ Set.Icc (0 : ℝ
             unfold CQChannel.fidelityParam; rw [← hov]; exact norm_inner_le_one hψ₀ hψ₁
           have hh2 : h2 ((1 - W'.fidelityParam) / 2) ≤ 1 := h2_le_one ⟨by linarith, by linarith⟩
           linarith
-        simpa [CQChannel.condEntropy] using hW'
+        simpa [CQChannel.condEntropy, W'] using hW'
       exact hmid_le
   unfold CQChannel.condEntropy
   exact ⟨by linarith [hq_mem.2], by linarith [hq_mem.1]⟩
@@ -261,8 +261,10 @@ theorem theorem_1_2a_pure (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (hW₂
       unfold qjs
       have hm : (DensityOp.midpoint (W₂.out false) (W₂.out true)).mat = (DensityOp.midpoint σ₀ σ₁).mat := by
         simp only [DensityOp.midpoint, DensityOp.mix, σ₀, σ₁, pureState, hmat₀, hmat₁]
-      rw [vonNeumannEntropy_eq_of_mat_eq hm, vonNeumannEntropy_eq_of_mat_eq hmat₀,
-        vonNeumannEntropy_eq_of_mat_eq hmat₁]
+      have hmat0' : (W₂.out false).mat = σ₀.mat := hmat₀
+      have hmat1' : (W₂.out true).mat = σ₁.mat := hmat₁
+      rw [vonNeumannEntropy_eq_of_mat_eq hm, vonNeumannEntropy_eq_of_mat_eq hmat0',
+        vonNeumannEntropy_eq_of_mat_eq hmat1']
     rw [hq_eq, qjs_pureState φ₀ φ₁ hφ₀ hφ₁]
   have hinv₂ : h2Inv (1 - W₂.condEntropy) = p := by
     rw [hH₂, sub_sub_cancel, h2Inv_h2 ⟨hp0, hp1⟩]
@@ -394,7 +396,7 @@ theorem theorem_1_2a_pure (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (hW₂
                 star (pauliZTensorI d₁ : Matrix (Bool × d₁) (Bool × d₁) ℂ)) := by
             have := congr_arg star hXZ
             simpa [Matrix.star_mul] using this
-          rw [hXZ, hst, Matrix.mul_neg, Matrix.neg_mul, neg_neg]
+          rw [hXZ, hst, Matrix.mul_neg, Matrix.neg_mul, Matrix.mul_neg, neg_neg]
         simpa only [Matrix.mul_assoc] using h1
       simp only [DensityOp.conjUnitary] at hXZ_conj
       simp only [DensityOp.conjUnitary, dephaseState, DensityOp.mix, Matrix.mul_add, Matrix.add_mul,
@@ -469,10 +471,7 @@ theorem theorem_1_2a_pure (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (hW₂
     linarith
   have hC0 : dephaseCoherence 0 le_rfl (by norm_num) (gramState ρ₀ ρ₁) = W₁.condEntropy := by
     have h4 := (lemma_4_1_gram_dephasing ρ₀ ρ₁ φ₀ φ₁ hφ₀ hφ₁).2.2.2
-    have h0 : (dephaseState 0 le_rfl (by norm_num) (gramState ρ₀ ρ₁)).mat = (gramState ρ₀ ρ₁).mat :=
-      dephaseState_zero (gramState ρ₀ ρ₁)
     unfold dephaseCoherence CQChannel.condEntropy at *
-    rw [← vonNeumannEntropy_eq_of_mat_eq h0]
     exact h4
   have hsdpi := theorem_1_3_dephasing_sdpi (gramState ρ₀ ρ₁) hp0 hp1
   rw [hC0] at hsdpi
@@ -497,11 +496,6 @@ theorem theorem_1_2a_bsc (W₁ : CQChannel d₁) {q : ℝ} (hq0 : 0 ≤ q) (hq1 
     gc W₁.condEntropy (h2 q) ≤ (CQChannel.checkCombine W₁ (bscChannel q hq0 (by linarith))).condEntropy := by
   set W₂ := bscChannel q hq0 (by linarith)
   set Wp := pureChannel (1 - 2 * q) (by linarith) (by linarith)
-  -- Show `H(W₁.dual ⊠ W₂.dual) = H(W₁.dual ⊠ Wp)` because `W₂.dual` is a 50-50 direct sum of
-  -- `Wp` and `Wp` with flipped inputs (unitarily equivalent to `Wp`)!
-  -- Even simpler: compute `W₂.dual` explicitly on `Bool × Bool`:
-  -- On `d = false` block: `|v₀⟩ = (√(1-q), √q)`, `|v₀'⟩ = (√(1-q), -√q)` (overlap `1 - 2q`)
-  -- On `d = true` block: `|v₁⟩ = (√q, √(1-q))`, `|v₁'⟩ = (√q, -√(1-q))` (overlap `-(1-2q)`)
   have hWp_pure : Wp.IsPureState := by
     refine ⟨fun b ↦ if b = false then (Real.sqrt ((1 + (1 - 2 * q)) / 2) : ℂ) else (Real.sqrt ((1 - (1 - 2 * q)) / 2) : ℂ),
             fun b ↦ if b = false then (Real.sqrt ((1 + (1 - 2 * q)) / 2) : ℂ) else -(Real.sqrt ((1 - (1 - 2 * q)) / 2) : ℂ),
@@ -519,16 +513,12 @@ theorem theorem_1_2a_bsc (W₁ : CQChannel d₁) {q : ℝ} (hq0 : 0 ≤ q) (hq1 
       ring
   have hdual_eq : (CQChannel.checkCombine W₁.dual W₂.dual).condEntropy =
       (CQChannel.checkCombine W₁.dual Wp).condEntropy := by
-    -- Reorder `(Bool × d₁) × (Bool × Bool)` to `Bool × ((Bool × d₁) × Bool)` via the classical flag `c : Bool`
-    -- (the second coordinate of `W₂.dual`'s `Bool × Bool`), where `c = false` gives `W₁.dual ⊠ Wp`
-    -- and `c = true` gives `W₁.dual ⊠ Wp` conjugated by `I ⊗ X` (swapping `Bool` of `Wp`)!
     have hsqrt_bsc : ∀ (b : Bool) (i j : Bool),
         (W₂.out b).sqrtMat i j =
           if i = j then
             ((Real.sqrt (if i = b then 1 - q else q) : ℝ) : ℂ)
           else 0 := by
       intro b i j
-      -- `(W₂.out b).mat = diagonal (if i = b then 1-q else q)`, so its unique PSD square root is diagonal!
       set D : Matrix Bool Bool ℂ := Matrix.diagonal (fun k ↦ ((Real.sqrt (if k = b then 1 - q else q) : ℝ) : ℂ))
       have hDD : D * D = (W₂.out b).mat := by
         ext x y
@@ -539,9 +529,6 @@ theorem theorem_1_2a_bsc (W₁ : CQChannel d₁) {q : ℝ} (hq0 : 0 ≤ q) (hq1 
       have hD_psd : D.PosSemidef := by
         rw [Matrix.posSemidef_diagonal_iff]; intro k; exact_mod_cast Real.sqrt_nonneg _
       have huniq : (W₂.out b).sqrtMat = D := by
-        -- Both `S = (W₂.out b).sqrtMat` and `D` are PSD with `S^2 = D^2 = (W₂.out b).mat`
-        -- Since `D` is diagonal with entries `≥ 0`, check on basis vectors `e_k`:
-        -- `S^2 e_k = d_k^2 e_k`, so `S e_k = d_k e_k`!
         have hcol : ∀ k : Bool, (W₂.out b).sqrtMat.mulVec (Pi.single k 1) = D.mulVec (Pi.single k 1) := by
           intro k
           set S := (W₂.out b).sqrtMat
@@ -608,17 +595,14 @@ theorem theorem_1_2a_bsc (W₁ : CQChannel d₁) {q : ℝ} (hq0 : 0 ≤ q) (hq1 
         push_cast; ring
       have hs2 : ((Real.sqrt 2 : ℂ)⁻¹) ^ 2 = (1 / 2 : ℂ) := by rw [sq, hs]
       simp only [CQChannel.dual, Wp, pureChannel, pureState, gramState, gramFactor,
-        DensityOp.conjUnitary, pauliZTensorI, Matrix.mul_apply, Matrix.conjTranspose_apply,
-        Matrix.diagonal_apply, Matrix.star_apply, Matrix.of_apply, Fintype.sum_prod_type,
-        Fintype.sum_bool, h1q, hq']
-      simp_rw [hsqrt_bsc]
+        DensityOp.conjUnitary, pauliZTensorI, h1q, hq']
       cases b <;> cases c₁ <;> cases c₂ <;> cases a₁ <;> cases a₂ <;>
-        (simp only [↓reduceIte, Bool.true_eq_false, Bool.false_eq_true, Bool.not_false, Bool.not_true,
+        (simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.diagonal_apply,
+          Matrix.star_apply, Matrix.of_apply, Fintype.sum_prod_type, Fintype.sum_bool,
+          hsqrt_bsc, ↓reduceIte, Bool.true_eq_false, Bool.false_eq_true, Bool.not_false, Bool.not_true,
           mul_one, one_mul, mul_zero, zero_mul, add_zero, zero_add, mul_neg, neg_mul, neg_neg,
           star_mul', star_neg, star_one, star_zero, Complex.star_def, Complex.conj_ofReal];
          first | ring | (ring_nf; simp only [hs2]; ring))
-    -- Conjugate `W₁.dual ⊠ W₂.dual` by `U_swap` and reindex to `Bool × ((Bool × d₁) × Bool)` to get
-    -- `DensityOp.midpoint (ketBraBool false ⊗ (W₁.dual ⊠ Wp).out u) (ketBraBool true ⊗ (W₁.dual ⊠ Wp).out u)`!
     have hS_iso : ∀ (u : Bool),
         vonNeumannEntropy ((CQChannel.checkCombine W₁.dual W₂.dual).out u) =
           1 + vonNeumannEntropy ((CQChannel.checkCombine W₁.dual Wp).out u) := by
@@ -630,7 +614,6 @@ theorem theorem_1_2a_bsc (W₁ : CQChannel d₁) {q : ℝ} (hq0 : 0 ≤ q) (hq1 
           (DensityOp.tensor (CQChannel.ketBraBool true) ((CQChannel.checkCombine W₁.dual Wp).out u))) =
           1 + vonNeumannEntropy ((CQChannel.checkCombine W₁.dual Wp).out u) := by linarith
       rw [← hmid_same]
-      -- Permute `((Bool × d₁) × (Bool × Bool)) ≃ (Bool × ((Bool × d₁) × Bool))` with `c = true` flipping `a`
       let e : ((Bool × d₁) × (Bool × Bool)) ≃ (Bool × ((Bool × d₁) × Bool)) :=
         { toFun := fun ⟨p₁, a, c⟩ ↦ (c, (p₁, if c = false then a else !a))
           invFun := fun ⟨c, p₁, a⟩ ↦ (p₁, if c = false then a else !a, c)
@@ -686,7 +669,6 @@ theorem theorem_1_2a_bsc (W₁ : CQChannel d₁) {q : ℝ} (hq0 : 0 ≤ q) (hq1 
         1 + vonNeumannEntropy (DensityOp.midpoint
           ((CQChannel.checkCombine W₁.dual Wp).out false)
           ((CQChannel.checkCombine W₁.dual Wp).out true)) := by
-      -- Same permutation `e` maps the midpoint to `½ |0⟩⟨0| ⊗ mid_Wp + ½ |1⟩⟨1| ⊗ mid_Wp`!
       have hblk := vonNeumannEntropy_block_midpoint
         (DensityOp.midpoint ((CQChannel.checkCombine W₁.dual Wp).out false) ((CQChannel.checkCombine W₁.dual Wp).out true))
         (DensityOp.midpoint ((CQChannel.checkCombine W₁.dual Wp).out false) ((CQChannel.checkCombine W₁.dual Wp).out true))
@@ -717,7 +699,6 @@ theorem theorem_1_2a_bsc (W₁ : CQChannel d₁) {q : ℝ} (hq0 : 0 ≤ q) (hq1 
           (DensityOp.midpoint ((CQChannel.checkCombine W₁.dual Wp).out false) ((CQChannel.checkCombine W₁.dual Wp).out true)))
         (DensityOp.tensor (CQChannel.ketBraBool true)
           (DensityOp.midpoint ((CQChannel.checkCombine W₁.dual Wp).out false) ((CQChannel.checkCombine W₁.dual Wp).out true)))
-      -- Since `P * B_u * Pᴴ = out u` for `u ∈ {false, true}`, taking midpoint preserves `P * · * Pᴴ`!
       have hmat : (DensityOp.midpoint ((CQChannel.checkCombine W₁.dual W₂.dual).out false)
           ((CQChannel.checkCombine W₁.dual W₂.dual).out true)).mat = P * B_tgt.mat * Pᴴ := by
         ext ⟨p₁, a₁, c₁⟩ ⟨q₁, a₂, c₂⟩
@@ -728,7 +709,7 @@ theorem theorem_1_2a_bsc (W₁ : CQChannel d₁) {q : ℝ} (hq0 : 0 ≤ q) (hq1 
             simp only [B_tgt, CQChannel.checkCombine, CQChannel.ketBraBool, DensityOp.midpoint,
               DensityOp.mix, DensityOp.tensor, Matrix.add_apply, Matrix.smul_apply,
               Matrix.kroneckerMap_apply, Matrix.of_apply, Complex.real_smul]
-            rw [hW2dual, hW2dual, hW2dual, hW2dual]
+            rw [hW2dual, hW2dual]
             cases c₁ <;> cases c₂ <;> simp <;> push_cast <;> ring
           · intro r _ hr; simp [Ne.symm hr]
           · intro h; exact absurd (Finset.mem_univ _) h
@@ -825,8 +806,10 @@ lemma simultaneous_diagonalization {A B : Matrix d d ℂ}
     by_cases hij : α i = α j
     · have hsum : (∑ k : d, star (V k i) * V k j) =
           ∑ k : {k : d // α k = α i},
-            star (((hBblk_herm (α i)).eigenvectorUnitary : Matrix _ _ ℂ) k ⟨i, rfl⟩) *
-              (((hBblk_herm (α i)).eigenvectorUnitary : Matrix _ _ ℂ) k ⟨j, hij.symm⟩) := by
+            star (((hBblk_herm (α i)).eigenvectorUnitary :
+              Matrix {k : d // α k = α i} {k : d // α k = α i} ℂ) k ⟨i, rfl⟩) *
+              (((hBblk_herm (α i)).eigenvectorUnitary :
+                Matrix {k : d // α k = α i} {k : d // α k = α i} ℂ) k ⟨j, hij.symm⟩) := by
         rw [← Finset.sum_filter_add_sum_filter_not Finset.univ (fun k : d ↦ α k = α i)]
         have hzero : ∑ k ∈ Finset.univ.filter (fun k : d ↦ ¬ α k = α i), star (V k i) * V k j = 0 := by
           apply Finset.sum_eq_zero; intro k hk
@@ -856,8 +839,8 @@ lemma simultaneous_diagonalization {A B : Matrix d d ℂ}
       apply Finset.sum_eq_zero; intro k _
       by_cases hk : α k = α i
       · have hk' : α k ≠ α j := by rw [hk]; exact hij
-        simp [V, hk, hk']
-      · simp [V, hk]
+        simp only [V, Matrix.of_apply, dif_neg hk', mul_zero]
+      · simp only [V, Matrix.of_apply, dif_neg hk, star_zero, zero_mul]
   let V_u : Matrix.unitaryGroup d ℂ := ⟨V, hV_unit⟩
   let U : Matrix.unitaryGroup d ℂ := U₀ * V_u
   let β : d → ℝ := fun i ↦ (hBblk_herm (α i)).eigenvalues ⟨i, rfl⟩
@@ -867,11 +850,12 @@ lemma simultaneous_diagonalization {A B : Matrix d d ℂ}
       ext i j
       simp only [Matrix.diagonal_mul, Matrix.mul_diagonal, Function.comp_apply, V, Matrix.of_apply]
       split_ifs with h
-      · rw [h]
+      · rw [mul_comm]; congr 1; exact congr_arg Complex.ofReal h
       · simp
     calc star (U : Matrix d d ℂ) * A * (U : Matrix d d ℂ)
         = star V * (star (U₀ : Matrix d d ℂ) * A * (U₀ : Matrix d d ℂ)) * V := by
-            simp only [U, V_u, Unitary.coe_mul, star_mul, Matrix.mul_assoc]
+            have hU_coe : (U : Matrix d d ℂ) = (U₀ : Matrix d d ℂ) * V := rfl
+            rw [hU_coe, star_mul]; simp only [Matrix.mul_assoc]
       _ = star V * (Matrix.diagonal (Complex.ofReal ∘ α) * V) := by rw [hA_diag, Matrix.mul_assoc]
       _ = (star V * V) * Matrix.diagonal (Complex.ofReal ∘ α) := by rw [hcomm_V, Matrix.mul_assoc]
       _ = Matrix.diagonal (Complex.ofReal ∘ α) := by
@@ -886,9 +870,11 @@ lemma simultaneous_diagonalization {A B : Matrix d d ℂ}
         have hsum : (∑ l : d, (∑ k : d, star (V k i) * B' k l) * V l j) =
             ∑ l : {x : d // α x = α i},
               (∑ k : {x : d // α x = α i},
-                star (((hBblk_herm (α i)).eigenvectorUnitary : Matrix _ _ ℂ) k ⟨i, rfl⟩) *
+                star (((hBblk_herm (α i)).eigenvectorUnitary :
+                  Matrix {x : d // α x = α i} {x : d // α x = α i} ℂ) k ⟨i, rfl⟩) *
                   Bblk (α i) k l) *
-                (((hBblk_herm (α i)).eigenvectorUnitary : Matrix _ _ ℂ) l ⟨j, hij.symm⟩) := by
+                (((hBblk_herm (α i)).eigenvectorUnitary :
+                  Matrix {x : d // α x = α i} {x : d // α x = α i} ℂ) l ⟨j, hij.symm⟩) := by
           rw [← Finset.sum_filter_add_sum_filter_not Finset.univ (fun l : d ↦ α l = α i)]
           have hzero_l : ∑ l ∈ Finset.univ.filter (fun l : d ↦ ¬ α l = α i),
               (∑ k : d, star (V k i) * B' k l) * V l j = 0 := by
@@ -959,7 +945,9 @@ lemma simultaneous_diagonalization {A B : Matrix d d ℂ}
           rw [hsum_k, zero_mul]
         · simp [V, hlj]
     calc star (U : Matrix d d ℂ) * B * (U : Matrix d d ℂ)
-        = star V * B' * V := by simp only [U, V_u, B', Unitary.coe_mul, star_mul, Matrix.mul_assoc]
+        = star V * B' * V := by
+            have hU_coe : (U : Matrix d d ℂ) = (U₀ : Matrix d d ℂ) * V := rfl
+            rw [hU_coe, star_mul]; simp only [B', Matrix.mul_assoc]
       _ = Matrix.diagonal (Complex.ofReal ∘ β) := hVB'V
 
 /-- Block-diagonal von Neumann entropy: if `ρ : DensityOp (d₁ × d₂)` is block-diagonal in the
@@ -971,7 +959,6 @@ private lemma vonNeumannEntropy_block_diag {w : d₂ → ℝ} (hw_nn : ∀ y, 0 
       if y₁ = y₂ then ((w y₁ : ℝ) : ℂ) * (τ y₁).mat i₁ j₁ else 0) :
     vonNeumannEntropy ρ =
       (∑ y : d₂, Real.negMulLog (w y)) / Real.log 2 + ∑ y : d₂, w y * vonNeumannEntropy (τ y) := by
-  -- Block-diagonal unitary `U = ⨁_y U_y` diagonalizes `ρ` with eigenvalues `w y * λ_{y, i}`
   let U : Matrix (d₁ × d₂) (d₁ × d₂) ℂ := Matrix.of fun p q ↦
     if p.2 = q.2 then ((τ p.2).eigUnitary : Matrix d₁ d₁ ℂ) p.1 q.1 else 0
   let lam : d₁ × d₂ → ℝ := fun p ↦ w p.2 * (τ p.2).eigvals p.1
@@ -1006,9 +993,8 @@ private lemma vonNeumannEntropy_block_diag {w : d₂ → ℝ} (hw_nn : ∀ y, 0 
       rw [Finset.sum_eq_single y₁]
       · simp only [↓reduceIte]
         have hspec := congr_fun (congr_fun (τ y₁).isHermitian.spectral_theorem i₁) j₁
-        simp only [Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply, Matrix.mul_apply,
-          Matrix.diagonal_apply, Matrix.conjTranspose_apply, Function.comp_apply,
-          ← Matrix.star_apply] at hspec
+        simp only [Unitary.conjStarAlgAut_apply, Matrix.mul_apply, Matrix.diagonal_apply,
+          Matrix.star_apply, Function.comp_apply] at hspec
         rw [hspec]
         simp only [DensityOp.eigUnitary, DensityOp.eigvals, Finset.mul_sum]
         apply Finset.sum_congr rfl; intro k _
@@ -1031,7 +1017,7 @@ private lemma vonNeumannEntropy_block_diag {w : d₂ → ℝ} (hw_nn : ∀ y, 0 
       · subst h2
         have hsum0 : ∑ z : d₂, ∑ l : d₁,
             (if y₁ = z then ((τ y₁).eigUnitary : Matrix d₁ d₁ ℂ) i₁ l else 0) *
-              (if (l, z) = (k, y₂) then ((w y₂ * (τ y₂).eigvals k : ℝ) : ℂ) else 0) = 0 := by
+              (if (l, z) = (k, y₂) then ((w z * (τ z).eigvals l : ℝ) : ℂ) else 0) = 0 := by
           apply Finset.sum_eq_zero; intro z _
           apply Finset.sum_eq_zero; intro l _
           by_cases hz : y₁ = z
@@ -1057,8 +1043,7 @@ private lemma vonNeumannEntropy_block_diag {w : d₂ → ℝ} (hw_nn : ∀ y, 0 
   simp_rw [lam, hinner, Finset.sum_add_distrib, add_div, Finset.sum_div]
   congr 1
   apply Finset.sum_congr rfl; intro y _
-  simp only [DensityOp.eigvals, ← Finset.mul_sum]
-  ring
+  rw [← Finset.mul_sum]; unfold DensityOp.eigvals; ring
 
 /-- **Theorem 1.2(a) (Classical Hybrid Q-MGL)**:
 For any binary-input c-q channel `W₁` and any classical channel `W₂` (commuting outputs),
@@ -1075,13 +1060,13 @@ theorem theorem_1_2a_classical (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (
     have hpsd : (Matrix.diagonal (Complex.ofReal ∘ p₀)).PosSemidef := by
       rw [← hdiag₀]
       simpa [Matrix.star_eq_conjTranspose] using (W₂.out false).posSemidef.conjTranspose_mul_mul_same (U : Matrix d₂ d₂ ℂ)
-    exact Complex.ofReal_nonneg.mp ((Matrix.posSemidef_diagonal_iff.mp hpsd) y)
+    simpa [Function.comp_apply] using (Complex.le_def.mp ((Matrix.posSemidef_diagonal_iff.mp hpsd) y)).1
   have hp₁_nn : ∀ y : d₂, 0 ≤ p₁ y := by
     intro y
     have hpsd : (Matrix.diagonal (Complex.ofReal ∘ p₁)).PosSemidef := by
       rw [← hdiag₁]
       simpa [Matrix.star_eq_conjTranspose] using (W₂.out true).posSemidef.conjTranspose_mul_mul_same (U : Matrix d₂ d₂ ℂ)
-    exact Complex.ofReal_nonneg.mp ((Matrix.posSemidef_diagonal_iff.mp hpsd) y)
+    simpa [Function.comp_apply] using (Complex.le_def.mp ((Matrix.posSemidef_diagonal_iff.mp hpsd) y)).1
   have hp₀_sum : ∑ y : d₂, p₀ y = 1 := by
     have htr : (Matrix.diagonal (Complex.ofReal ∘ p₀)).trace = 1 := by
       rw [← hdiag₀, Matrix.trace_mul_cycle, hU_mul, Matrix.one_mul, (W₂.out false).trace_one]
@@ -1116,7 +1101,7 @@ theorem theorem_1_2a_classical (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (
           have hu := congr_fun (congr_fun hU_mul y₁) y₂
           simpa [Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply] using hu
         · simp [hi]
-      · intro k _ hk; simp [Ne.symm hk]
+      · intro k _ hk; simp [hk]
       · intro h; exact absurd (Finset.mem_univ _) h⟩
   have hIU_kron : ∀ (A : Matrix d₁ d₁ ℂ) (B : Matrix d₂ d₂ ℂ),
       (IU : Matrix (d₁ × d₂) (d₁ × d₂) ℂ) * Matrix.kroneckerMap (· * ·) A B *
@@ -1138,18 +1123,21 @@ theorem theorem_1_2a_classical (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (
           apply Finset.sum_congr rfl; intro w _; ring
         · intro k _ hk; simp [Ne.symm hk]
         · intro h; exact absurd (Finset.mem_univ _) h
-      simp_rw [hinner, Finset.mul_sum]
-      apply Finset.sum_congr rfl; intro z _; ring
+      simp_rw [hinner]
+      rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl; intro z _
+      simp_rw [mul_assoc]; ring
     · intro k _ hk; simp [Ne.symm hk]
     · intro h; exact absurd (Finset.mem_univ _) h
   have hchk_eq : (CQChannel.checkCombine W₁ W₂d).condEntropy = (CQChannel.checkCombine W₁ W₂).condEntropy := by
+    have hUs : ((star U : Matrix.unitaryGroup d₂ ℂ) : Matrix d₂ d₂ ℂ) = star (U : Matrix d₂ d₂ ℂ) := rfl
     apply condEntropy_eq_of_conjUnitary IU
     · simp only [CQChannel.checkCombine, W₂d, DensityOp.conjUnitary, DensityOp.midpoint, DensityOp.mix,
         DensityOp.tensor, Bool.not_false, Matrix.mul_add, Matrix.add_mul, Matrix.mul_smul,
-        Matrix.smul_mul, star_star, hIU_kron]
+        Matrix.smul_mul, hUs, star_star, hIU_kron]
     · simp only [CQChannel.checkCombine, W₂d, DensityOp.conjUnitary, DensityOp.midpoint, DensityOp.mix,
         DensityOp.tensor, Bool.not_true, Matrix.mul_add, Matrix.add_mul, Matrix.mul_smul,
-        Matrix.smul_mul, star_star, hIU_kron]
+        Matrix.smul_mul, hUs, star_star, hIU_kron]
   -- Posterior weights `w y = (p₀ y + p₁ y) / 2` and crossover probabilities `q y ∈ [0, 1/2]`
   let w : d₂ → ℝ := fun y ↦ (p₀ y + p₁ y) / 2
   have hw_nn : ∀ y : d₂, 0 ≤ w y := fun y ↦ by dsimp [w]; linarith [hp₀_nn y, hp₁_nn y]
@@ -1217,7 +1205,13 @@ theorem theorem_1_2a_classical (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (
           linarith
         have h2w : Real.negMulLog (2 * w y) = -2 * w y * Real.log 2 + 2 * Real.negMulLog (w y) := by
           rw [Real.negMulLog_mul]; unfold Real.negMulLog; ring
-        rw [hp0_eq, hp1_eq, Real.negMulLog_mul, Real.negMulLog_mul, h2w]
+        have hp0_nml : Real.negMulLog (p₀ y) =
+            (1 - q_raw y) * Real.negMulLog (2 * w y) + (2 * w y) * Real.negMulLog (1 - q_raw y) := by
+          rw [hp0_eq, Real.negMulLog_mul]; ring
+        have hp1_nml : Real.negMulLog (p₁ y) =
+            q_raw y * Real.negMulLog (2 * w y) + (2 * w y) * Real.negMulLog (q_raw y) := by
+          rw [hp1_eq, Real.negMulLog_mul]; ring
+        rw [hp0_nml, hp1_nml, h2w]
         field_simp [hlog2]
         ring
     calc 1 - ((∑ y : d₂, Real.negMulLog (w y)) / Real.log 2 -
@@ -1296,7 +1290,6 @@ theorem theorem_1_2a_classical (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (
         1 - (vonNeumannEntropy (τm y) - (vonNeumannEntropy (τ₀ y) + vonNeumannEntropy (τ₁ y)) / 2) =
           (CQChannel.checkCombine W₁ (bscChannel (q y) (hq0 y) (by linarith [hq1 y]))).condEntropy := by
       intro y
-      -- `(W₁ ⊠ BSC(q y))` is block-diagonal over `Bool` with weights `1/2, 1/2` and blocks `(τ₀', τ₁')`
       let qy := q y
       let σ₀' := DensityOp.mix qy (hq0 y) (by linarith [hq1 y]) (W₁.out false) (W₁.out true)
       let σ₁' := DensityOp.mix qy (hq0 y) (by linarith [hq1 y]) (W₁.out true) (W₁.out false)
@@ -1361,7 +1354,7 @@ theorem theorem_1_2a_classical (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (
             have h1 : (1 : ℝ) = ∑ y : d₂, w y := hw_sum.symm
             conv_lhs => rw [h1]
             simp only [mul_sub, mul_one, mul_div_assoc, mul_add, Finset.sum_sub_distrib,
-              Finset.sum_add_distrib, ← Finset.sum_div]
+              Finset.sum_add_distrib, ← Finset.sum_div, ← Finset.sum_mul]
             ring
       _ = ∑ y : d₂, w y * (CQChannel.checkCombine W₁ (bscChannel (q y) (hq0 y) (by linarith [hq1 y]))).condEntropy := by
             apply Finset.sum_congr rfl; intro y _; rw [hblk_bsc y]
@@ -1373,15 +1366,386 @@ theorem theorem_1_2a_classical (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (
     have hjensen : gc W₁.condEntropy (∑ y : d₂, w y * h2 (q y)) ≤
         ∑ y : d₂, w y * gc W₁.condEntropy (h2 (q y)) := by
       have h := hconv.map_sum_le (t := Finset.univ) (w := w) (p := fun y ↦ h2 (q y))
-        (fun y _ ↦ hw_nn y) hw_sum (fun y _ ↦ h2_mem_Icc (hq0 y) (by linarith [hq1 y]))
+        (fun y _ ↦ hw_nn y) hw_sum (fun y _ ↦ ⟨h2_nonneg ⟨hq0 y, by linarith [hq1 y]⟩,
+          h2_le_one ⟨hq0 y, by linarith [hq1 y]⟩⟩)
       simpa [smul_eq_mul] using h
     refine le_trans hjensen ?_
     apply Finset.sum_le_sum; intro y _
     exact mul_le_mul_of_nonneg_left (theorem_1_2a_bsc W₁ (hq0 y) (hq1 y)) (hw_nn y)
-  have hH₂_mem := condEntropy_mem_Icc W₂
-  exact ⟨hgc_le, le_trans (gq_le_gc hH₁_mem.1 hH₁_mem.2 hH₂_mem.1 hH₂_mem.2) hgc_le⟩
+  exact ⟨hgc_le, le_trans (by unfold gq; exact min_le_left _ _) hgc_le⟩
 
 /-! ### Part 3: Proposition 4.2 — Four-Branch Purification Bound -/
+
+/-- **Fidelity–Entropy Upper Bound** (Hirche–Reeb Theorem V.3 / Renes–Wilde):
+For every binary-input c-q channel `W`, `H(W) ≤ log₂(1 + F(W))`. -/
+lemma condEntropy_le_logb_one_add_fidelityParam (W : CQChannel d) :
+    W.condEntropy ≤ Real.logb 2 (1 + W.fidelityParam) := by
+  set ρ₀ := W.out false
+  set ρ₁ := W.out true
+  set σ := DensityOp.midpoint ρ₀ ρ₁
+  let V₀ : Matrix d d ℂ := star (σ.eigUnitary : Matrix d d ℂ) * (ρ₀.eigUnitary : Matrix d d ℂ)
+  let V₁ : Matrix d d ℂ := star (σ.eigUnitary : Matrix d d ℂ) * (ρ₁.eigUnitary : Matrix d d ℂ)
+  let T₀ : d → d → ℝ := fun i j ↦ ‖V₀ j i‖ ^ 2
+  let T₁ : d → d → ℝ := fun i j ↦ ‖V₁ j i‖ ^ 2
+  have hT_unit : ∀ (ρ : DensityOp d) (V : Matrix d d ℂ),
+      V = star (σ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ) →
+      (∀ i, ∑ j : d, ‖V j i‖ ^ 2 = 1) ∧
+      (∀ j, ∑ i : d, ‖V j i‖ ^ 2 = 1) ∧
+      (∀ j, ∑ i : d, ρ.eigvals i * ‖V j i‖ ^ 2 =
+        ((star (σ.eigUnitary : Matrix d d ℂ) * ρ.mat * (σ.eigUnitary : Matrix d d ℂ)) j j).re) ∧
+      (∑ i : d, ∑ j : d, Real.sqrt (ρ.eigvals i) * Real.sqrt (σ.eigvals j) * ‖V j i‖ ^ 2 =
+        (ρ.sqrtMat * σ.sqrtMat).trace.re) := by
+    intro ρ V hV
+    have hUs_mul : (σ.eigUnitary : Matrix d d ℂ) * star (σ.eigUnitary : Matrix d d ℂ) = 1 :=
+      Unitary.coe_mul_star_self σ.eigUnitary
+    have hUs_star : star (σ.eigUnitary : Matrix d d ℂ) * (σ.eigUnitary : Matrix d d ℂ) = 1 :=
+      Unitary.coe_star_mul_self σ.eigUnitary
+    have hUr_mul : (ρ.eigUnitary : Matrix d d ℂ) * star (ρ.eigUnitary : Matrix d d ℂ) = 1 :=
+      Unitary.coe_mul_star_self ρ.eigUnitary
+    have hUr_star : star (ρ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ) = 1 :=
+      Unitary.coe_star_mul_self ρ.eigUnitary
+    have hV_star : star V * V = 1 := by
+      rw [hV, star_mul, star_star]
+      calc star (ρ.eigUnitary : Matrix d d ℂ) * (σ.eigUnitary : Matrix d d ℂ) *
+            (star (σ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ))
+          = star (ρ.eigUnitary : Matrix d d ℂ) *
+            (((σ.eigUnitary : Matrix d d ℂ) * star (σ.eigUnitary : Matrix d d ℂ)) *
+              (ρ.eigUnitary : Matrix d d ℂ)) := by simp only [Matrix.mul_assoc]
+        _ = 1 := by rw [hUs_mul, Matrix.one_mul, hUr_star]
+    have hV_mul : V * star V = 1 := by
+      rw [hV, star_mul, star_star]
+      calc star (σ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ) *
+            (star (ρ.eigUnitary : Matrix d d ℂ) * (σ.eigUnitary : Matrix d d ℂ))
+          = star (σ.eigUnitary : Matrix d d ℂ) *
+            (((ρ.eigUnitary : Matrix d d ℂ) * star (ρ.eigUnitary : Matrix d d ℂ)) *
+              (σ.eigUnitary : Matrix d d ℂ)) := by simp only [Matrix.mul_assoc]
+        _ = 1 := by rw [hUr_mul, Matrix.one_mul, hUs_star]
+    refine ⟨?_, ?_, ?_, ?_⟩
+    · intro i
+      have h1 := congr_arg Complex.re (congr_fun (congr_fun hV_star i) i)
+      simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply, ↓reduceIte,
+        Complex.one_re, Complex.re_sum] at h1
+      rw [← h1]; apply Finset.sum_congr rfl; intro j _
+      rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
+    · intro j
+      have h1 := congr_arg Complex.re (congr_fun (congr_fun hV_mul j) j)
+      simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply, ↓reduceIte,
+        Complex.one_re, Complex.re_sum] at h1
+      rw [← h1]; apply Finset.sum_congr rfl; intro i _
+      rw [Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
+    · intro j
+      have hspec : ρ.mat = (ρ.eigUnitary : Matrix d d ℂ) * Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) *
+          star (ρ.eigUnitary : Matrix d d ℂ) := by
+        simpa [DensityOp.eigUnitary, DensityOp.eigvals, Matrix.star_eq_conjTranspose,
+          Unitary.conjStarAlgAut_apply] using ρ.isHermitian.spectral_theorem
+      have heq : star (σ.eigUnitary : Matrix d d ℂ) * ρ.mat * (σ.eigUnitary : Matrix d d ℂ) =
+          V * Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) * star V := by
+        rw [hspec, hV, star_mul, star_star]; simp only [Matrix.mul_assoc]
+      rw [heq]
+      simp only [Matrix.mul_apply, Matrix.diagonal_apply, Matrix.star_apply, Function.comp_apply,
+        mul_ite, mul_zero, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte, Complex.re_sum]
+      apply Finset.sum_congr rfl; intro i _
+      have hmul : V j i * (ρ.eigvals i : ℂ) * star (V j i) = ((ρ.eigvals i * ‖V j i‖ ^ 2 : ℝ) : ℂ) := by
+        rw [mul_comm (V j i), mul_assoc, Complex.star_def, Complex.mul_conj,
+          Complex.normSq_eq_norm_sq, Complex.ofReal_mul]
+      rw [hmul, Complex.ofReal_re]
+    · have htr : (ρ.sqrtMat * σ.sqrtMat).trace =
+          (Matrix.diagonal (fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ)) * star V *
+            Matrix.diagonal (fun j ↦ (Real.sqrt (σ.eigvals j) : ℂ)) * V).trace := by
+        unfold DensityOp.sqrtMat
+        rw [Matrix.trace_mul_cycle, Matrix.trace_mul_cycle]
+        congr 1
+        rw [hV, star_mul, star_star]; simp only [Matrix.mul_assoc]
+      rw [htr]
+      simp only [Matrix.trace, Matrix.diag, Matrix.mul_apply, Matrix.diagonal_apply,
+        Matrix.star_apply, ite_mul, zero_mul, mul_ite, mul_zero, Finset.sum_ite_eq,
+        Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte, Complex.re_sum]
+      apply Finset.sum_congr rfl; intro i _
+      apply Finset.sum_congr rfl; intro j _
+      have hmul : (Real.sqrt (ρ.eigvals i) : ℂ) * star (V j i) * (Real.sqrt (σ.eigvals j) : ℂ) * V j i =
+          ((Real.sqrt (ρ.eigvals i) * Real.sqrt (σ.eigvals j) * ‖V j i‖ ^ 2 : ℝ) : ℂ) := by
+        have hsq : star (V j i) * V j i = ((‖V j i‖ ^ 2 : ℝ) : ℂ) := by
+          rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
+        calc (Real.sqrt (ρ.eigvals i) : ℂ) * star (V j i) * (Real.sqrt (σ.eigvals j) : ℂ) * V j i
+            = (Real.sqrt (ρ.eigvals i) : ℂ) * (Real.sqrt (σ.eigvals j) : ℂ) * (star (V j i) * V j i) := by ring
+          _ = ((Real.sqrt (ρ.eigvals i) * Real.sqrt (σ.eigvals j) * ‖V j i‖ ^ 2 : ℝ) : ℂ) := by
+              rw [hsq]; push_cast; ring
+      rw [hmul, Complex.ofReal_re]
+  obtain ⟨hT0_j, hT0_i, hT0_diag, hT0_tr⟩ := hT_unit ρ₀ V₀ rfl
+  obtain ⟨hT1_j, hT1_i, hT1_diag, hT1_tr⟩ := hT_unit ρ₁ V₁ rfl
+  have hmid_diag : ∀ j : d, (∑ i : d, ρ₀.eigvals i * T₀ i j) / 2 + (∑ i : d, ρ₁.eigvals i * T₁ i j) / 2 =
+      σ.eigvals j := by
+    intro j
+    rw [hT0_diag j, hT1_diag j]
+    have hUs_star : star (σ.eigUnitary : Matrix d d ℂ) * (σ.eigUnitary : Matrix d d ℂ) = 1 :=
+      Unitary.coe_star_mul_self σ.eigUnitary
+    have hσ_diag : star (σ.eigUnitary : Matrix d d ℂ) * σ.mat * (σ.eigUnitary : Matrix d d ℂ) =
+        Matrix.diagonal (Complex.ofReal ∘ σ.eigvals) := by
+      have hspec : σ.mat = (σ.eigUnitary : Matrix d d ℂ) * Matrix.diagonal (Complex.ofReal ∘ σ.eigvals) *
+          star (σ.eigUnitary : Matrix d d ℂ) := by
+        simpa [DensityOp.eigUnitary, DensityOp.eigvals, Matrix.star_eq_conjTranspose,
+          Unitary.conjStarAlgAut_apply] using σ.isHermitian.spectral_theorem
+      conv_lhs => rw [hspec]
+      simp only [Matrix.mul_assoc]
+      rw [← Matrix.mul_assoc (star (σ.eigUnitary : Matrix d d ℂ)) (σ.eigUnitary : Matrix d d ℂ),
+        hUs_star, Matrix.one_mul, Matrix.mul_one]
+    have hj := congr_arg Complex.re (congr_fun (congr_fun hσ_diag j) j)
+    have hlin : star (σ.eigUnitary : Matrix d d ℂ) * σ.mat * (σ.eigUnitary : Matrix d d ℂ) =
+        (1 / 2 : ℝ) • (star (σ.eigUnitary : Matrix d d ℂ) * ρ₀.mat * (σ.eigUnitary : Matrix d d ℂ)) +
+        (1 / 2 : ℝ) • (star (σ.eigUnitary : Matrix d d ℂ) * ρ₁.mat * (σ.eigUnitary : Matrix d d ℂ)) := by
+      simp only [σ, DensityOp.midpoint, DensityOp.mix, Matrix.mul_add, Matrix.add_mul,
+        Matrix.mul_smul, Matrix.smul_mul]
+      norm_num
+    rw [hlin] at hj
+    simp only [Matrix.add_apply, Matrix.smul_apply, Matrix.diagonal_apply, Function.comp_apply,
+      ↓reduceIte, Complex.add_re, Complex.real_smul, Complex.mul_re, Complex.ofReal_re,
+      Complex.ofReal_im, zero_mul, sub_zero] at hj
+    linarith
+  set c : ℝ := ((ρ₀.sqrtMat * σ.sqrtMat).trace.re + (ρ₁.sqrtMat * σ.sqrtMat).trace.re) / 2
+  have hc_eq : c = (∑ i : d, ∑ j : d, Real.sqrt (ρ₀.eigvals i) * Real.sqrt (σ.eigvals j) * T₀ i j) / 2 +
+      (∑ i : d, ∑ j : d, Real.sqrt (ρ₁.eigvals i) * Real.sqrt (σ.eigvals j) * T₁ i j) / 2 := by
+    simp only [c, hT0_tr, hT1_tr, T₀, T₁]; ring
+  have hc_pos : 0 < c := by
+    rw [hc_eq]
+    have hsum_σ : ∑ j : d, σ.eigvals j = 1 := σ.sum_eigvals
+    have hex_j : ∃ j₀ : d, 0 < σ.eigvals j₀ := by
+      by_contra hall; push_neg at hall
+      have : ∑ j : d, σ.eigvals j ≤ 0 := Finset.sum_nonpos fun j _ ↦ hall j
+      linarith
+    rcases hex_j with ⟨j₀, hj₀⟩
+    have hmid0 := hmid_diag j₀
+    have hnn0 : ∀ i j, 0 ≤ Real.sqrt (ρ₀.eigvals i) * Real.sqrt (σ.eigvals j) * T₀ i j :=
+      fun i j ↦ mul_nonneg (mul_nonneg (Real.sqrt_nonneg _) (Real.sqrt_nonneg _)) (sq_nonneg _)
+    have hnn1 : ∀ i j, 0 ≤ Real.sqrt (ρ₁.eigvals i) * Real.sqrt (σ.eigvals j) * T₁ i j :=
+      fun i j ↦ mul_nonneg (mul_nonneg (Real.sqrt_nonneg _) (Real.sqrt_nonneg _)) (sq_nonneg _)
+    have hsum_nn0 : 0 ≤ ∑ i : d, ∑ j : d, Real.sqrt (ρ₀.eigvals i) * Real.sqrt (σ.eigvals j) * T₀ i j :=
+      Finset.sum_nonneg fun i _ ↦ Finset.sum_nonneg fun j _ ↦ hnn0 i j
+    have hsum_nn1 : 0 ≤ ∑ i : d, ∑ j : d, Real.sqrt (ρ₁.eigvals i) * Real.sqrt (σ.eigvals j) * T₁ i j :=
+      Finset.sum_nonneg fun i _ ↦ Finset.sum_nonneg fun j _ ↦ hnn1 i j
+    by_cases h0pos : 0 < ∑ i : d, ρ₀.eigvals i * T₀ i j₀
+    · have hex_i : ∃ i₀ : d, 0 < ρ₀.eigvals i₀ * T₀ i₀ j₀ := by
+        by_contra hall; push_neg at hall
+        have : ∑ i : d, ρ₀.eigvals i * T₀ i j₀ ≤ 0 := Finset.sum_nonpos fun i _ ↦ hall i
+        linarith
+      rcases hex_i with ⟨i₀, hi₀⟩
+      have hp0 : 0 < ρ₀.eigvals i₀ := by
+        rcases eq_or_lt_of_le (ρ₀.eigvals_nonneg i₀) with h | h
+        · rw [← h, zero_mul] at hi₀; linarith
+        · exact h
+      have hT_pos : 0 < T₀ i₀ j₀ := by
+        rcases eq_or_lt_of_le (sq_nonneg (‖V₀ j₀ i₀‖)) with h | h
+        · change 0 = T₀ i₀ j₀ at h; rw [← h, mul_zero] at hi₀; linarith
+        · exact h
+      have hterm_pos : 0 < Real.sqrt (ρ₀.eigvals i₀) * Real.sqrt (σ.eigvals j₀) * T₀ i₀ j₀ :=
+        mul_pos (mul_pos (Real.sqrt_pos.mpr hp0) (Real.sqrt_pos.mpr hj₀)) hT_pos
+      have hle : Real.sqrt (ρ₀.eigvals i₀) * Real.sqrt (σ.eigvals j₀) * T₀ i₀ j₀ ≤
+          ∑ i : d, ∑ j : d, Real.sqrt (ρ₀.eigvals i) * Real.sqrt (σ.eigvals j) * T₀ i j :=
+        le_trans (Finset.single_le_sum (fun j _ ↦ hnn0 i₀ j) (Finset.mem_univ j₀))
+          (Finset.single_le_sum (fun i _ ↦ Finset.sum_nonneg fun j _ ↦ hnn0 i j) (Finset.mem_univ i₀))
+      linarith
+    · push_neg at h0pos
+      have h1pos : 0 < ∑ i : d, ρ₁.eigvals i * T₁ i j₀ := by linarith
+      have hex_i : ∃ i₀ : d, 0 < ρ₁.eigvals i₀ * T₁ i₀ j₀ := by
+        by_contra hall; push_neg at hall
+        have : ∑ i : d, ρ₁.eigvals i * T₁ i j₀ ≤ 0 := Finset.sum_nonpos fun i _ ↦ hall i
+        linarith
+      rcases hex_i with ⟨i₀, hi₀⟩
+      have hp1 : 0 < ρ₁.eigvals i₀ := by
+        rcases eq_or_lt_of_le (ρ₁.eigvals_nonneg i₀) with h | h
+        · rw [← h, zero_mul] at hi₀; linarith
+        · exact h
+      have hT_pos : 0 < T₁ i₀ j₀ := by
+        rcases eq_or_lt_of_le (sq_nonneg (‖V₁ j₀ i₀‖)) with h | h
+        · change 0 = T₁ i₀ j₀ at h; rw [← h, mul_zero] at hi₀; linarith
+        · exact h
+      have hterm_pos : 0 < Real.sqrt (ρ₁.eigvals i₀) * Real.sqrt (σ.eigvals j₀) * T₁ i₀ j₀ :=
+        mul_pos (mul_pos (Real.sqrt_pos.mpr hp1) (Real.sqrt_pos.mpr hj₀)) hT_pos
+      have hle : Real.sqrt (ρ₁.eigvals i₀) * Real.sqrt (σ.eigvals j₀) * T₁ i₀ j₀ ≤
+          ∑ i : d, ∑ j : d, Real.sqrt (ρ₁.eigvals i) * Real.sqrt (σ.eigvals j) * T₁ i j :=
+        le_trans (Finset.single_le_sum (fun j _ ↦ hnn1 i₀ j) (Finset.mem_univ j₀))
+          (Finset.single_le_sum (fun i _ ↦ Finset.sum_nonneg fun j _ ↦ hnn1 i j) (Finset.mem_univ i₀))
+      linarith
+  -- Step 1: `-2 * Real.log c ≤ qjs ρ₀ ρ₁ * Real.log 2` via `log u ≤ u - 1`
+  have hpoint : ∀ (p q t : ℝ), 0 ≤ p → 0 ≤ q → 0 ≤ t → (q = 0 → p * t = 0) →
+      -2 * (p * t) * Real.log c + 2 * (p * t) - (2 / c) * (Real.sqrt p * Real.sqrt q * t) ≤
+        -(Real.negMulLog p * t) - (p * t) * Real.log q := by
+    intro p q t hp hq ht hsupp
+    by_cases hpt : p * t = 0
+    · rcases mul_eq_zero.mp hpt with rfl | rfl <;> simp [Real.negMulLog]
+    · have hp_pos : 0 < p := lt_of_le_of_ne hp (fun h ↦ hpt (by rw [← h, zero_mul]))
+      have ht_pos : 0 < t := lt_of_le_of_ne ht (fun h ↦ hpt (by rw [← h, mul_zero]))
+      have hq_pos : 0 < q := lt_of_le_of_ne hq (fun h ↦ hpt (hsupp h.symm))
+      have hlog := Real.log_le_sub_one_of_pos (show 0 < Real.sqrt (q / p) / c by positivity)
+      rw [Real.log_div (ne_of_gt (Real.sqrt_pos.mpr (div_pos hq_pos hp_pos))) (ne_of_gt hc_pos),
+        Real.log_sqrt (le_of_lt (div_pos hq_pos hp_pos)),
+        Real.log_div (ne_of_gt hq_pos) (ne_of_gt hp_pos)] at hlog
+      have hmul := mul_le_mul_of_nonneg_left hlog (show 0 ≤ 2 * (p * t) by positivity)
+      have hsq : p * Real.sqrt (q / p) = Real.sqrt p * Real.sqrt q := by
+        rw [Real.sqrt_div hp, ← mul_div_assoc, mul_comm p, mul_div_assoc,
+          Real.div_sqrt, mul_comm]
+      have hterm : 2 * (p * t) * (Real.sqrt (q / p) / c) = (2 / c) * (Real.sqrt p * Real.sqrt q * t) := by
+        calc 2 * (p * t) * (Real.sqrt (q / p) / c)
+            = (2 / c) * ((p * Real.sqrt (q / p)) * t) := by ring
+          _ = (2 / c) * (Real.sqrt p * Real.sqrt q * t) := by rw [hsq]
+      unfold Real.negMulLog
+      linarith
+  have hsum_pt : ∀ (ρ : DensityOp d) (T : d → d → ℝ),
+      (∀ i j, 0 ≤ T i j) → (∀ i, ∑ j : d, T i j = 1) →
+      (∀ i j, σ.eigvals j = 0 → ρ.eigvals i * T i j = 0) →
+      -2 * Real.log c + 2 - (2 / c) * (∑ i : d, ∑ j : d, Real.sqrt (ρ.eigvals i) * Real.sqrt (σ.eigvals j) * T i j) ≤
+        -(∑ i : d, Real.negMulLog (ρ.eigvals i)) - ∑ j : d, (∑ i : d, ρ.eigvals i * T i j) * Real.log (σ.eigvals j) := by
+    intro ρ T hTnn hTj hsupp
+    have hle : ∑ i : d, ∑ j : d,
+          (-2 * (ρ.eigvals i * T i j) * Real.log c + 2 * (ρ.eigvals i * T i j) -
+            (2 / c) * (Real.sqrt (ρ.eigvals i) * Real.sqrt (σ.eigvals j) * T i j)) ≤
+        ∑ i : d, ∑ j : d, (-(Real.negMulLog (ρ.eigvals i) * T i j) - (ρ.eigvals i * T i j) * Real.log (σ.eigvals j)) :=
+      Finset.sum_le_sum fun i _ ↦ Finset.sum_le_sum fun j _ ↦
+        hpoint (ρ.eigvals i) (σ.eigvals j) (T i j) (ρ.eigvals_nonneg i) (σ.eigvals_nonneg j) (hTnn i j) (hsupp i j)
+    have hsum_pT : ∑ i : d, ∑ j : d, ρ.eigvals i * T i j = 1 := by
+      simp_rw [← Finset.mul_sum, hTj, mul_one]; exact ρ.sum_eigvals
+    have hLHS : (∑ i : d, ∑ j : d,
+          (-2 * (ρ.eigvals i * T i j) * Real.log c + 2 * (ρ.eigvals i * T i j) -
+            (2 / c) * (Real.sqrt (ρ.eigvals i) * Real.sqrt (σ.eigvals j) * T i j))) =
+        -2 * Real.log c + 2 - (2 / c) * (∑ i : d, ∑ j : d, Real.sqrt (ρ.eigvals i) * Real.sqrt (σ.eigvals j) * T i j) := by
+      simp only [Finset.sum_sub_distrib, Finset.sum_add_distrib]
+      have h1 : (∑ i : d, ∑ j : d, -2 * (ρ.eigvals i * T i j) * Real.log c) = -2 * Real.log c := by
+        have : ∀ i j, -2 * (ρ.eigvals i * T i j) * Real.log c = (-2 * Real.log c) * (ρ.eigvals i * T i j) :=
+          fun i j ↦ by ring
+        simp_rw [this, ← Finset.mul_sum, hsum_pT, mul_one]
+      have h2 : (∑ i : d, ∑ j : d, 2 * (ρ.eigvals i * T i j)) = 2 := by
+        simp_rw [← Finset.mul_sum, hsum_pT, mul_one]
+      have h3 : (∑ i : d, ∑ j : d, (2 / c) * (Real.sqrt (ρ.eigvals i) * Real.sqrt (σ.eigvals j) * T i j)) =
+          (2 / c) * ∑ i : d, ∑ j : d, Real.sqrt (ρ.eigvals i) * Real.sqrt (σ.eigvals j) * T i j := by
+        simp_rw [← Finset.mul_sum]
+      rw [h1, h2, h3]
+    have hRHS : (∑ i : d, ∑ j : d, (-(Real.negMulLog (ρ.eigvals i) * T i j) -
+          (ρ.eigvals i * T i j) * Real.log (σ.eigvals j))) =
+        -(∑ i : d, Real.negMulLog (ρ.eigvals i)) - ∑ j : d, (∑ i : d, ρ.eigvals i * T i j) * Real.log (σ.eigvals j) := by
+      simp only [Finset.sum_sub_distrib, Finset.sum_neg_distrib]
+      congr 1
+      · congr 1; apply Finset.sum_congr rfl; intro i _; rw [← Finset.mul_sum, hTj i, mul_one]
+      · rw [Finset.sum_comm]; apply Finset.sum_congr rfl; intro j _; rw [Finset.sum_mul]
+    linarith
+  have hsupp0 : ∀ i j, σ.eigvals j = 0 → ρ₀.eigvals i * T₀ i j = 0 := by
+    intro i j hq0
+    have hmid0 := hmid_diag j
+    rw [hq0] at hmid0
+    have hnn0 : ∀ k, 0 ≤ ρ₀.eigvals k * T₀ k j := fun k ↦ mul_nonneg (ρ₀.eigvals_nonneg k) (sq_nonneg _)
+    have hnn1 : ∀ k, 0 ≤ ρ₁.eigvals k * T₁ k j := fun k ↦ mul_nonneg (ρ₁.eigvals_nonneg k) (sq_nonneg _)
+    have hs0 : ∑ k : d, ρ₀.eigvals k * T₀ k j = 0 := by
+      have h1 : 0 ≤ ∑ k : d, ρ₀.eigvals k * T₀ k j := Finset.sum_nonneg fun k _ ↦ hnn0 k
+      have h2 : 0 ≤ ∑ k : d, ρ₁.eigvals k * T₁ k j := Finset.sum_nonneg fun k _ ↦ hnn1 k
+      linarith
+    exact (Finset.sum_eq_zero_iff_of_nonneg fun k _ ↦ hnn0 k).mp hs0 i (Finset.mem_univ i)
+  have hsupp1 : ∀ i j, σ.eigvals j = 0 → ρ₁.eigvals i * T₁ i j = 0 := by
+    intro i j hq0
+    have hmid0 := hmid_diag j
+    rw [hq0] at hmid0
+    have hnn0 : ∀ k, 0 ≤ ρ₀.eigvals k * T₀ k j := fun k ↦ mul_nonneg (ρ₀.eigvals_nonneg k) (sq_nonneg _)
+    have hnn1 : ∀ k, 0 ≤ ρ₁.eigvals k * T₁ k j := fun k ↦ mul_nonneg (ρ₁.eigvals_nonneg k) (sq_nonneg _)
+    have hs1 : ∑ k : d, ρ₁.eigvals k * T₁ k j = 0 := by
+      have h1 : 0 ≤ ∑ k : d, ρ₀.eigvals k * T₀ k j := Finset.sum_nonneg fun k _ ↦ hnn0 k
+      have h2 : 0 ≤ ∑ k : d, ρ₁.eigvals k * T₁ k j := Finset.sum_nonneg fun k _ ↦ hnn1 k
+      linarith
+    exact (Finset.sum_eq_zero_iff_of_nonneg fun k _ ↦ hnn1 k).mp hs1 i (Finset.mem_univ i)
+  have hpt0 := hsum_pt ρ₀ T₀ (fun _ _ ↦ sq_nonneg _) hT0_j hsupp0
+  have hpt1 := hsum_pt ρ₁ T₁ (fun _ _ ↦ sq_nonneg _) hT1_j hsupp1
+  have hqjs_lb : -2 * Real.log c ≤ qjs ρ₀ ρ₁ * Real.log 2 := by
+    have havg : -2 * Real.log c + 2 - (2 / c) * c ≤
+        -((∑ i : d, Real.negMulLog (ρ₀.eigvals i)) + (∑ i : d, Real.negMulLog (ρ₁.eigvals i))) / 2 +
+          ∑ j : d, Real.negMulLog (σ.eigvals j) := by
+      have hcomb_σ : (∑ j : d, (∑ i : d, ρ₀.eigvals i * T₀ i j) * Real.log (σ.eigvals j)) / 2 +
+          (∑ j : d, (∑ i : d, ρ₁.eigvals i * T₁ i j) * Real.log (σ.eigvals j)) / 2 =
+          -(∑ j : d, Real.negMulLog (σ.eigvals j)) := by
+        rw [← add_div, ← Finset.sum_add_distrib, Finset.sum_div, ← Finset.sum_neg_distrib]
+        apply Finset.sum_congr rfl; intro j _
+        unfold Real.negMulLog
+        have hm := hmid_diag j
+        linarith [show ((∑ i : d, ρ₀.eigvals i * T₀ i j) * Real.log (σ.eigvals j) +
+            (∑ i : d, ρ₁.eigvals i * T₁ i j) * Real.log (σ.eigvals j)) / 2 =
+            ((∑ i : d, ρ₀.eigvals i * T₀ i j) / 2 + (∑ i : d, ρ₁.eigvals i * T₁ i j) / 2) *
+              Real.log (σ.eigvals j) by ring]
+      linarith [hpt0, hpt1, hc_eq, hcomb_σ]
+    have hcancel : (2 / c) * c = 2 := div_mul_cancel₀ 2 (ne_of_gt hc_pos)
+    rw [hcancel] at havg
+    have hlog2 : Real.log 2 ≠ 0 := ne_of_gt (Real.log_pos (by norm_num))
+    have hqjs_eq : qjs ρ₀ ρ₁ * Real.log 2 =
+        ∑ j : d, Real.negMulLog (σ.eigvals j) -
+          ((∑ i : d, Real.negMulLog (ρ₀.eigvals i)) + (∑ i : d, Real.negMulLog (ρ₁.eigvals i))) / 2 := by
+      unfold qjs vonNeumannEntropy; field_simp [hlog2]
+    linarith
+  -- Step 2: Cauchy–Schwarz gives `c^2 ≤ (1 + W.fidelityParam) / 2`
+  have hc_sq_le : c ^ 2 ≤ (1 + W.fidelityParam) / 2 := by
+    let A : Matrix d d ℂ := ((1 / 2 : ℝ) : ℂ) • ρ₀.sqrtMat + ((1 / 2 : ℝ) : ℂ) • ρ₁.sqrtMat
+    have hA_herm : A.IsHermitian := by
+      rw [Matrix.IsHermitian]
+      simp only [A, Matrix.conjTranspose_add, Matrix.conjTranspose_smul, Complex.star_def,
+        Complex.conj_ofReal, ρ₀.sqrtMat_isHermitian.eq, ρ₁.sqrtMat_isHermitian.eq]
+    have hc_tr : c = (A * σ.sqrtMat).trace.re := by
+      simp only [c, A, Matrix.add_mul, Matrix.smul_mul, Matrix.trace_add, Matrix.trace_smul,
+        Complex.add_re, smul_eq_mul, Complex.mul_re, Complex.ofReal_re, Complex.ofReal_im,
+        zero_mul, sub_zero]
+      ring
+    have hc_le_sum : c ≤ ∑ p : d × d, ‖A p.1 p.2‖ * ‖σ.sqrtMat p.1 p.2‖ := by
+      rw [hc_tr]
+      simp only [Matrix.trace, Matrix.diag, Matrix.mul_apply, Complex.re_sum, Fintype.sum_prod_type]
+      apply Finset.sum_le_sum; intro i _
+      apply Finset.sum_le_sum; intro j _
+      calc (A i j * σ.sqrtMat j i).re
+          ≤ ‖A i j * σ.sqrtMat j i‖ := Complex.re_le_norm _
+        _ = ‖A i j‖ * ‖σ.sqrtMat j i‖ := norm_mul _ _
+        _ = ‖A i j‖ * ‖σ.sqrtMat i j‖ := by
+            have hsym := congr_fun (congr_fun σ.sqrtMat_isHermitian.eq j) i
+            simp only [Matrix.conjTranspose_apply] at hsym
+            rw [← hsym, Complex.star_def, Complex.norm_conj]
+    have hcs := Finset.sum_mul_sq_le_sq_mul_sq (s := Finset.univ)
+      (f := fun p : d × d ↦ ‖A p.1 p.2‖) (g := fun p : d × d ↦ ‖σ.sqrtMat p.1 p.2‖)
+    have hnorm_tr : ∀ (M : Matrix d d ℂ), M.IsHermitian →
+        ∑ p : d × d, ‖M p.1 p.2‖ ^ 2 = (M * M).trace.re := by
+      intro M hM
+      simp only [Fintype.sum_prod_type, Matrix.trace, Matrix.diag, Matrix.mul_apply, Complex.re_sum]
+      apply Finset.sum_congr rfl; intro i _
+      apply Finset.sum_congr rfl; intro j _
+      have hsym := congr_fun (congr_fun hM.eq j) i
+      simp only [Matrix.conjTranspose_apply] at hsym
+      rw [← hsym, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
+    have hσ_tr : ∑ p : d × d, ‖σ.sqrtMat p.1 p.2‖ ^ 2 = 1 := by
+      rw [hnorm_tr σ.sqrtMat σ.sqrtMat_isHermitian, σ.sqrtMat_mul_self, σ.trace_one, Complex.one_re]
+    have hA_tr : ∑ p : d × d, ‖A p.1 p.2‖ ^ 2 ≤ (1 + W.fidelityParam) / 2 := by
+      rw [hnorm_tr A hA_herm]
+      have hAA : (A * A).trace.re = (1 + (ρ₀.sqrtMat * ρ₁.sqrtMat).trace.re) / 2 := by
+        have h1 : A * A = ((1 / 4 : ℝ) : ℂ) • ρ₀.mat + ((1 / 4 : ℝ) : ℂ) • ρ₁.mat +
+            ((1 / 4 : ℝ) : ℂ) • (ρ₀.sqrtMat * ρ₁.sqrtMat) +
+            ((1 / 4 : ℝ) : ℂ) • (ρ₁.sqrtMat * ρ₀.sqrtMat) := by
+          simp only [A, Matrix.add_mul, Matrix.mul_add, Matrix.smul_mul, Matrix.mul_smul, smul_smul,
+            ρ₀.sqrtMat_mul_self, ρ₁.sqrtMat_mul_self]
+          norm_num; abel
+        rw [h1, Matrix.trace_add, Matrix.trace_add, Matrix.trace_add,
+          Matrix.trace_smul, Matrix.trace_smul, Matrix.trace_smul, Matrix.trace_smul,
+          ρ₀.trace_one, ρ₁.trace_one, Matrix.trace_mul_comm ρ₁.sqrtMat ρ₀.sqrtMat]
+        simp only [Complex.add_re, smul_eq_mul, Complex.mul_re, Complex.ofReal_re, Complex.ofReal_im,
+          Complex.one_re, Complex.one_im, zero_mul, sub_zero, mul_zero]
+        ring
+      rw [hAA]
+      have hfid := re_trace_unitary_mul_le_traceNorm (1 : Matrix.unitaryGroup d ℂ) (ρ₀.sqrtMat * ρ₁.sqrtMat)
+      simp only [OneMemClass.coe_one, Matrix.one_mul, traceNorm_sqrt_mul_sqrt] at hfid
+      unfold CQChannel.fidelityParam
+      linarith
+    have hc_sq : c ^ 2 ≤ (∑ p : d × d, ‖A p.1 p.2‖ * ‖σ.sqrtMat p.1 p.2‖) ^ 2 :=
+      pow_le_pow_left₀ (le_of_lt hc_pos) hc_le_sum 2
+    rw [hσ_tr, mul_one] at hcs
+    linarith
+  -- Step 3: Combine `-2 log c ≤ qjs * log 2` and `c^2 ≤ (1 + F) / 2`
+  have hF_nn : 0 ≤ W.fidelityParam := Finset.sum_nonneg fun _ _ ↦ Real.sqrt_nonneg _
+  have hlog_c2 : 2 * Real.log c ≤ Real.log ((1 + W.fidelityParam) / 2) := by
+    have h1 : 2 * Real.log c = Real.log (c ^ 2) := by rw [Real.log_pow]; ring
+    rw [h1]
+    exact Real.log_le_log (sq_pos_of_pos hc_pos) hc_sq_le
+  rw [Real.log_div (by linarith) (by norm_num)] at hlog_c2
+  have hlog2_pos : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  unfold CQChannel.condEntropy Real.logb
+  rw [le_div_iff₀ hlog2_pos]
+  linarith
 
 /-- Helper: Branch 1 of Proposition 4.2 for arbitrary `W₁, W₂`:
 `H(W₁ ⊠ W₂) ≥ H(W₁) + Δ(1 - H(W₁), 1 - 2^(H(W₂) - 1))`. -/
@@ -1609,12 +1973,14 @@ theorem theorem_1_2b_linear_splitting (W : CQChannel d) :
   · rw [← h0]; have hHm := condEntropy_mem_Icc W.minusChannel; linarith [hHm.1]
   · rcases eq_or_lt_of_le hH_mem.2 with h1 | h1_lt
     · rw [h1]; have hHp := condEntropy_mem_Icc W.plusChannel; linarith [hHp.2]
-    · have hsc := prop_4_3_scalar h0_pos h1_lt
-      have hmax : max (deltaGap (1 - W.condEntropy) (1 - (2 : ℝ) ^ (W.condEntropy - 1)))
-          (deltaGap W.condEntropy (1 - (2 : ℝ) ^ (-W.condEntropy))) ≤
-          W.minusChannel.condEntropy - W.condEntropy :=
-        max_le (by linarith) (by linarith)
-      exact le_trans hsc hmax
+    · rcases le_or_gt (1 / 2 : ℝ) W.condEntropy with hge | hlt
+      · have hsc := prop_4_3_scalar hge h1_lt
+        linarith
+      · have hsc := prop_4_3_scalar (H := 1 - W.condEntropy) (by linarith) (by linarith)
+        have h1 : 1 - (1 - W.condEntropy) = W.condEntropy := by ring
+        have h2 : (1 - W.condEntropy) - 1 = -W.condEntropy := by ring
+        rw [h1, h2] at hsc
+        linarith
 
 /-- **Theorem 1.2(b), Eq. (1.9) (Uniform Potential Contraction)**:
 For every binary-input c-q channel `W`,
@@ -1625,8 +1991,9 @@ theorem theorem_1_2b_potential_contraction (W : CQChannel d) :
   have hHm := condEntropy_mem_Icc W.minusChannel
   have hHp := condEntropy_mem_Icc W.plusChannel
   have hsplit := theorem_1_2b_linear_splitting W
-  unfold CQChannel.potential
-  exact prop_4_4_potential_contraction_general hH hHm hHp
-    (by linarith [hsplit.1]) hsplit.2
+  unfold CQChannel.potential Lambda0
+  have h := prop_4_4_potential_contraction_general hH hHp hHm
+    (by linarith [hsplit.1]) (le_of_lt theta0_pos) theta0_lt_one hsplit.2
+  linarith
 
 end PolarCodes
