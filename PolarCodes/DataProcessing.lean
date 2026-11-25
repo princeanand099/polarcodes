@@ -267,9 +267,10 @@ lemma qjs_eq_half_relEntropy_midpoint {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef
     apply Finset.sum_congr rfl; intro j _
     unfold Real.negMulLog
     have := hmid_diag j
-    linarith [show (((star (m.eigUnitary : Matrix d d ℂ) * ρ.mat * (m.eigUnitary : Matrix d d ℂ)) j j).re +
-      ((star (m.eigUnitary : Matrix d d ℂ) * σ.mat * (m.eigUnitary : Matrix d d ℂ)) j j).re) *
-      Real.log (m.eigvals j) = 2 * m.eigvals j * Real.log (m.eigvals j) by rw [← this]; ring]
+    linarith [show ((star (m.eigUnitary : Matrix d d ℂ) * ρ.mat * (m.eigUnitary : Matrix d d ℂ)) j j).re *
+        Real.log (m.eigvals j) +
+      ((star (m.eigUnitary : Matrix d d ℂ) * σ.mat * (m.eigUnitary : Matrix d d ℂ)) j j).re *
+        Real.log (m.eigvals j) = 2 * m.eigvals j * Real.log (m.eigvals j) by rw [← this]; ring]
   unfold qjs vonNeumannEntropy
   have hlog2 : Real.log 2 ≠ 0 := ne_of_gt (Real.log_pos (by norm_num))
   field_simp [hlog2]
@@ -578,7 +579,7 @@ lemma qjs_pureState (ψ₀ ψ₁ : d → ℂ)
           rw [h1] at hne; cases h' : σ true <;> simp_all
     rw [hperm, Finset.sum_pair (by decide)]
     simp only [Equiv.Perm.sign_one, Equiv.Perm.sign_swap (by decide : false ≠ true),
-      Units.val_one, Units.val_neg, one_smul, neg_smul, Fintype.prod_bool,
+      Units.smul_def, Units.val_one, Units.val_neg, one_smul, neg_smul, Fintype.prod_bool,
       Equiv.Perm.coe_one, id_eq, Equiv.swap_apply_left, Equiv.swap_apply_right,
       Matrix.sub_apply, Matrix.scalar_apply, Matrix.diagonal_apply, Matrix.of_apply,
       RingHom.mapMatrix_apply, Matrix.map_apply, ↓reduceIte, Bool.false_eq_true, Bool.true_eq_false,
@@ -597,7 +598,6 @@ lemma qjs_pureState (ψ₀ ψ₁ : d → ℂ)
     have h2 : Polynomial.C (((1 - f) / 2 : ℝ) : ℂ) = Polynomial.C (1 / 2 : ℂ) - Polynomial.C ((f / 2 : ℝ) : ℂ) := by
       rw [← map_sub]; congr 1; push_cast; ring
     rw [h1, h2, hzz]
-    simp only [zsmul_eq_mul, Int.cast_neg, Int.cast_one]
     ring
   have hcp_all : (DensityOp.midpoint (pureState ψ₀ hψ₀) (pureState ψ₁ hψ₁)).mat.charpoly * Polynomial.X ^ (Fintype.card Bool) =
       (Matrix.diagonal (Complex.ofReal ∘ lam)).charpoly * Polynomial.X ^ (Fintype.card d) := by
