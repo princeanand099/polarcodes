@@ -18,7 +18,7 @@ namespace PolarCodes.SanityChecks
 noncomputable def trivialState : DensityOp (Fin 1) where
   mat := 1
   posSemidef := Matrix.PosSemidef.one
-  trace_eq_one := by simp
+  trace_one := by simp
 
 /-- The trivial (completely noisy) 1-dimensional binary-input c-q channel. -/
 noncomputable def trivialChannel : CQChannel (Fin 1) where
@@ -38,13 +38,13 @@ example :
 /-- Non-vacuity witness: Theorem 1.2(b) potential contraction instantiates on `trivialChannel`. -/
 example :
     (trivialChannel.minusChannel.potential + trivialChannel.plusChannel.potential) / 2 ≤
-      (1 - Lambda0) * trivialChannel.potential :=
+      Lambda0 * trivialChannel.potential :=
   theorem_1_2b_potential_contraction trivialChannel
 
 /-- Non-vacuity witness: Theorem 1.3 nonlinear dephasing SDPI instantiates on `Bool × Fin 1`. -/
-example (Ψ : DensityOp (Bool × Fin 1)) (η : ℝ) (hη0 : 0 ≤ η) (hη1 : η ≤ 1) :
-    qjs (dephaseState η Ψ) (dephaseState η (pauliZTensorI Ψ)) ≤
-      gq (qjs Ψ (pauliZTensorI Ψ)) η :=
-  theorem_1_3_dephasing_sdpi Ψ η hη0 hη1
+example (Ψ : DensityOp (Bool × Fin 1)) (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) :
+    dephaseCoherence p hp0 (le_trans hp1 (by norm_num)) Ψ ≤
+      1 - h2 (binConv (h2Inv (1 - dephaseCoherence 0 le_rfl (by norm_num) Ψ)) p) :=
+  theorem_1_3_dephasing_sdpi Ψ hp0 hp1
 
 end PolarCodes.SanityChecks
