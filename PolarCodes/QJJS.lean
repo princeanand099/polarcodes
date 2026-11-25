@@ -26,8 +26,9 @@ variable {d : Type*} [Fintype d] [DecidableEq d]
 theorem prop_3_3_qjjs_posDef {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ : σ.mat.PosDef) :
     phi (qjs ρ σ) ≤ (1 / 4 : ℝ) * ((relEntropy ρ σ).toReal + (relEntropy σ ρ).toReal) := by
   by_cases hc0 : qjs ρ σ = 0
-  · rw [hc0, phi_zero]
-    positivity
+  · rw [hc0]
+    have hphi0 : phi 0 = 0 := by unfold phi; rw [sub_zero, h2Inv_one]; norm_num
+    rw [hphi0]; positivity
   have hc_pos : 0 < qjs ρ σ := lt_of_le_of_ne (qjs_eq_half_relEntropy_midpoint hρ hσ).1 (Ne.symm hc0)
   obtain ⟨a, b, μ, ha, hab, hprob, hsupp, _, hmean, hEq34, hEq35, hEq36⟩ :=
     lemma_3_2_hockeyStick_measure hρ hσ
@@ -99,13 +100,13 @@ theorem prop_3_3_qjjs_posDef {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ : 
         ∫ t, ((1 + t) / 2 - δ) ∂μ := by
       apply integral_mono_ae hI_lhs (hI_rhs.sub (integrable_const δ))
       filter_upwards [ae_iff.mpr hsupp] with t ht
-      linarith [hmin ht]
+      dsimp only [Pi.sub_apply]; linarith [hmin ht]
     have hrhs_val : ∫ t, ((1 + t) / 2 - δ) ∂μ = 1 - δ := by
       have h1 : ∫ t, ((1 + t) / 2) ∂μ = 1 := by
         have hint_t : Integrable (fun t : ℝ ↦ t) μ := by
           refine Integrable.mono' (integrable_const b) (continuous_id : Continuous (fun t : ℝ ↦ t)).aestronglyMeasurable ?_
           filter_upwards [ae_iff.mpr hsupp] with t ht
-          dsimp only [id]; rw [Real.norm_of_nonneg (by linarith [ht.1])]; exact ht.2
+          rw [Real.norm_of_nonneg (by linarith [ht.1])]; exact ht.2
         rw [integral_div, integral_add (integrable_const 1) hint_t, integral_const, smul_eq_mul,
           hmean, show μ.real univ = 1 by simp [Measure.real]]
         ring
@@ -117,7 +118,7 @@ theorem prop_3_3_qjjs_posDef {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ : 
   let x := 1 - 2 * h2Inv (1 - c)
   have h1mc0 : 0 < 1 - c := by linarith
   have h1mc1 : 1 - c < 1 := by linarith
-  have hinv_mem := h2Inv_mem_Icc (le_of_lt h1mc0) (le_of_lt h1mc1)
+  have hinv_mem := h2Inv_mem_Icc ⟨le_of_lt h1mc0, le_of_lt h1mc1⟩
   have hinv_pos : 0 < h2Inv (1 - c) := by
     by_contra h0; push Not at h0
     have heq0 : h2Inv (1 - c) = 0 := le_antisymm h0 hinv_mem.1
@@ -135,7 +136,11 @@ theorem prop_3_3_qjjs_posDef {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ : 
     have : (1 - (1 - 2 * h2Inv (1 - c))) / 2 = h2Inv (1 - c) := by ring
     rw [this, h2_h2Inv (le_of_lt h1mc0) (le_of_lt h1mc1)]; ring
   have hphi_eq : phi c = phiParam x := by
-    unfold phi; simp only [x]
+    unfold phi phiParam; simp only [x]
+    have harg : (1 + (1 - 2 * h2Inv (1 - c))) / (1 - (1 - 2 * h2Inv (1 - c))) =
+        (1 - h2Inv (1 - c)) / h2Inv (1 - c) := by
+      field_simp [ne_of_gt hinv_pos]; ring
+    rw [harg]; ring
   -- Integrate `gx x t ≥ 0` (Lemma 3.1) against `μ`
   have hgx_nn : 0 ≤ ∫ t, gx x t ∂μ := by
     apply integral_nonneg_of_ae
@@ -211,14 +216,15 @@ private lemma suppSubset_ker {ρ σ : DensityOp d} (hsupp : suppSubset ρ σ)
     simpa [Uσ, DensityOp.eigUnitary, DensityOp.eigvals, Matrix.star_eq_conjTranspose,
       Unitary.conjStarAlgAut_apply] using σ.isHermitian.spectral_theorem
   set y : d → ℂ := (star Uσ).mulVec v
+  have hUσ_mul : Uσ * star Uσ = 1 := Unitary.coe_mul_star_self σ.eigUnitary
+  have hUσ_smul : star Uσ * Uσ = 1 := Unitary.coe_star_mul_self σ.eigUnitary
   have hy : ∀ j : d, σ.eigvals j ≠ 0 → y j = 0 := by
     intro j hj
     have h1 := congr_arg (fun w ↦ ((star Uσ).mulVec w) j) hσv
     have hL : ((star Uσ).mulVec (σ.mat.mulVec v)) j = (σ.eigvals j : ℂ) * y j := by
       conv_lhs => rw [hspecσ]
       rw [Matrix.mulVec_mulVec, ← Matrix.mul_assoc (star Uσ), ← Matrix.mul_assoc (star Uσ),
-        Unitary.coe_star_mul_self σ.eigUnitary, Matrix.one_mul, Matrix.mulVec_mulVec,
-        Matrix.mulVec_diagonal]; rfl
+        hUσ_smul, Matrix.one_mul, ← Matrix.mulVec_mulVec, Matrix.mulVec_diagonal]; rfl
     rw [hL, Matrix.mulVec_zero, Pi.zero_apply] at h1
     have hne : (σ.eigvals j : ℂ) ≠ 0 := by exact_mod_cast hj
     exact (mul_eq_zero.mp h1).resolve_left hne
@@ -228,7 +234,7 @@ private lemma suppSubset_ker {ρ σ : DensityOp d} (hsupp : suppSubset ρ σ)
     · simp [hρi]
     · suffices ((star Uρ).mulVec v) i = 0 by simp [this]
       have hv : v = Uσ.mulVec y := by
-        simp only [y, Matrix.mulVec_mulVec, Unitary.coe_mul_star_self σ.eigUnitary, Matrix.one_mulVec]
+        simp only [y, Matrix.mulVec_mulVec, hUσ_mul, Matrix.one_mulVec]
       rw [hv, Matrix.mulVec_mulVec]
       simp only [Matrix.mulVec, dotProduct]
       apply Finset.sum_eq_zero; intro j _
@@ -243,7 +249,7 @@ private lemma suppSubset_ker {ρ σ : DensityOp d} (hsupp : suppSubset ρ σ)
         rw [hW', zero_mul]
       · rw [hy j hσj, mul_zero]
   conv_lhs => rw [hspecρ]
-  rw [Matrix.mulVec_mulVec, Matrix.mulVec_mulVec, Matrix.mulVec_diagonal, hzero, Matrix.mulVec_zero]
+  rw [← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec, Matrix.mulVec_diagonal, hzero, Matrix.mulVec_zero]
 
 private lemma relEntropy_sum_split {α : Type*} [Fintype α] [DecidableEq α] (A B : DensityOp α) :
     (∑ i : α, ∑ j : α,
@@ -300,14 +306,21 @@ private lemma relEntropy_cross_eq_trace_log {α : Type*} [Fintype α] [Decidable
     rw [hstarW]
     calc (UA * Matrix.diagonal (Complex.ofReal ∘ A.eigvals) * star UA *
             (UB * Matrix.diagonal (fun j ↦ (Real.log (B.eigvals j) : ℂ)) * star UB)).trace
-        = (Matrix.diagonal (Complex.ofReal ∘ A.eigvals) *
+        = (UA * (Matrix.diagonal (Complex.ofReal ∘ A.eigvals) * star UA *
+            (UB * Matrix.diagonal (fun j ↦ (Real.log (B.eigvals j) : ℂ)) * star UB))).trace := by
+          simp only [Matrix.mul_assoc]
+      _ = (Matrix.diagonal (Complex.ofReal ∘ A.eigvals) *
             (star UA * UB * Matrix.diagonal (fun j ↦ (Real.log (B.eigvals j) : ℂ)) * (star UB * UA))).trace := by
           rw [Matrix.trace_mul_comm UA]; simp only [Matrix.mul_assoc]
       _ = _ := rfl
   rw [htrC]
-  simp only [Matrix.trace, Matrix.diag, Matrix.mul_apply, Matrix.diagonal_apply,
-    Function.comp_apply, ite_mul, zero_mul, mul_ite, mul_zero, Finset.sum_ite_eq,
-    Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte, Complex.re_sum, Finset.mul_sum]
+  have htr_simp : (Matrix.diagonal (Complex.ofReal ∘ A.eigvals) *
+      (star W * Matrix.diagonal (fun j ↦ (Real.log (B.eigvals j) : ℂ)) * W)).trace =
+      ∑ i : α, ∑ j : α, (A.eigvals i : ℂ) * (star (W j i) * (Real.log (B.eigvals j) : ℂ) * W j i) := by
+    simp only [Matrix.trace, Matrix.diag, Matrix.mul_apply, Matrix.diagonal_apply,
+      Function.comp_apply, ite_mul, zero_mul, mul_ite, mul_zero, Finset.sum_ite_eq,
+      Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte, Finset.mul_sum, Matrix.star_apply]
+  rw [htr_simp, Complex.re_sum]
   apply Finset.sum_congr rfl; intro i _
   rw [Complex.re_sum]
   apply Finset.sum_congr rfl; intro j _
@@ -317,7 +330,6 @@ private lemma relEntropy_cross_eq_trace_log {α : Type*} [Fintype α] [Decidable
       ((A.eigvals i * Real.log (B.eigvals j) * ‖W j i‖ ^ 2 : ℝ) : ℂ) := by
     calc _ = (A.eigvals i : ℂ) * (Real.log (B.eigvals j) : ℂ) * (star (W j i) * W j i) := by ring
       _ = _ := by rw [hsq]; push_cast; ring
-  simp only [Matrix.star_apply]
   rw [hcalc, Complex.ofReal_re]
 
 /-- **Proposition 3.3 (Quantum Jeffreys–Jensen–Shannon Inequality)** for ALL density operators
@@ -330,14 +342,17 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
     set S_pos : Finset d := Finset.univ.filter fun i : d ↦ 0 < ρ.eigvals i
     let d' := {i : d // i ∈ S_pos}
     set U : Matrix d d ℂ := (ρ.eigUnitary : Matrix d d ℂ)
+    have hU_mul : U * star U = 1 := Unitary.coe_mul_star_self ρ.eigUnitary
     let V : Matrix d d' ℂ := Matrix.of fun r k ↦ U r k.1
     have hVHV : Vᴴ * V = 1 := by
       ext j k
       simp only [V, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply, Matrix.one_apply]
       have h := congr_fun (congr_fun (Unitary.coe_star_mul_self ρ.eigUnitary) j.1) k.1
       simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply] at h
-      convert h using 1
-      simp [Subtype.ext_iff]
+      by_cases hjk : j = k
+      · subst hjk; simpa using h
+      · have hne : j.1 ≠ k.1 := fun heq ↦ hjk (Subtype.ext heq)
+        simpa [hjk, hne] using h
     -- Helper: `ρ` vanishes on columns of `U` outside `S_pos`
     have hρ_ker : ∀ i : d, i ∉ S_pos → ρ.mat.mulVec (fun r ↦ U r i) = 0 := by
       intro i hi
@@ -353,7 +368,7 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
         simpa [Matrix.mulVec, dotProduct, Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply,
           Pi.single_apply, eq_comm] using h
       conv_lhs => rw [hspec]
-      rw [Matrix.mulVec_mulVec, Matrix.mulVec_mulVec, hcol, Matrix.mulVec_diagonal]
+      rw [← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec, hcol, Matrix.mulVec_diagonal]
       have hzero : (fun j : d ↦ (Complex.ofReal ∘ ρ.eigvals) j * Pi.single i 1 j) = 0 := by
         ext j; by_cases hj : j = i
         · subst hj; simp [h0]
@@ -400,7 +415,6 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
             rw [Matrix.trace_mul_cycle, Unitary.coe_star_mul_self ρ.eigUnitary, Matrix.one_mul,
               Matrix.trace_diagonal]; rfl
           rw [← ρ.trace_one, htr, Finset.sum_coe_sort S_pos (fun i ↦ (ρ.eigvals i : ℂ))]
-          symm
           apply Finset.sum_subset (Finset.subset_univ S_pos)
           intro i _ hi
           have hle : ρ.eigvals i ≤ 0 := by simp [S_pos] at hi; exact hi
@@ -415,8 +429,12 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
       -- Check on columns of `U` (which form a unitary basis)
       have hU_eq : ((V * Vᴴ) * σ.mat) * U = σ.mat * U := by
         ext r i
-        simp only [Matrix.mul_apply]
-        have hσUi : (σ.mat * U) r i = (σ.mat.mulVec (fun x ↦ U x i)) r := rfl
+        have hLHS : (((V * Vᴴ) * σ.mat) * U) r i =
+            ((V * Vᴴ).mulVec (σ.mat.mulVec (fun x ↦ U x i))) r := by
+          change (((V * Vᴴ) * σ.mat) *ᵥ (fun x ↦ U x i)) r = _
+          rw [← Matrix.mulVec_mulVec]
+        have hRHS : (σ.mat * U) r i = (σ.mat.mulVec (fun x ↦ U x i)) r := rfl
+        rw [hLHS, hRHS]
         have hVVH_apply : ∀ (v : d → ℂ) (x : d), ((V * Vᴴ).mulVec v) x =
             ∑ k : d', U x k.1 * (∑ y : d, star (U y k.1) * v y) := by
           intro v x
@@ -424,13 +442,6 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
             Matrix.of_apply, Finset.sum_mul, Finset.mul_sum]
           rw [Finset.sum_comm]
           apply Finset.sum_congr rfl; intro k _; apply Finset.sum_congr rfl; intro y _; ring
-        have hLHS : ∑ y : d, (∑ z : d, (V * Vᴴ) r z * σ.mat z y) * U y i =
-            ((V * Vᴴ).mulVec (σ.mat.mulVec (fun x ↦ U x i))) r := by
-          simp only [Matrix.mulVec, dotProduct, Finset.sum_mul, Finset.mul_sum]
-          rw [Finset.sum_comm]
-          apply Finset.sum_congr rfl; intro z _; apply Finset.sum_congr rfl; intro y _; ring
-        rw [hLHS]
-        -- Expand `σ (U e_i)` in the basis `U`: its coefficient along `U e_j` for `j ∉ S_pos` is 0!
         have horth : ∀ j : d, j ∉ S_pos →
             ∑ y : d, star (U y j) * (σ.mat.mulVec (fun x ↦ U x i)) y = 0 := by
           intro j hj
@@ -448,20 +459,20 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
             ∑ j : d, U r j * (∑ y : d, star (U y j) * (σ.mat.mulVec (fun x ↦ U x i)) y) := by
           calc (σ.mat.mulVec (fun x ↦ U x i)) r
               = ((U * star U).mulVec (σ.mat.mulVec (fun x ↦ U x i))) r := by
-                rw [Unitary.coe_mul_star_self ρ.eigUnitary, Matrix.one_mulVec]
+                rw [hU_mul, Matrix.one_mulVec]
             _ = _ := by
                 simp only [Matrix.mulVec, dotProduct, Matrix.mul_apply, Matrix.star_apply,
                   Finset.sum_mul, Finset.mul_sum]
                 rw [Finset.sum_comm]
                 apply Finset.sum_congr rfl; intro j _; apply Finset.sum_congr rfl; intro y _; ring
         rw [hfull, Finset.sum_coe_sort S_pos (fun j ↦ U r j * (∑ y : d, star (U y j) * (σ.mat.mulVec (fun x ↦ U x i)) y))]
-        symm
         apply Finset.sum_subset (Finset.subset_univ S_pos)
         intro j _ hj; rw [horth j hj, mul_zero]
-      calc (V * Vᴴ) * σ.mat = ((V * Vᴴ) * σ.mat * U) * star U := by
-            rw [Matrix.mul_assoc, Unitary.coe_mul_star_self ρ.eigUnitary, Matrix.mul_one]
+      calc (V * Vᴴ) * σ.mat = ((V * Vᴴ) * σ.mat) * (U * star U) := by rw [hU_mul, Matrix.mul_one]
+        _ = ((V * Vᴴ) * σ.mat * U) * star U := by simp only [Matrix.mul_assoc]
         _ = (σ.mat * U) * star U := by rw [hU_eq]
-        _ = σ.mat := by rw [Matrix.mul_assoc, Unitary.coe_mul_star_self ρ.eigUnitary, Matrix.mul_one]
+        _ = σ.mat * (U * star U) := by simp only [Matrix.mul_assoc]
+        _ = σ.mat := by rw [hU_mul, Matrix.mul_one]
     have hσ_VVH : σ.mat * (V * Vᴴ) = σ.mat := by
       have h := congr_arg Matrix.conjTranspose hVVH_σ
       simpa [Matrix.conjTranspose_mul, Matrix.conjTranspose_conjTranspose, σ.isHermitian.eq] using h
@@ -484,11 +495,11 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
         exact this
       have hρ_pos : (0 : ℂ) < star (V.mulVec w) ⬝ᵥ ρ.mat.mulVec (V.mulVec w) := by
         have hq : star (V.mulVec w) ⬝ᵥ ρ.mat.mulVec (V.mulVec w) = star w ⬝ᵥ ρ'.mat.mulVec w := by
-          simp only [ρ', Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec]
-          congr 1; ext j
-          simp only [Matrix.vecMul, Matrix.mulVec, dotProduct, Pi.star_apply,
-            Matrix.conjTranspose_apply, star_sum, star_mul', star_star]
-          apply Finset.sum_congr rfl; intro i _; ring
+          calc star (V *ᵥ w) ⬝ᵥ ρ.mat *ᵥ (V *ᵥ w)
+              = (star w ᵥ* Vᴴ) ⬝ᵥ (ρ.mat * V) *ᵥ w := by rw [Matrix.star_mulVec, Matrix.mulVec_mulVec]
+            _ = star w ⬝ᵥ (Vᴴ * (ρ.mat * V)) *ᵥ w := by
+                rw [Matrix.dotProduct_mulVec, Matrix.vecMul_vecMul, ← Matrix.dotProduct_mulVec]
+            _ = star w ⬝ᵥ ρ'.mat *ᵥ w := by simp only [ρ', Matrix.mul_assoc]
         rw [hq]; exact (Matrix.posDef_iff_dotProduct_mulVec.mp hρ'_pd).2 hw
       have hσ_ne : σ.mat.mulVec (V.mulVec w) ≠ 0 := by
         intro h0
@@ -496,11 +507,12 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
         rw [hρ0, dotProduct_zero] at hρ_pos
         exact lt_irrefl 0 hρ_pos
       have hqσ : star w ⬝ᵥ σ'.mat.mulVec w = star (V.mulVec w) ⬝ᵥ σ.mat.mulVec (V.mulVec w) := by
-        simp only [σ', Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec]
-        congr 1; ext j
-        simp only [Matrix.vecMul, Matrix.mulVec, dotProduct, Pi.star_apply,
-          Matrix.conjTranspose_apply, star_sum, star_mul', star_star]
-        apply Finset.sum_congr rfl; intro i _; ring
+        symm
+        calc star (V *ᵥ w) ⬝ᵥ σ.mat *ᵥ (V *ᵥ w)
+            = (star w ᵥ* Vᴴ) ⬝ᵥ (σ.mat * V) *ᵥ w := by rw [Matrix.star_mulVec, Matrix.mulVec_mulVec]
+          _ = star w ⬝ᵥ (Vᴴ * (σ.mat * V)) *ᵥ w := by
+              rw [Matrix.dotProduct_mulVec, Matrix.vecMul_vecMul, ← Matrix.dotProduct_mulVec]
+          _ = star w ⬝ᵥ σ'.mat *ᵥ w := by simp only [σ', Matrix.mul_assoc]
       rw [hqσ]
       have hnn := (Matrix.posSemidef_iff_dotProduct_mulVec.mp σ.posSemidef).2 (V.mulVec w)
       rcases lt_or_eq_of_le hnn with hlt | heq
@@ -519,7 +531,7 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
             star (σ.isHermitian.eigenvectorUnitary : Matrix d d ℂ) := by
           simpa [Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply] using σ.isHermitian.spectral_theorem
         conv_lhs => rw [hspec]
-        rw [Matrix.mulVec_mulVec, Matrix.mulVec_mulVec, Matrix.mulVec_diagonal]
+        rw [← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec, Matrix.mulVec_diagonal]
         have hzero : (fun i : d ↦ (Complex.ofReal ∘ σ.isHermitian.eigenvalues) i *
             ((star (σ.isHermitian.eigenvectorUnitary : Matrix d d ℂ)).mulVec (V.mulVec w)) i) = 0 := by
           ext i
@@ -532,12 +544,12 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
       have hVVH_ρ : (V * Vᴴ) * ρ.mat = ρ.mat := by
         have hU_eq : ((V * Vᴴ) * ρ.mat) * U = ρ.mat * U := by
           ext r i
-          have hLHS : ((V * Vᴴ) * ρ.mat * U) r i =
+          have hLHS : (((V * Vᴴ) * ρ.mat) * U) r i =
               ((V * Vᴴ).mulVec (ρ.mat.mulVec (fun x ↦ U x i))) r := by
-            simp only [Matrix.mul_apply, Matrix.mulVec, dotProduct, Finset.sum_mul, Finset.mul_sum]
-            rw [Finset.sum_comm]
-            apply Finset.sum_congr rfl; intro z _; apply Finset.sum_congr rfl; intro y _; ring
-          rw [hLHS]
+            change (((V * Vᴴ) * ρ.mat) *ᵥ (fun x ↦ U x i)) r = _
+            rw [← Matrix.mulVec_mulVec]
+          have hRHS : (ρ.mat * U) r i = (ρ.mat.mulVec (fun x ↦ U x i)) r := rfl
+          rw [hLHS, hRHS]
           have hVVH_apply : ∀ (v : d → ℂ) (x : d), ((V * Vᴴ).mulVec v) x =
               ∑ k : d', U x k.1 * (∑ y : d, star (U y k.1) * v y) := by
             intro v x
@@ -558,24 +570,24 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
               simp only [Matrix.conjTranspose_apply] at hh
               rw [hh]; ring
             rw [hsym, hρ_ker j hj]; simp
-          have hfull : (ρ.mat * U) r i =
+          have hfull : (ρ.mat.mulVec (fun x ↦ U x i)) r =
               ∑ j : d, U r j * (∑ y : d, star (U y j) * (ρ.mat.mulVec (fun x ↦ U x i)) y) := by
-            calc (ρ.mat * U) r i
+            calc (ρ.mat.mulVec (fun x ↦ U x i)) r
                 = ((U * star U).mulVec (ρ.mat.mulVec (fun x ↦ U x i))) r := by
-                  rw [Unitary.coe_mul_star_self ρ.eigUnitary, Matrix.one_mulVec]; rfl
+                  rw [hU_mul, Matrix.one_mulVec]
               _ = _ := by
                   simp only [Matrix.mulVec, dotProduct, Matrix.mul_apply, Matrix.star_apply,
                     Finset.sum_mul, Finset.mul_sum]
                   rw [Finset.sum_comm]
                   apply Finset.sum_congr rfl; intro j _; apply Finset.sum_congr rfl; intro y _; ring
           rw [hfull, Finset.sum_coe_sort S_pos (fun j ↦ U r j * (∑ y : d, star (U y j) * (ρ.mat.mulVec (fun x ↦ U x i)) y))]
-          symm
           apply Finset.sum_subset (Finset.subset_univ S_pos)
           intro j _ hj; rw [horth j hj, mul_zero]
-        calc (V * Vᴴ) * ρ.mat = ((V * Vᴴ) * ρ.mat * U) * star U := by
-              rw [Matrix.mul_assoc, Unitary.coe_mul_star_self ρ.eigUnitary, Matrix.mul_one]
+        calc (V * Vᴴ) * ρ.mat = ((V * Vᴴ) * ρ.mat) * (U * star U) := by rw [hU_mul, Matrix.mul_one]
+          _ = ((V * Vᴴ) * ρ.mat * U) * star U := by simp only [Matrix.mul_assoc]
           _ = (ρ.mat * U) * star U := by rw [hU_eq]
-          _ = ρ.mat := by rw [Matrix.mul_assoc, Unitary.coe_mul_star_self ρ.eigUnitary, Matrix.mul_one]
+          _ = ρ.mat * (U * star U) := by simp only [Matrix.mul_assoc]
+          _ = ρ.mat := by rw [hU_mul, Matrix.mul_one]
       have hρ_VVH : ρ.mat * (V * Vᴴ) = ρ.mat := by
         have h := congr_arg Matrix.conjTranspose hVVH_ρ
         simpa [Matrix.conjTranspose_mul, Matrix.conjTranspose_conjTranspose, ρ.isHermitian.eq] using h
@@ -647,36 +659,34 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
         rw [relEntropy_cross_eq_trace_log τ₁ τ₂, relEntropy_cross_eq_trace_log τ₁' τ₂']
         have hL_eq : V * L₂' * Vᴴ = L₂ := by
           set U₂' : Matrix d' d' ℂ := (τ₂'.eigUnitary : Matrix d' d' ℂ)
+          have hU₂'_mul : U₂' * star U₂' = 1 := Unitary.coe_mul_star_self τ₂'.eigUnitary
+          have hU₂'_smul : star U₂' * U₂' = 1 := Unitary.coe_star_mul_self τ₂'.eigUnitary
           have hspec2' : τ₂'.mat = U₂' * Matrix.diagonal (Complex.ofReal ∘ τ₂'.eigvals) * star U₂' := by
             simpa [U₂', DensityOp.eigUnitary, DensityOp.eigvals, Matrix.star_eq_conjTranspose,
               Unitary.conjStarAlgAut_apply] using τ₂'.isHermitian.spectral_theorem
           set U₂ : Matrix d d ℂ := (τ₂.eigUnitary : Matrix d d ℂ)
+          have hU₂_mul : U₂ * star U₂ = 1 := Unitary.coe_mul_star_self τ₂.eigUnitary
           have hspec2 : τ₂.mat = U₂ * Matrix.diagonal (Complex.ofReal ∘ τ₂.eigvals) * star U₂ := by
             simpa [U₂, DensityOp.eigUnitary, DensityOp.eigvals, Matrix.star_eq_conjTranspose,
               Unitary.conjStarAlgAut_apply] using τ₂.isHermitian.spectral_theorem
           have hcol_eq : ∀ j : d, (V * L₂' * Vᴴ).mulVec (fun r ↦ U₂ r j) =
               L₂.mulVec (fun r ↦ U₂ r j) := by
             intro j
+            have hcol : (star U₂).mulVec (fun r ↦ U₂ r j) = Pi.single j 1 := by
+              ext k
+              have h := congr_fun (congr_fun (Unitary.coe_star_mul_self τ₂.eigUnitary) k) j
+              simpa [Matrix.mulVec, dotProduct, Matrix.mul_apply, Matrix.star_apply,
+                Matrix.one_apply, Pi.single_apply, eq_comm] using h
             have hR : L₂.mulVec (fun r ↦ U₂ r j) =
                 (Real.log (τ₂.eigvals j) : ℂ) • (fun r ↦ U₂ r j) := by
-              have hcol : (star U₂).mulVec (fun r ↦ U₂ r j) = Pi.single j 1 := by
-                ext k
-                have h := congr_fun (congr_fun (Unitary.coe_star_mul_self τ₂.eigUnitary) k) j
-                simpa [Matrix.mulVec, dotProduct, Matrix.mul_apply, Matrix.star_apply,
-                  Matrix.one_apply, Pi.single_apply, eq_comm] using h
-              simp only [L₂]
-              rw [Matrix.mulVec_mulVec, Matrix.mulVec_mulVec, hcol, Matrix.mulVec_diagonal]
+              change (U₂ * Matrix.diagonal (fun j ↦ (Real.log (τ₂.eigvals j) : ℂ)) * star U₂) *ᵥ (fun r ↦ U₂ r j) = _
+              rw [← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec, hcol, Matrix.mulVec_diagonal]
               ext r; simp [Matrix.mulVec, dotProduct, Pi.single_apply]
             rw [hR]
             have hτ2_eig : τ₂.mat.mulVec (fun r ↦ U₂ r j) =
                 (τ₂.eigvals j : ℂ) • (fun r ↦ U₂ r j) := by
-              have hcol : (star U₂).mulVec (fun r ↦ U₂ r j) = Pi.single j 1 := by
-                ext k
-                have h := congr_fun (congr_fun (Unitary.coe_star_mul_self τ₂.eigUnitary) k) j
-                simpa [Matrix.mulVec, dotProduct, Matrix.mul_apply, Matrix.star_apply,
-                  Matrix.one_apply, Pi.single_apply, eq_comm] using h
               conv_lhs => rw [hspec2]
-              rw [Matrix.mulVec_mulVec, Matrix.mulVec_mulVec, hcol, Matrix.mulVec_diagonal]
+              rw [← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec, hcol, Matrix.mulVec_diagonal]
               ext r; simp [Matrix.mulVec, dotProduct, Pi.single_apply]
             by_cases hj0 : τ₂.eigvals j = 0
             · rw [hj0, Real.log_zero, Complex.ofReal_zero, zero_smul]
@@ -685,17 +695,21 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
                   rw [hm2, hτ2_eig, hj0, Complex.ofReal_zero, zero_smul]
                 have h1 := congr_arg Vᴴ.mulVec h0
                 rw [Matrix.mulVec_mulVec, ← Matrix.mul_assoc Vᴴ, ← Matrix.mul_assoc Vᴴ,
-                  hVHV, Matrix.one_mul, Matrix.mulVec_zero, Matrix.mulVec_mulVec] at h1
+                  hVHV, Matrix.one_mul, Matrix.mulVec_zero, ← Matrix.mulVec_mulVec] at h1
                 by_contra hne
                 have hp := (Matrix.posDef_iff_dotProduct_mulVec.mp h2pd).2 hne
                 rw [h1, dotProduct_zero] at hp; exact lt_irrefl 0 hp
-              rw [Matrix.mulVec_mulVec, hVh0, Matrix.mulVec_zero]
+              rw [← Matrix.mulVec_mulVec, hVh0, Matrix.mulVec_zero]
             · set w : d' → ℂ := Vᴴ.mulVec (fun r ↦ U₂ r j)
               have hVw : V.mulVec w = fun r ↦ U₂ r j := by
                 have h1 : (V * Vᴴ).mulVec (τ₂.mat.mulVec (fun r ↦ U₂ r j)) =
                     τ₂.mat.mulVec (fun r ↦ U₂ r j) := by
-                  rw [← Matrix.mulVec_mulVec, ← hm2, ← Matrix.mul_assoc (V * Vᴴ),
-                    Matrix.mul_assoc V, hVHV, Matrix.mul_one]
+                  rw [Matrix.mulVec_mulVec, ← hm2]
+                  have hproj : (V * Vᴴ) * (V * τ₂'.mat * Vᴴ) = V * τ₂'.mat * Vᴴ := by
+                    calc (V * Vᴴ) * (V * τ₂'.mat * Vᴴ)
+                        = V * ((Vᴴ * V) * τ₂'.mat) * Vᴴ := by simp only [Matrix.mul_assoc]
+                      _ = V * τ₂'.mat * Vᴴ := by rw [hVHV, Matrix.one_mul]
+                  rw [hproj]
                 rw [hτ2_eig, Matrix.mulVec_smul] at h1
                 have hneC : (τ₂.eigvals j : ℂ) ≠ 0 := by exact_mod_cast hj0
                 have := congr_arg (fun v : d → ℂ ↦ (τ₂.eigvals j : ℂ)⁻¹ • v) h1
@@ -704,7 +718,7 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
               have hτ2'_w : τ₂'.mat.mulVec w = (τ₂.eigvals j : ℂ) • w := by
                 have h1 := congr_arg Vᴴ.mulVec hτ2_eig
                 rw [← hm2, Matrix.mulVec_mulVec, ← Matrix.mul_assoc Vᴴ, ← Matrix.mul_assoc Vᴴ,
-                  hVHV, Matrix.one_mul, Matrix.mulVec_mulVec, Matrix.mulVec_smul] at h1
+                  hVHV, Matrix.one_mul, ← Matrix.mulVec_mulVec, Matrix.mulVec_smul] at h1
                 exact h1
               set y : d' → ℂ := (star U₂').mulVec w
               have hy_coord : ∀ k : d', τ₂'.eigvals k ≠ τ₂.eigvals j → y k = 0 := by
@@ -713,8 +727,7 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
                 have hL : ((star U₂').mulVec (τ₂'.mat.mulVec w)) k = (τ₂'.eigvals k : ℂ) * y k := by
                   conv_lhs => rw [hspec2']
                   rw [Matrix.mulVec_mulVec, ← Matrix.mul_assoc (star U₂'), ← Matrix.mul_assoc (star U₂'),
-                    Unitary.coe_star_mul_self τ₂'.eigUnitary, Matrix.one_mul, Matrix.mulVec_mulVec,
-                    Matrix.mulVec_diagonal]
+                    hU₂'_smul, Matrix.one_mul, ← Matrix.mulVec_mulVec, Matrix.mulVec_diagonal]
                   rfl
                 rw [hL, Matrix.mulVec_smul, Pi.smul_apply, smul_eq_mul] at h1
                 have hsub : ((τ₂'.eigvals k : ℂ) - (τ₂.eigvals j : ℂ)) * y k = 0 := by linear_combination h1
@@ -722,8 +735,8 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
                   rw [← Complex.ofReal_sub]; exact_mod_cast sub_ne_zero.mpr hk
                 exact (mul_eq_zero.mp hsub).resolve_left hneC
               have hL2'_w : L₂'.mulVec w = (Real.log (τ₂.eigvals j) : ℂ) • w := by
-                simp only [L₂']
-                rw [Matrix.mulVec_mulVec, Matrix.mulVec_mulVec, Matrix.mulVec_diagonal]
+                change (U₂' * Matrix.diagonal (fun k ↦ (Real.log (τ₂'.eigvals k) : ℂ)) * star U₂') *ᵥ w = _
+                rw [← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec, Matrix.mulVec_diagonal]
                 have hdiag : (fun k : d' ↦ (Real.log (τ₂'.eigvals k) : ℂ) * y k) =
                     (Real.log (τ₂.eigvals j) : ℂ) • y := by
                   ext k; simp only [Pi.smul_apply, smul_eq_mul]
@@ -731,15 +744,16 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
                   · rw [hk]
                   · rw [hy_coord k hk, mul_zero, mul_zero]
                 rw [hdiag, Matrix.mulVec_smul, show U₂'.mulVec y = w by
-                  simp only [y, Matrix.mulVec_mulVec, Unitary.coe_mul_star_self τ₂'.eigUnitary,
-                    Matrix.one_mulVec]]
-              rw [Matrix.mulVec_mulVec, Matrix.mulVec_mulVec, hL2'_w, Matrix.mulVec_smul, hVw]
+                  simp only [y, Matrix.mulVec_mulVec, hU₂'_mul, Matrix.one_mulVec]]
+              rw [← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec, hL2'_w, Matrix.mulVec_smul, hVw]
           have hmulU : (V * L₂' * Vᴴ) * U₂ = L₂ * U₂ := by
             ext r j; exact congr_fun (hcol_eq j) r
-          calc V * L₂' * Vᴴ = ((V * L₂' * Vᴴ) * U₂) * star U₂ := by
-                rw [Matrix.mul_assoc, Unitary.coe_mul_star_self τ₂.eigUnitary, Matrix.mul_one]
+          calc V * L₂' * Vᴴ = (V * L₂' * Vᴴ) * (U₂ * star U₂) := by rw [hU₂_mul, Matrix.mul_one]
+            _ = ((V * L₂' * Vᴴ) * U₂) * star U₂ := by simp only [Matrix.mul_assoc]
             _ = (L₂ * U₂) * star U₂ := by rw [hmulU]
-            _ = L₂ := by rw [Matrix.mul_assoc, Unitary.coe_mul_star_self τ₂.eigUnitary, Matrix.mul_one]
+            _ = L₂ * (U₂ * star U₂) := by simp only [Matrix.mul_assoc]
+            _ = L₂ := by rw [hU₂_mul, Matrix.mul_one]
+        change (τ₁.mat * L₂).trace.re = (τ₁'.mat * L₂').trace.re
         rw [← hL_eq, ← hm1]
         congr 1
         calc (V * τ₁'.mat * Vᴴ * (V * L₂' * Vᴴ)).trace
@@ -797,7 +811,7 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
         have hcont : ContinuousOn (fun t : ℝ ↦
             t / 2 * Real.logb 2 (2 * t / (1 + t)) + 1 / 2 * Real.logb 2 (2 / (1 + t))) (Icc a b) := by
           have := (show ContinuousOn (fun t : ℝ ↦ (1 + t) / 2) (Icc a b) by fun_prop).sub hcont_diff
-          exact this.congr fun t _ ↦ by ring
+          exact this.congr fun t _ ↦ by dsimp only [Pi.sub_apply]; ring
         obtain ⟨M, hM⟩ := isCompact_Icc.exists_bound_of_continuousOn hcont
         have hm : AEStronglyMeasurable (fun t : ℝ ↦
             t / 2 * Real.logb 2 (2 * t / (1 + t)) + 1 / 2 * Real.logb 2 (2 / (1 + t))) μ := by
@@ -816,12 +830,12 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
           ∫ t, ((1 + t) / 2 - δ) ∂μ := by
         apply integral_mono_ae hI_lhs (hI_rhs.sub (integrable_const δ))
         filter_upwards [ae_iff.mpr hsuppμ] with t ht
-        linarith [hmin ht]
+        dsimp only [Pi.sub_apply]; linarith [hmin ht]
       have hrhs_val : ∫ t, ((1 + t) / 2 - δ) ∂μ = 1 - δ := by
         have hint_t : Integrable (fun t : ℝ ↦ t) μ := by
           refine Integrable.mono' (integrable_const b) (continuous_id : Continuous (fun t : ℝ ↦ t)).aestronglyMeasurable ?_
           filter_upwards [ae_iff.mpr hsuppμ] with t ht
-          dsimp only [id]; rw [Real.norm_of_nonneg (by linarith [ht.1])]; exact ht.2
+          rw [Real.norm_of_nonneg (by linarith [ht.1])]; exact ht.2
         rw [integral_sub hI_rhs (integrable_const δ), integral_div, integral_add (integrable_const 1) hint_t,
           integral_const, smul_eq_mul, hmean, show μ.real univ = 1 by simp [Measure.real],
           integral_const, smul_eq_mul, show μ.real univ = 1 by simp [Measure.real]]
@@ -833,7 +847,7 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
         ENNReal.ofReal ((1 / 4 : ℝ) * ((relEntropy ρ' σ').toReal + (relEntropy σ' ρ').toReal)) := by
       rw [ENNReal.ofReal_mul (by norm_num), ENNReal.ofReal_add ENNReal.toReal_nonneg ENNReal.toReal_nonneg,
         ENNReal.ofReal_toReal hfin1, ENNReal.ofReal_toReal hfin2]
-      congr 1; norm_num
+      congr 1; rw [one_div, ENNReal.ofReal_inv_of_pos (by norm_num : (0 : ℝ) < 4), ENNReal.ofReal_ofNat]
     rw [hRHS]
     exact ENNReal.ofReal_le_ofReal hmain
   · -- If `supp(ρ) ≠ supp(σ)`, then `D(ρ ‖ σ) + D(σ ‖ ρ) = ⊤`
