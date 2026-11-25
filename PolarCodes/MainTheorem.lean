@@ -87,23 +87,40 @@ noncomputable def polarFidelity {d : Type u} [Fintype d] [DecidableEq d]
     (W : CQChannel d) (t : ℕ) (b : Fin t → Bool) : ℝ :=
   (polarChannelTree W t b).ch.fidelityParam
 
+lemma polarCondEntropy_snoc_false {d : Type u} [Fintype d] [DecidableEq d]
+    (W : CQChannel d) (t : ℕ) (b : Fin t → Bool) :
+    polarCondEntropy W (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b false) =
+      (polarChannelTree W t b).ch.minusChannel.condEntropy :=
+  congrArg (fun S : BundledCQChannel.{u} ↦ S.ch.condEntropy) (polarChannelTree_snoc_false W t b)
+
+lemma polarCondEntropy_snoc_true {d : Type u} [Fintype d] [DecidableEq d]
+    (W : CQChannel d) (t : ℕ) (b : Fin t → Bool) :
+    polarCondEntropy W (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b true) =
+      (polarChannelTree W t b).ch.plusChannel.condEntropy :=
+  congrArg (fun S : BundledCQChannel.{u} ↦ S.ch.condEntropy) (polarChannelTree_snoc_true W t b)
+
+lemma polarFidelity_snoc_false {d : Type u} [Fintype d] [DecidableEq d]
+    (W : CQChannel d) (t : ℕ) (b : Fin t → Bool) :
+    polarFidelity W (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b false) =
+      (polarChannelTree W t b).ch.minusChannel.fidelityParam :=
+  congrArg (fun S : BundledCQChannel.{u} ↦ S.ch.fidelityParam) (polarChannelTree_snoc_false W t b)
+
+lemma polarFidelity_snoc_true {d : Type u} [Fintype d] [DecidableEq d]
+    (W : CQChannel d) (t : ℕ) (b : Fin t → Bool) :
+    polarFidelity W (t + 1) (Fin.snoc (α := fun _ ↦ Bool) b true) =
+      (polarChannelTree W t b).ch.plusChannel.fidelityParam :=
+  congrArg (fun S : BundledCQChannel.{u} ↦ S.ch.fidelityParam) (polarChannelTree_snoc_true W t b)
+
 /-- Fidelity parameter of any `CQChannel` lies in `[0, 1]`. -/
 lemma fidelityParam_mem_Icc {d : Type*} [Fintype d] [DecidableEq d] (W : CQChannel d) :
     W.fidelityParam ∈ Set.Icc (0 : ℝ) 1 := by
   refine ⟨?_, ?_⟩
   · unfold CQChannel.fidelityParam rootFidelity
     exact Finset.sum_nonneg fun i _ ↦ Real.sqrt_nonneg _
-  · -- By Uhlmann purification, `F(W) = |⟨φ₀|φ₁⟩| ≤ 1`
-    obtain ⟨φ₀, φ₁, hφ₀, hφ₁, _, _, hov⟩ := exists_uhlmann_purification (W.out false) (W.out true)
+  · obtain ⟨φ₀, φ₁, hφ₀, hφ₁, _, _, hov⟩ := exists_uhlmann_purification (W.out false) (W.out true)
     unfold CQChannel.fidelityParam
     rw [← hov]
-    calc ‖∑ p : d × d, star (φ₀ p) * φ₁ p‖
-        ≤ ∑ p : d × d, ‖star (φ₀ p) * φ₁ p‖ := norm_sum_le _ _
-      _ = ∑ p : d × d, ‖φ₀ p‖ * ‖φ₁ p‖ := by
-          apply Finset.sum_congr rfl; intro p _; rw [norm_mul, norm_star]
-      _ ≤ ∑ p : d × d, (‖φ₀ p‖ ^ 2 + ‖φ₁ p‖ ^ 2) / 2 := by
-          apply Finset.sum_le_sum; intro p _; nlinarith [sq_nonneg (‖φ₀ p‖ - ‖φ₁ p‖)]
-      _ = 1 := by rw [← Finset.sum_div, Finset.sum_add_distrib, hφ₀, hφ₁]; norm_num
+    exact norm_inner_le_one hφ₀ hφ₁
 
 /-- Instantiation of `PolarProcess` for any finite-dimensional binary-input c-q channel `W`. -/
 noncomputable def cqPolarProcess {d : Type u} [Fintype d] [DecidableEq d]
@@ -113,22 +130,21 @@ noncomputable def cqPolarProcess {d : Type u} [Fintype d] [DecidableEq d]
   H_mem := fun t b ↦ condEntropy_mem_Icc (polarChannelTree W t b).ch
   Z_mem := fun t b ↦ fidelityParam_mem_Icc (polarChannelTree W t b).ch
   H_cons := fun t b ↦ by
-    simp only [polarCondEntropy, polarChannelTree_snoc_false, polarChannelTree_snoc_true,
-      BundledCQChannel.minus, BundledCQChannel.plus]
+    rw [polarCondEntropy_snoc_false, polarCondEntropy_snoc_true]
     have h := entropy_conservation (polarChannelTree W t b).ch (polarChannelTree W t b).ch
-    unfold CQChannel.minusChannel CQChannel.plusChannel
+    unfold polarCondEntropy CQChannel.minusChannel CQChannel.plusChannel
     linarith
   T_contract := fun t b ↦ by
-    simp only [polarCondEntropy, polarChannelTree_snoc_false, polarChannelTree_snoc_true,
-      BundledCQChannel.minus, BundledCQChannel.plus]
-    exact theorem_1_2b_potential_contraction (polarChannelTree W t b).ch
+    rw [polarCondEntropy_snoc_false, polarCondEntropy_snoc_true]
+    simpa [CQChannel.potential, polarCondEntropy] using
+      theorem_1_2b_potential_contraction (polarChannelTree W t b).ch
   Z_le_sqrt_H := fun t b ↦
     fidelityParam_le_sqrt_condEntropy (polarChannelTree W t b).ch
   Z_plus := fun t b ↦ by
-    simp only [polarFidelity, polarChannelTree_snoc_true, BundledCQChannel.plus]
+    rw [polarFidelity_snoc_true]
     exact fidelityParam_plusChannel (polarChannelTree W t b).ch
   Z_minus := fun t b ↦ by
-    simp only [polarFidelity, polarChannelTree_snoc_false, BundledCQChannel.minus]
+    rw [polarFidelity_snoc_false]
     exact fidelityParam_minusChannel_le (polarChannelTree W t b).ch
 
 lemma cqPolarProcess_symCap {d : Type u} [Fintype d] [DecidableEq d] (W : CQChannel d) :
