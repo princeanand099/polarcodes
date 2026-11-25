@@ -464,7 +464,7 @@ lemma measurable_negEigCount_pencil (ρ σ : DensityOp d) :
             refine Submodule.span_induction ?_ ?_ ?_ ?_ hmem
             · rintro _ ⟨j, hj, rfl⟩
               have hne : i ≠ j := fun h ↦ hi (h ▸ hj)
-              have hu := congr_fun (congr_fun (Unitary.coe_star_mul_self hA₀.eigenvectorUnitary) i) j
+              have hu := congr_fun (congr_fun hU_star i) j
               simpa [Matrix.mulVec, Matrix.mul_apply, dotProduct, v, Matrix.one_apply, hne] using hu
             · simp
             · intro y z _ _ hy hz; rw [Matrix.mulVec_add, Pi.add_apply, hy, hz, add_zero]
@@ -552,7 +552,7 @@ lemma measurable_negEigCount_pencil (ρ σ : DensityOp d) :
           linarith
         have hx_pos : 0 < ∑ i : d, ‖x i‖ ^ 2 := by
           obtain ⟨i, hi⟩ : ∃ i : d, x i ≠ 0 := by
-            by_contra hall; push_neg at hall; exact hx0 (funext hall)
+            by_contra hall; push Not at hall; exact hx0 (funext hall)
           exact lt_of_lt_of_le (sq_pos_of_pos (norm_pos_iff.mpr hi))
             (Finset.single_le_sum (fun j _ ↦ sq_nonneg ‖x j‖) (Finset.mem_univ i))
         have hbound : |p.2 - p₀.2| * (∑ i : d, ∑ j : d, ‖σ.mat i j - ρ.mat i j‖) + |p.1 - p₀.1| < δ := by
@@ -609,7 +609,7 @@ private lemma trace_isHermitian_eq_sum {A : Matrix d d ℂ} (hA : A.IsHermitian)
   rw [Matrix.trace_mul_cycle, hU_star, Matrix.one_mul, Matrix.trace_diagonal]
   rfl
 
-set_option maxHeartbeats 800000 in
+set_option maxHeartbeats 2000000 in
 /-- **Frenkel's Integral Formula (Theorem 6 / Eq. 3.7)** for full-rank density operators `ρ, σ ≻ 0`:
 `D(ρ ‖ σ) * log 2 = ∫⁻ t : ℝ, Tr(((1 - t) ρ + t σ)_-) / (|t| (t - 1)²) dt`. -/
 theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
@@ -874,7 +874,7 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
         split_ifs
         · rw [← Complex.ofReal_mul, Real.mul_self_sqrt (by linarith [hα_pos i]), Complex.ofReal_add]
         · simp
-      rw [hd, Matrix.mul_add, Matrix.add_mul, ← Matrix.mul_assoc, ← Matrix.mul_assoc, ← hρ_spec, ← hI_spec]
+      rw [hd, Matrix.add_mul, Matrix.mul_add, ← Matrix.mul_assoc, ← Matrix.mul_assoc, ← hρ_spec, ← hI_spec]
     have hQ_mul_Qinv : (σ.mat + (r : ℂ) • (1 : Matrix d d ℂ)) * Qinv = 1 := by
       have hσ_spec : σ.mat = Uσ * Matrix.diagonal (Complex.ofReal ∘ β) * star Uσ := by
         simpa [Uσ, β, DensityOp.eigUnitary, DensityOp.eigvals, Matrix.star_eq_conjTranspose,
@@ -961,7 +961,13 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
             have := congr_fun (congr_fun hSinv_herm.eq j) i
             simpa [Matrix.conjTranspose_apply] using this
           rw [hji]; ring
-        rw [hstar_Sinv, Matrix.mul_assoc Sinv, Matrix.mulVec_mulVec, Matrix.dotProduct_mulVec, Matrix.mulVec_mulVec]
+        calc star x ⬝ᵥ (Sinv * (σ.mat + (r : ℂ) • (1 : Matrix d d ℂ)) * Sinv).mulVec x
+            = star x ⬝ᵥ Sinv.mulVec (((σ.mat + (r : ℂ) • (1 : Matrix d d ℂ)) * Sinv).mulVec x) := by
+                rw [Matrix.mul_assoc Sinv, Matrix.mulVec_mulVec]
+          _ = ((star x) ᵥ* Sinv) ⬝ᵥ (((σ.mat + (r : ℂ) • (1 : Matrix d d ℂ)) * Sinv).mulVec x) := by
+                rw [Matrix.dotProduct_mulVec]
+          _ = star (Sinv.mulVec x) ⬝ᵥ (σ.mat + (r : ℂ) • (1 : Matrix d d ℂ)).mulVec (Sinv.mulVec x) := by
+                rw [← hstar_Sinv, Matrix.mulVec_mulVec]
       rw [hquad]
       exact (Matrix.posDef_iff_dotProduct_mulVec.mp hQ_pos).2 hSinv_x
     have hlam_gt : ∀ k : d, -1 < hM_herm.eigenvalues k := by
@@ -1272,7 +1278,7 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
                   congr_arg₂ (· + ·) hI_spec (congr_arg ((t : ℂ) • ·) hM_spec)
           _ = (hM_herm.eigenvectorUnitary : Matrix d d ℂ) * D *
                 (hM_herm.eigenvectorUnitary : Matrix d d ℂ)ᴴ := by
-                  rw [Matrix.smul_mul, Matrix.mul_smul, ← Matrix.add_mul, ← Matrix.mul_add]
+                  rw [← Matrix.smul_mul, ← Matrix.mul_smul, ← Matrix.add_mul, ← Matrix.mul_add]
                   simp only [D, Matrix.star_eq_conjTranspose]
                   congr 2; ext i j
                   simp only [Matrix.add_apply, Matrix.smul_apply, Matrix.diagonal_apply, Function.comp_apply,
@@ -1288,7 +1294,7 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
       have hneg3 : negEigCount hD_herm = (Finset.univ.filter (fun k : d ↦ 1 + t * hM_herm.eigenvalues k < 0)).card := by
         have hsum_ind : ∑ k : d, (if hD_herm.eigenvalues k < 0 then (1 : ℝ) else 0) =
             ∑ k : d, (if 1 + t * hM_herm.eigenvalues k < 0 then (1 : ℝ) else 0) :=
-          spectral_sum_diagonal (fun k ↦ 1 + t * hM_herm.eigenvalues k) hD_herm (by simp [lt_irrefl])
+          spectral_sum_diagonal (fun k ↦ 1 + t * hM_herm.eigenvalues k) hD_herm (if_neg (lt_irrefl 0))
         have hcard1 : (Finset.univ.filter (fun k : d ↦ hD_herm.eigenvalues k < 0)).card =
             ((∑ k : d, if hD_herm.eigenvalues k < 0 then (1 : ℝ) else 0) : ℝ) := by
           simp [Finset.sum_boole]
@@ -1395,8 +1401,8 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
   rw [MeasureTheory.lintegral_lintegral_swap hmeas_prod.aemeasurable]
   apply MeasureTheory.lintegral_congr
   intro t
-  rw [MeasureTheory.lintegral_mul_const _ (by
-    exact (measurable_negEigCount_pencil ρ σ).comp (measurable_id.prodMk measurable_const))]
+  rw [MeasureTheory.lintegral_mul_const (ENNReal.ofReal (1 / (|t| * (t - 1) ^ 2)))
+    ((measurable_negEigCount_pencil ρ σ).comp (measurable_id.prodMk measurable_const))]
   have hA_t : (((1 - t : ℝ) : ℂ) • ρ.mat + (t : ℂ) • σ.mat).IsHermitian := by
     have h1 : (((1 - t : ℝ) : ℂ) • ρ.mat).IsHermitian := by
       rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal, ρ.isHermitian.eq]
