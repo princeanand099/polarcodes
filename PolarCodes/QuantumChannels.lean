@@ -766,8 +766,7 @@ theorem relEntropy_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
       set A' := DensityOp.mix δ (le_of_lt hδ0) (le_of_lt hδ1) (𝒩.apply ρ') (maxMixedState d₂)
       set B' := DensityOp.mix δ (le_of_lt hδ0) (le_of_lt hδ1) (𝒩.apply σ') (maxMixedState d₂)
       have hlog2_pos : 0 < ENNReal.ofReal (Real.log 2) := ENNReal.ofReal_pos.mpr (Real.log_pos (by norm_num))
-      refine (ENNReal.mul_le_mul_iff_left (ne_of_gt hlog2_pos) ENNReal.ofReal_ne_top).mp ?_
-      rw [mul_comm _ (ENNReal.ofReal (Real.log 2)), mul_comm _ (ENNReal.ofReal (Real.log 2))]
+      refine (ENNReal.mul_le_mul_iff_right (ne_of_gt hlog2_pos) ENNReal.ofReal_ne_top).mp ?_
       rw [relEntropy_frenkel_integral (mix_maxMixed_posDef (𝒩.apply ρ') hδ0 hδ1) (mix_maxMixed_posDef (𝒩.apply σ') hδ0 hδ1),
           relEntropy_frenkel_integral (mix_maxMixed_posDef ρ hε0 hε1) (mix_maxMixed_posDef σ hε0 hε1)]
       apply MeasureTheory.lintegral_mono; intro t
@@ -805,7 +804,7 @@ theorem relEntropy_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
       refine ⟨?_, Eventually.of_forall hε_pos⟩
       have h1 : Tendsto (fun k : ℕ ↦ (k : ℝ) + 2) atTop atTop :=
         Filter.tendsto_atTop_add_const_right atTop (2 : ℝ) tendsto_natCast_atTop_atTop
-      simpa [ε, one_div] using tendsto_inv_atTop_zero.comp h1
+      simpa [ε, one_div, Function.comp_def] using tendsto_inv_atTop_zero.comp h1
     set A0 := DensityOp.mix δ (le_of_lt hδ0) (le_of_lt hδ1) (𝒩.apply ρ) (maxMixedState d₂)
     set B0 := DensityOp.mix δ (le_of_lt hδ0) (le_of_lt hδ1) (𝒩.apply σ) (maxMixedState d₂)
     let Ak : ℕ → DensityOp d₂ := fun k ↦
@@ -817,8 +816,7 @@ theorem relEntropy_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
         (𝒩.apply (DensityOp.mix (ε k) (le_of_lt (hε_pos k)) (le_of_lt (hε_lt1 k)) σ (maxMixedState d₁)))
         (maxMixedState d₂)
     have hlog2_pos : 0 < ENNReal.ofReal (Real.log 2) := ENNReal.ofReal_pos.mpr (Real.log_pos (by norm_num))
-    refine (ENNReal.mul_le_mul_iff_left (ne_of_gt hlog2_pos) ENNReal.ofReal_ne_top).mp ?_
-    rw [mul_comm _ (ENNReal.ofReal (Real.log 2)), mul_comm _ (ENNReal.ofReal (Real.log 2))]
+    refine (ENNReal.mul_le_mul_iff_right (ne_of_gt hlog2_pos) ENNReal.ofReal_ne_top).mp ?_
     rw [relEntropy_frenkel_integral (mix_maxMixed_posDef (𝒩.apply ρ) hδ0 hδ1) (mix_maxMixed_posDef (𝒩.apply σ) hδ0 hδ1)]
     let fk : ℕ → ℝ → ℝ≥0∞ := fun k t ↦
       ENNReal.ofReal (negPartTrace (show (((1 - t : ℝ) : ℂ) • (Ak k).mat + (t : ℂ) • (Bk k).mat).IsHermitian by
@@ -1018,22 +1016,24 @@ theorem relEntropy_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
     calc ∫⁻ t, f0 t ∂volume
         ≤ ∫⁻ t, liminf (fun k ↦ fk k t) atTop ∂volume := MeasureTheory.lintegral_mono hpt
       _ ≤ liminf (fun k ↦ ∫⁻ t, fk k t ∂volume) atTop := MeasureTheory.lintegral_liminf_le hfk_meas
-      _ = liminf (fun k ↦ ENNReal.ofReal (Real.log 2) * relEntropy (Ak k) (Bk k)) atTop := by
+      _ = liminf (fun k ↦ relEntropy (Ak k) (Bk k) * ENNReal.ofReal (Real.log 2)) atTop := by
           congr 1; ext k
           exact (relEntropy_frenkel_integral
             (mix_maxMixed_posDef (𝒩.apply _) hδ0 hδ1) (mix_maxMixed_posDef (𝒩.apply _) hδ0 hδ1)).symm
-      _ ≤ liminf (fun k ↦ ENNReal.ofReal (Real.log 2) *
+      _ ≤ liminf (fun k ↦
             relEntropy (DensityOp.mix (ε k) (le_of_lt (hε_pos k)) (le_of_lt (hε_lt1 k)) ρ (maxMixedState d₁))
-              (DensityOp.mix (ε k) (le_of_lt (hε_pos k)) (le_of_lt (hε_lt1 k)) σ (maxMixedState d₁))) atTop := by
+              (DensityOp.mix (ε k) (le_of_lt (hε_pos k)) (le_of_lt (hε_lt1 k)) σ (maxMixedState d₁)) *
+            ENNReal.ofReal (Real.log 2)) atTop := by
           apply Filter.liminf_le_liminf
-          · exact Eventually.of_forall fun k ↦ mul_le_mul_left' (hdpi_ε (ε k) (hε_pos k) (hε_lt1 k)) _
+          · exact Eventually.of_forall fun k ↦ mul_le_mul_right' (hdpi_ε (ε k) (hε_pos k) (hε_lt1 k)) _
           · isBoundedDefault
           · isBoundedDefault
-      _ = ENNReal.ofReal (Real.log 2) * relEntropy ρ σ := by
-          have htend_rhs : Tendsto (fun k ↦ ENNReal.ofReal (Real.log 2) *
+      _ = relEntropy ρ σ * ENNReal.ofReal (Real.log 2) := by
+          have htend_rhs : Tendsto (fun k ↦
               relEntropy (DensityOp.mix (ε k) (le_of_lt (hε_pos k)) (le_of_lt (hε_lt1 k)) ρ (maxMixedState d₁))
-                (DensityOp.mix (ε k) (le_of_lt (hε_pos k)) (le_of_lt (hε_lt1 k)) σ (maxMixedState d₁)))
-              atTop (𝓝 (ENNReal.ofReal (Real.log 2) * relEntropy ρ σ)) := by
+                (DensityOp.mix (ε k) (le_of_lt (hε_pos k)) (le_of_lt (hε_lt1 k)) σ (maxMixedState d₁)) *
+              ENNReal.ofReal (Real.log 2))
+              atTop (𝓝 (relEntropy ρ σ * ENNReal.ofReal (Real.log 2))) := by
             have h1 := (tendsto_relEntropy_mix_maxMixed ρ σ).comp hε_tendsto
             have h2 : ∀ k : ℕ,
                 (if h : 0 < ε k ∧ ε k < 1 then
@@ -1048,7 +1048,7 @@ theorem relEntropy_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
                   (DensityOp.mix (ε k) (le_of_lt (hε_pos k)) (le_of_lt (hε_lt1 k)) σ (maxMixedState d₁)))
                 atTop (𝓝 (relEntropy ρ σ)) := by
               simpa [Function.comp_def, h2] using h1
-            exact ENNReal.Tendsto.const_mul h1' (Or.inr ENNReal.ofReal_ne_top)
+            exact ENNReal.Tendsto.mul_const h1' (Or.inr ENNReal.ofReal_ne_top)
           exact htend_rhs.liminf_eq
   -- Step 2: Take `δ → 0+` via `tendsto_relEntropy_mix_maxMixed`
   refine le_of_tendsto (tendsto_relEntropy_mix_maxMixed (𝒩.apply ρ) (𝒩.apply σ)) ?_
@@ -1219,7 +1219,8 @@ theorem qjs_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
       have hcomb := (h1.add h2).div_const 2
       refine hcomb.congr' ?_
       filter_upwards [Ioo_mem_nhdsGT (by norm_num : (0 : ℝ) < 1)] with δ hδ
-      simp only [Function.comp_def, dif_pos ⟨hδ.1, hδ.2⟩]
+      have hδ' : 0 < δ ∧ δ < 1 := ⟨hδ.1, hδ.2⟩
+      simp only [Function.comp_def, dif_pos hδ']
     have hEq : ∀ᶠ δ : ℝ in 𝓝[>] 0,
         (if h : 0 < δ ∧ δ < 1 then
           qjs (DensityOp.mix δ (le_of_lt h.1) (le_of_lt h.2) A (maxMixedState α))
@@ -1233,7 +1234,8 @@ theorem qjs_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
         else ((relEntropy A (DensityOp.midpoint A B)).toReal +
               (relEntropy B (DensityOp.midpoint A B)).toReal) / 2) := by
       filter_upwards [Ioo_mem_nhdsGT (by norm_num : (0 : ℝ) < 1)] with δ hδ
-      rw [dif_pos ⟨hδ.1, hδ.2⟩, dif_pos ⟨hδ.1, hδ.2⟩]
+      have hδ' : 0 < δ ∧ δ < 1 := ⟨hδ.1, hδ.2⟩
+      rw [dif_pos hδ', dif_pos hδ']
       have hq := (qjs_eq_half_relEntropy_midpoint (mix_maxMixed_posDef A hδ.1 hδ.2) (mix_maxMixed_posDef B hδ.1 hδ.2)).2
       have hmid_eq : DensityOp.midpoint
           (DensityOp.mix δ (le_of_lt hδ.1) (le_of_lt hδ.2) A (maxMixedState α))
@@ -1246,19 +1248,25 @@ theorem qjs_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
           (DensityOp.mix δ (le_of_lt hδ.1) (le_of_lt hδ.2) (DensityOp.midpoint A B) (maxMixedState α)) ≠ ⊤ := by
         unfold relEntropy
         have hpd := mix_maxMixed_posDef (DensityOp.midpoint A B) hδ.1 hδ.2
-        rw [if_pos (fun i j _ h0 ↦ absurd h0 (ne_of_gt (hpd.eigenvalues_pos j)))]
+        have hsp : suppSubset (DensityOp.mix δ (le_of_lt hδ.1) (le_of_lt hδ.2) A (maxMixedState α))
+            (DensityOp.mix δ (le_of_lt hδ.1) (le_of_lt hδ.2) (DensityOp.midpoint A B) (maxMixedState α)) :=
+          fun i j _ h0 ↦ absurd h0 (ne_of_gt (hpd.eigenvalues_pos j))
+        rw [if_pos hsp]
         exact ENNReal.ofReal_ne_top
       have h2_ne : relEntropy (DensityOp.mix δ (le_of_lt hδ.1) (le_of_lt hδ.2) B (maxMixedState α))
           (DensityOp.mix δ (le_of_lt hδ.1) (le_of_lt hδ.2) (DensityOp.midpoint A B) (maxMixedState α)) ≠ ⊤ := by
         unfold relEntropy
         have hpd := mix_maxMixed_posDef (DensityOp.midpoint A B) hδ.1 hδ.2
-        rw [if_pos (fun i j _ h0 ↦ absurd h0 (ne_of_gt (hpd.eigenvalues_pos j)))]
+        have hsp : suppSubset (DensityOp.mix δ (le_of_lt hδ.1) (le_of_lt hδ.2) B (maxMixedState α))
+            (DensityOp.mix δ (le_of_lt hδ.1) (le_of_lt hδ.2) (DensityOp.midpoint A B) (maxMixedState α)) :=
+          fun i j _ h0 ↦ absurd h0 (ne_of_gt (hpd.eigenvalues_pos j))
+        rw [if_pos hsp]
         exact ENNReal.ofReal_ne_top
       have hq_real := congr_arg ENNReal.toReal hq
       rw [ENNReal.toReal_ofReal (qjs_eq_half_relEntropy_midpoint (mix_maxMixed_posDef A hδ.1 hδ.2) (mix_maxMixed_posDef B hδ.1 hδ.2)).1,
-        ENNReal.toReal_mul, ENNReal.toReal_add h1_ne h2_ne] at hq_real
-      have hhalf : (1 / 2 : ℝ≥0∞).toReal = 1 / 2 := by norm_num
-      rw [hhalf] at hq_real
+        ENNReal.toReal_div, ENNReal.toReal_add h1_ne h2_ne] at hq_real
+      have htwo : (2 : ℝ≥0∞).toReal = 2 := by norm_num
+      rw [htwo] at hq_real
       linarith
     exact tendsto_nhds_unique (hL.congr' hEq) hR
   obtain ⟨h1, _, _⟩ := hqjs_rel (𝒩.apply ρ) (𝒩.apply σ)
