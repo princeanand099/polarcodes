@@ -45,6 +45,19 @@ private lemma polarFidelity_eq {d : Type} [Fintype d] [DecidableEq d]
     (toPolarBundled_polarChannelTree W t b)
   exact h
 
+private lemma treeProb_eq (n : ℕ) (P : (Fin n → Bool) → Prop) :
+    treeProb n P = PolarCodes.treeProb n P := by
+  classical
+  rw [PolarCodes.treeProb_eq_avg]
+  unfold treeProb PolarCodes.treeAvg
+  congr 1
+  rw [← Finset.sum_boole]
+  apply Finset.sum_congr rfl
+  intro b _
+  by_cases hb : P b
+  · simp [hb, PolarCodes.ind_pos]
+  · simp [hb, PolarCodes.ind_neg]
+
 /-- **Theorem 1.1 (Polynomial-Blocklength Quantum Polarization)**. -/
 theorem theorem_1_1_quantum_polar_poly_blocklength :
     ∃ (μ C₀ : ℝ), 0 < μ ∧ 0 < C₀ ∧
@@ -64,7 +77,8 @@ theorem theorem_1_1_quantum_polar_poly_blocklength :
     (fun b ↦ PolarCodes.polarFidelity (toPolarCQChannel W) n b ≤
       (2 : ℝ) ^ (-(200 : ℝ) * ((2 : ℝ) ^ n) ^ (49047 / 100000 : ℝ))) := by
     ext b; rw [polarFidelity_eq]
-  simpa only [hpred] using hW
+  rw [treeProb_eq, hpred]
+  exact hW
 
 /-- **Corollary 5.5 (Simultaneous Amplitude/Phase Polarization for CSS Quantum Polar Codes)**. -/
 theorem corollary_5_5_simultaneous_css_polarization :
@@ -94,7 +108,8 @@ theorem corollary_5_5_simultaneous_css_polarization :
       PolarCodes.polarFidelity (toPolarCQChannel W_P) n b ≤
         (2 : ℝ) ^ (-(200 : ℝ) * ((2 : ℝ) ^ n) ^ (49047 / 100000 : ℝ))) := by
     ext b; rw [polarFidelity_eq, polarFidelity_eq]
-  simpa only [hpred] using hW
+  rw [treeProb_eq, hpred]
+  exact hW
 
 /-- **Theorem 1.2(b), Eq. (1.7) (Linear-Scaling Polarization Splitting)**. -/
 theorem theorem_1_2b_linear_splitting {d : Type} [Fintype d] [DecidableEq d] (W : CQChannel d) :

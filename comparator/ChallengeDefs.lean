@@ -82,8 +82,8 @@ noncomputable def sqrtMat (ρ : DensityOp d) : Matrix d d ℂ :=
 lemma sqrtMat_isHermitian (ρ : DensityOp d) : ρ.sqrtMat.IsHermitian := by
   unfold sqrtMat
   rw [Matrix.IsHermitian, Matrix.conjTranspose_mul, Matrix.conjTranspose_mul,
-    ← Matrix.star_eq_conjTranspose, ← Matrix.star_eq_conjTranspose, star_star,
-    Matrix.diagonal_conjTranspose]
+    Matrix.diagonal_conjTranspose, ← Matrix.star_eq_conjTranspose, star_star,
+    ← Matrix.star_eq_conjTranspose]
   have hdiag : (star fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ)) =
       fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ) := by
     ext i; simp
