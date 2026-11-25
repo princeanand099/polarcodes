@@ -154,9 +154,7 @@ def comp (ℳ : CPTPMap d₂ d₃) (𝒩 : CPTPMap d₁ d₂) : CPTPMap d₁ d�
           apply Finset.sum_congr rfl; intro b₂ _
           rw [Finset.sum_comm]
           apply Finset.sum_congr rfl; intro e₁ _
-          rw [Finset.mul_sum]
-          apply Finset.sum_congr rfl; intro c _
-          rw [Finset.mul_sum]
+          simp_rw [Finset.mul_sum]
       _ = ∑ b₁ : d₂, ∑ b₂ : d₂, ∑ e₁ : 𝒩.env,
             star (𝒩.isom (b₁, e₁) i) * 𝒩.isom (b₂, e₁) j *
             (1 : Matrix d₂ d₂ ℂ) b₁ b₂ := by
@@ -179,10 +177,8 @@ def comp (ℳ : CPTPMap d₂ d₃) (𝒩 : CPTPMap d₁ d₂) : CPTPMap d₁ d�
 lemma comp_apply (ℳ : CPTPMap d₂ d₃) (𝒩 : CPTPMap d₁ d₂) (ρ : DensityOp d₁) :
     ((ℳ.comp 𝒩).apply ρ).mat = (ℳ.apply (𝒩.apply ρ)).mat := by
   ext c₁ c₂
-  change ∑ e : ℳ.env × 𝒩.env,
-      ((ℳ.comp 𝒩).isom * ρ.mat * (ℳ.comp 𝒩).isomᴴ) (c₁, e) (c₂, e) =
-    ∑ e₂ : ℳ.env, (ℳ.isom * (𝒩.apply ρ).mat * ℳ.isomᴴ) (c₁, e₂) (c₂, e₂)
-  dsimp only [apply, toLinearMap, comp, partialTrace₂Mat]
+  unfold apply toLinearMap comp partialTrace₂Mat
+  dsimp only [LinearMap.coe_mk, AddHom.coe_mk]
   simp only [Matrix.of_apply, Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
     star_sum, star_mul']
   simp_rw [Finset.sum_mul, Finset.mul_sum]
@@ -1042,7 +1038,7 @@ theorem relEntropy_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
             ENNReal.ofReal (Real.log 2)) atTop := by
           apply Filter.liminf_le_liminf
           · exact Eventually.of_forall fun k ↦
-              mul_le_mul_of_nonneg_right (hdpi_ε (ε k) (hε_pos k) (hε_lt1 k)) (zero_le _)
+              mul_le_mul_of_nonneg_right (hdpi_ε (ε k) (hε_pos k) (hε_lt1 k)) zero_le
           · isBoundedDefault
           · isBoundedDefault
       _ = relEntropy ρ σ * ENNReal.ofReal (Real.log 2) := by
