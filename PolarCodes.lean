@@ -21,6 +21,7 @@ import PolarCodes.MrsGerberHybrid
 import PolarCodes.Polarization
 import PolarCodes.PolarizationFine
 import PolarCodes.QJJS
+import PolarCodes.QuantumChannels
 import PolarCodes.QuantumProps
 import PolarCodes.QuantumStates
 import PolarCodes.SanityChecks
