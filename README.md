@@ -1,6 +1,6 @@
 # PolarCodes — Lean 4 Formalization
 
-Complete, zero-`sorry`, zero-custom-`axiom` Lean 4 (`v4.35.0`) formalization of:
+ Lean 4 (`v4.35.0`) formalization of:
 
 > **Polynomial-Blocklength Quantum Polar Codes via Nonlinear Dephasing Contraction**
 > Prince Anand (November 2026)
