@@ -91,10 +91,26 @@ theorem relEntropy_partialTrace₂_le {ρ σ : DensityOp (d₁ × d₂)}
   have hlin : ((1 - t : ℝ) : ℂ) • (partialTrace₂ ρ).mat + (t : ℂ) • (partialTrace₂ σ).mat =
       partialTrace₂Mat d₁ d₂ (((1 - t : ℝ) : ℂ) • ρ.mat + (t : ℂ) • σ.mat) := by
     rw [map_add, map_smul, map_smul]; rfl
-  rw [negPartTrace_eq_of_eq _ (by rw [← hlin]; exact _) hlin]
+  have hA : (((1 - t : ℝ) : ℂ) • ρ.mat + (t : ℂ) • σ.mat).IsHermitian := by
+    have h1 : (((1 - t : ℝ) : ℂ) • ρ.mat).IsHermitian := by
+      rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal, ρ.isHermitian.eq]
+    have h2 : ((t : ℂ) • σ.mat).IsHermitian := by
+      rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal, σ.isHermitian.eq]
+    exact h1.add h2
+  have hB : (((1 - t : ℝ) : ℂ) • (partialTrace₂ ρ).mat + (t : ℂ) • (partialTrace₂ σ).mat).IsHermitian := by
+    have h1 : (((1 - t : ℝ) : ℂ) • (partialTrace₂ ρ).mat).IsHermitian := by
+      rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal,
+        (partialTrace₂ ρ).isHermitian.eq]
+    have h2 : ((t : ℂ) • (partialTrace₂ σ).mat).IsHermitian := by
+      rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal,
+        (partialTrace₂ σ).isHermitian.eq]
+    exact h1.add h2
+  have hB' : (partialTrace₂Mat d₁ d₂ (((1 - t : ℝ) : ℂ) • ρ.mat + (t : ℂ) • σ.mat)).IsHermitian :=
+    hlin ▸ hB
+  rw [negPartTrace_eq_of_eq hB hB' hlin]
   exact negPartTrace_map_le (partialTrace₂Mat d₁ d₂)
     (fun X hX ↦ partialTrace₂Mat_posSemidef hX)
-    (fun X _ ↦ by rw [partialTrace₂Mat_trace]) _ _
+    (fun X _ ↦ by rw [partialTrace₂Mat_trace]) hA hB'
 
 private lemma unitary_overlap_col_sum (m τ : DensityOp d) (i : d) :
     ∑ j : d, ‖(star (m.eigUnitary : Matrix d d ℂ) * (τ.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 = 1 := by
@@ -229,7 +245,7 @@ lemma qjs_eq_half_relEntropy_midpoint {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef
           Unitary.conjStarAlgAut_apply] using m.isHermitian.spectral_theorem
       rw [hspec]; simp only [Matrix.mul_assoc]
       rw [← Matrix.mul_assoc (star (m.eigUnitary : Matrix d d ℂ)), hm_star,
-        Matrix.one_mul, hm_star, Matrix.mul_one]
+        Matrix.one_mul, Matrix.mul_one]
     have h2 := congr_arg Complex.re (congr_fun (congr_fun h1 j) j)
     have h3 : (star (m.eigUnitary : Matrix d d ℂ) * m.mat * (m.eigUnitary : Matrix d d ℂ)) j j =
         ((1 / 2 : ℝ) : ℂ) * (star (m.eigUnitary : Matrix d d ℂ) * ρ.mat * (m.eigUnitary : Matrix d d ℂ)) j j +
@@ -243,11 +259,11 @@ lemma qjs_eq_half_relEntropy_midpoint {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef
     simp only [Matrix.diagonal_apply_eq, Function.comp_apply, Complex.ofReal_re,
       Complex.mul_re, Complex.ofReal_im, zero_mul, sub_zero] at h2
     linarith
-  have hsum_m : ∑ j : d,
-      (((star (m.eigUnitary : Matrix d d ℂ) * ρ.mat * (m.eigUnitary : Matrix d d ℂ)) j j).re * Real.log (m.eigvals j) +
-       ((star (m.eigUnitary : Matrix d d ℂ) * σ.mat * (m.eigUnitary : Matrix d d ℂ)) j j).re * Real.log (m.eigvals j)) =
+  have hsum_add :
+      (∑ j : d, ((star (m.eigUnitary : Matrix d d ℂ) * ρ.mat * (m.eigUnitary : Matrix d d ℂ)) j j).re * Real.log (m.eigvals j)) +
+      (∑ j : d, ((star (m.eigUnitary : Matrix d d ℂ) * σ.mat * (m.eigUnitary : Matrix d d ℂ)) j j).re * Real.log (m.eigvals j)) =
       -2 * ∑ j : d, Real.negMulLog (m.eigvals j) := by
-    rw [Finset.mul_sum]
+    rw [← Finset.sum_add_distrib, Finset.mul_sum]
     apply Finset.sum_congr rfl; intro j _
     unfold Real.negMulLog
     have := hmid_diag j
@@ -256,15 +272,10 @@ lemma qjs_eq_half_relEntropy_midpoint {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef
       Real.log (m.eigvals j) = 2 * m.eigvals j * Real.log (m.eigvals j) by rw [← this]; ring]
   unfold qjs vonNeumannEntropy
   have hlog2 : Real.log 2 ≠ 0 := ne_of_gt (Real.log_pos (by norm_num))
-  rw [← add_div, ← div_div, show (-∑ i, Real.negMulLog (ρ.eigvals i) -
-      ∑ j, ((star (m.eigUnitary : Matrix d d ℂ) * ρ.mat * (m.eigUnitary : Matrix d d ℂ)) j j).re * Real.log (m.eigvals j)) +
-      (-∑ i, Real.negMulLog (σ.eigvals i) -
-      ∑ j, ((star (m.eigUnitary : Matrix d d ℂ) * σ.mat * (m.eigUnitary : Matrix d d ℂ)) j j).re * Real.log (m.eigvals j)) =
-      -(∑ i, Real.negMulLog (ρ.eigvals i) + ∑ i, Real.negMulLog (σ.eigvals i)) -
-      ∑ j, (((star (m.eigUnitary : Matrix d d ℂ) * ρ.mat * (m.eigUnitary : Matrix d d ℂ)) j j).re * Real.log (m.eigvals j) +
-        ((star (m.eigUnitary : Matrix d d ℂ) * σ.mat * (m.eigUnitary : Matrix d d ℂ)) j j).re * Real.log (m.eigvals j)) by
-        rw [Finset.sum_add_distrib]; ring, hsum_m]
-  field_simp [hlog2]; ring
+  field_simp [hlog2]
+  change (2 * ∑ i : d, Real.negMulLog (m.eigvals i)) -
+      (∑ i : d, Real.negMulLog (ρ.eigvals i) + ∑ i : d, Real.negMulLog (σ.eigvals i)) = _
+  linarith [hsum_add]
 
 /-- Maximally mixed density operator `I / d` on any nonempty finite Hilbert space. -/
 noncomputable def maxMixedState (d : Type*) [Fintype d] [DecidableEq d] [Nonempty d] : DensityOp d where
@@ -301,10 +312,14 @@ lemma tendsto_vonNeumannEntropy_mix_maxMixed [Nonempty d] (ρ : DensityOp d) :
           Unitary.conjStarAlgAut_apply] using ρ.isHermitian.spectral_theorem
       have h1 : (1 : Matrix d d ℂ) = U * 1 * star U := by
         rw [Matrix.mul_one, hU_mul]
-      simp only [τ, DensityOp.mix, maxMixedState]
-      conv_lhs => rw [hspec, h1]
-      rw [← Matrix.smul_mul, ← Matrix.mul_smul, ← Matrix.smul_mul, ← Matrix.mul_smul,
-        ← Matrix.smul_mul, ← Matrix.mul_smul, ← Matrix.add_mul, ← Matrix.mul_add]
+      have hterm1 : (1 - ε) • ρ.mat = U * ((1 - ε) • Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals)) * star U := by
+        rw [hspec, Matrix.mul_smul, Matrix.smul_mul]
+      have hterm2 : ε • (maxMixedState d).mat = U * ((ε * (Fintype.card d : ℝ)⁻¹) • (1 : Matrix d d ℂ)) * star U := by
+        simp only [maxMixedState, smul_smul]
+        conv_lhs => rw [h1]
+        rw [Matrix.mul_smul, Matrix.smul_mul]
+      show (1 - ε) • ρ.mat + ε • (maxMixedState d).mat = _
+      rw [hterm1, hterm2, ← Matrix.add_mul, ← Matrix.mul_add]
       congr 2; ext i j
       simp only [Matrix.add_apply, Matrix.smul_apply, Matrix.diagonal_apply, Matrix.one_apply,
         Function.comp_apply, lam, Complex.real_smul]
@@ -363,6 +378,16 @@ private lemma tendsto_qjs_mix_maxMixed {α : Type*} [Fintype α] [DecidableEq α
   exact (tendsto_vonNeumannEntropy_mix_maxMixed (DensityOp.midpoint a b)).sub
     (((tendsto_vonNeumannEntropy_mix_maxMixed a).add (tendsto_vonNeumannEntropy_mix_maxMixed b)).div_const 2)
 
+private lemma mix_maxMixedState_posDef {α : Type*} [Fintype α] [DecidableEq α] [Nonempty α]
+    (τ : DensityOp α) {ε : ℝ} (h0 : 0 < ε) (h1 : ε ≤ 1) :
+    (DensityOp.mix ε (le_of_lt h0) h1 τ (maxMixedState α)).mat.PosDef := by
+  have hA : ((1 - ε) • τ.mat).PosSemidef := τ.posSemidef.smul (by linarith)
+  have hB : (ε • (maxMixedState α).mat).PosDef := by
+    simp only [maxMixedState, smul_smul]
+    exact (Matrix.PosDef.one (n := α) (R := ℂ)).smul
+      (mul_pos h0 (inv_pos.mpr (Nat.cast_pos.mpr Fintype.card_pos)))
+  simpa [DensityOp.mix, add_comm] using hB.add_posSemidef hA
+
 /-- **Data Processing Inequality for QJS** under `partialTrace₂` (for ALL density operators `ρ, σ`):
 `QJS(Tr₂ ρ, Tr₂ σ) ≤ QJS(ρ, σ)`. -/
 theorem qjs_partialTrace₂_le (ρ σ : DensityOp (d₁ × d₂)) :
@@ -395,16 +420,6 @@ theorem qjs_partialTrace₂_le (ρ σ : DensityOp (d₁ × d₂)) :
       (partialTrace₂ (DensityOp.midpoint a b)).mat = (DensityOp.midpoint (partialTrace₂ a) (partialTrace₂ b)).mat := by
     intro a b; ext i j
     simp [partialTrace₂, DensityOp.midpoint, DensityOp.mix, Complex.real_smul, Finset.sum_add_distrib, ← Finset.mul_sum]
-  have hmix_pd : ∀ {α : Type*} [Fintype α] [DecidableEq α] [Nonempty α]
-      (τ : DensityOp α) (ε : ℝ) (h0 : 0 < ε) (h1 : ε ≤ 1),
-      (DensityOp.mix ε (le_of_lt h0) h1 τ (maxMixedState α)).mat.PosDef := by
-    intro α _ _ _ τ ε h0 h1
-    have hA : ((1 - ε) • τ.mat).PosSemidef := τ.posSemidef.smul (by linarith)
-    have hB : (ε • (maxMixedState α).mat).PosDef := by
-      simp only [maxMixedState, smul_smul]
-      exact (Matrix.PosDef.one (n := α) (R := ℂ)).smul
-        (mul_pos h0 (inv_pos.mpr (Nat.cast_pos.mpr Fintype.card_pos)))
-    simpa [DensityOp.mix, add_comm] using hB.add_posSemidef hA
   have hle_eps : ∀ᶠ ε : ℝ in 𝓝[>] 0,
       (if h : 0 ≤ ε ∧ ε ≤ 1 then
         qjs (DensityOp.mix ε h.1 h.2 (partialTrace₂ ρ) (maxMixedState d₁))
@@ -419,8 +434,8 @@ theorem qjs_partialTrace₂_le (ρ σ : DensityOp (d₁ × d₂)) :
     rw [dif_pos h01, dif_pos h01]
     set ρ_ε := DensityOp.mix ε h01.1 h01.2 ρ (maxMixedState (d₁ × d₂))
     set σ_ε := DensityOp.mix ε h01.1 h01.2 σ (maxMixedState (d₁ × d₂))
-    have hρ_pd : ρ_ε.mat.PosDef := hmix_pd ρ ε hε.1 (le_of_lt hε.2)
-    have hσ_pd : σ_ε.mat.PosDef := hmix_pd σ ε hε.1 (le_of_lt hε.2)
+    have hρ_pd : ρ_ε.mat.PosDef := mix_maxMixedState_posDef ρ hε.1 (le_of_lt hε.2)
+    have hσ_pd : σ_ε.mat.PosDef := mix_maxMixedState_posDef σ hε.1 (le_of_lt hε.2)
     have hptρ : partialTrace₂ ρ_ε = DensityOp.mix ε h01.1 h01.2 (partialTrace₂ ρ) (maxMixedState d₁) := by
       cases h : partialTrace₂ ρ_ε; cases h' : DensityOp.mix ε h01.1 h01.2 (partialTrace₂ ρ) (maxMixedState d₁)
       have hm := hpt_mix ρ ε h01.1 h01.2
@@ -442,9 +457,9 @@ theorem qjs_partialTrace₂_le (ρ σ : DensityOp (d₁ × d₂)) :
       have hm := hpt_mid ρ_ε σ_ε; rw [h, h'] at hm; congr
     rw [hmid_eq] at hdpi1 hdpi2
     have hptρ_pd : (partialTrace₂ ρ_ε).mat.PosDef := by
-      rw [hptρ]; exact hmix_pd (partialTrace₂ ρ) ε hε.1 (le_of_lt hε.2)
+      rw [hptρ]; exact mix_maxMixedState_posDef (partialTrace₂ ρ) hε.1 (le_of_lt hε.2)
     have hptσ_pd : (partialTrace₂ σ_ε).mat.PosDef := by
-      rw [hptσ]; exact hmix_pd (partialTrace₂ σ) ε hε.1 (le_of_lt hε.2)
+      rw [hptσ]; exact mix_maxMixedState_posDef (partialTrace₂ σ) hε.1 (le_of_lt hε.2)
     have henn : ENNReal.ofReal (qjs (partialTrace₂ ρ_ε) (partialTrace₂ σ_ε)) ≤
         ENNReal.ofReal (qjs ρ_ε σ_ε) := by
       rw [(qjs_eq_half_relEntropy_midpoint hptρ_pd hptσ_pd).2, (qjs_eq_half_relEntropy_midpoint hρ_pd hσ_pd).2]
@@ -581,8 +596,7 @@ lemma qjs_pureState (ψ₀ ψ₁ : d → ℂ)
       rw [← map_add]; congr 1; push_cast; ring
     have h2 : Polynomial.C (((1 - f) / 2 : ℝ) : ℂ) = Polynomial.C (1 / 2 : ℂ) - Polynomial.C ((f / 2 : ℝ) : ℂ) := by
       rw [← map_sub]; congr 1; push_cast; ring
-    rw [h1, h2, hzz]
-    simp only [neg_smul, one_smul]
+    rw [h1, h2, hzz, neg_one_zsmul]
     ring
   have hcp_all : (DensityOp.midpoint (pureState ψ₀ hψ₀) (pureState ψ₁ hψ₁)).mat.charpoly * Polynomial.X ^ (Fintype.card Bool) =
       (Matrix.diagonal (Complex.ofReal ∘ lam)).charpoly * Polynomial.X ^ (Fintype.card d) := by
@@ -658,7 +672,7 @@ lemma sq_div_two_log_two_le_one_sub_h2 {z : ℝ} (hz0 : 0 ≤ z) (hz1 : z ≤ 1)
               (continuousAt_const.add continuousAt_id).div (continuousAt_const.sub continuousAt_id)
                 (by linarith [hs.2])
             have h2 : ContinuousAt (fun r : ℝ ↦ Real.log ((1 + r) / (1 - r))) s :=
-              (Real.continuousAt_log (ne_of_gt (div_pos (by linarith [hs.1]) (by linarith [hs.2])))).comp h1
+              h1.log (ne_of_gt (div_pos (by linarith [hs.1]) (by linarith [hs.2])))
             exact (h2.sub (continuousAt_const.mul continuousAt_id)).continuousWithinAt
           · intro s hs; rw [interior_Ico] at hs
             have hq : HasDerivAt (fun r : ℝ ↦ (1 + r) / (1 - r)) (2 / (1 - s) ^ 2) s := by
