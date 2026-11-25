@@ -66,19 +66,17 @@ theorem prop_3_3_qjjs_posDef {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ : 
       obtain ⟨M, hM⟩ := isCompact_Icc.exists_bound_of_continuousOn hcont
       have hm : AEStronglyMeasurable (fun t : ℝ ↦
           t / 2 * Real.logb 2 (2 * t / (1 + t)) + 1 / 2 * Real.logb 2 (2 / (1 + t))) μ := by
-        refine (hcont.stronglyMeasurable_of_isClosed isClosed_Icc).aestronglyMeasurable.congr ?_
-        filter_upwards [measure_zero_iff_ae_nmem.mp hsupp] with t ht
-        simp only [Set.mem_compl_iff, not_not] at ht
-        exact Set.indicator_of_mem ht _
+        have hrest : μ.restrict (Icc a b) = μ := Measure.restrict_eq_self_of_ae_mem (ae_iff.mpr hsupp)
+        rw [← hrest]; exact hcont.aestronglyMeasurable measurableSet_Icc
       refine Integrable.mono' (integrable_const M) hm ?_
-      filter_upwards [measure_zero_iff_ae_nmem.mp hsupp] with t ht
-      simp only [Set.mem_compl_iff, not_not] at ht; exact hM t ht
+      filter_upwards [ae_iff.mpr hsupp] with t ht
+      exact hM t ht
     have hI_rhs : Integrable (fun t : ℝ ↦ (1 + t) / 2) μ := by
       have hcont : ContinuousOn (fun t : ℝ ↦ (1 + t) / 2) (Icc a b) := by fun_prop
       obtain ⟨M, hM⟩ := isCompact_Icc.exists_bound_of_continuousOn hcont
       refine Integrable.mono' (integrable_const M) (by fun_prop) ?_
-      filter_upwards [measure_zero_iff_ae_nmem.mp hsupp] with t ht
-      simp only [Set.mem_compl_iff, not_not] at ht; exact hM t ht
+      filter_upwards [ae_iff.mpr hsupp] with t ht
+      exact hM t ht
     -- Strict inequality via max gap on compact `[a, b]`
     have hcont_diff : ContinuousOn (fun t : ℝ ↦
         (1 + t) / 2 - (t / 2 * Real.logb 2 (2 * t / (1 + t)) + 1 / 2 * Real.logb 2 (2 / (1 + t)))) (Icc a b) := by
@@ -100,21 +98,19 @@ theorem prop_3_3_qjjs_posDef {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ : 
     have hint_le : ∫ t, (t / 2 * Real.logb 2 (2 * t / (1 + t)) + 1 / 2 * Real.logb 2 (2 / (1 + t))) ∂μ ≤
         ∫ t, ((1 + t) / 2 - δ) ∂μ := by
       apply integral_mono_ae hI_lhs (hI_rhs.sub (integrable_const δ))
-      filter_upwards [measure_zero_iff_ae_nmem.mp hsupp] with t ht
-      simp only [Set.mem_compl_iff, not_not] at ht
+      filter_upwards [ae_iff.mpr hsupp] with t ht
       linarith [hmin ht]
     have hrhs_val : ∫ t, ((1 + t) / 2 - δ) ∂μ = 1 - δ := by
       have h1 : ∫ t, ((1 + t) / 2) ∂μ = 1 := by
         have hint_t : Integrable (fun t : ℝ ↦ t) μ := by
           refine Integrable.mono' (integrable_const b) continuous_id.aestronglyMeasurable ?_
-          filter_upwards [measure_zero_iff_ae_nmem.mp hsupp] with t ht
-          simp only [Set.mem_compl_iff, not_not, Set.mem_Icc] at ht
+          filter_upwards [ae_iff.mpr hsupp] with t ht
           rw [Real.norm_of_nonneg (by linarith [ht.1])]; exact ht.2
         rw [integral_div, integral_add (integrable_const 1) hint_t, integral_const, smul_eq_mul,
-          hmean, show (μ univ).toReal = 1 by rw [measure_univ]; simp]
+          hmean, show μ.real univ = 1 by simp [Measure.real]]
         ring
       rw [integral_sub hI_rhs (integrable_const δ), h1, integral_const, smul_eq_mul,
-        show (μ univ).toReal = 1 by rw [measure_univ]; simp, one_mul]
+        show μ.real univ = 1 by simp [Measure.real], one_mul]
     linarith
   -- Let `x = 1 - 2 h₂⁻¹(1 - QJS(ρ, σ)) ∈ (0, 1)`
   let c := qjs ρ σ
@@ -143,21 +139,18 @@ theorem prop_3_3_qjjs_posDef {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ : 
   -- Integrate `gx x t ≥ 0` (Lemma 3.1) against `μ`
   have hgx_nn : 0 ≤ ∫ t, gx x t ∂μ := by
     apply integral_nonneg_of_ae
-    filter_upwards [measure_zero_iff_ae_nmem.mp hsupp] with t ht
-    simp only [Set.mem_compl_iff, not_not, Set.mem_Icc] at ht
+    filter_upwards [ae_iff.mpr hsupp] with t ht
     exact lemma_3_1_gx_nonneg hx0 hx1 (lt_of_lt_of_le ha ht.1)
   -- Express `∫ gx x t ∂μ` in terms of `D(ρ‖σ)`, `D(σ‖ρ)`, `QJS(ρ, σ)`
   have hint_of_cont : ∀ (ψ : ℝ → ℝ), ContinuousOn ψ (Icc a b) → Integrable ψ μ := by
     intro ψ hψ
     obtain ⟨M, hM⟩ := isCompact_Icc.exists_bound_of_continuousOn hψ
     have hm : AEStronglyMeasurable ψ μ := by
-      refine (hψ.stronglyMeasurable_of_isClosed isClosed_Icc).aestronglyMeasurable.congr ?_
-      filter_upwards [measure_zero_iff_ae_nmem.mp hsupp] with t ht
-      simp only [Set.mem_compl_iff, not_not] at ht
-      exact Set.indicator_of_mem ht _
+      have hrest : μ.restrict (Icc a b) = μ := Measure.restrict_eq_self_of_ae_mem (ae_iff.mpr hsupp)
+      rw [← hrest]; exact hψ.aestronglyMeasurable measurableSet_Icc
     refine Integrable.mono' (integrable_const M) hm ?_
-    filter_upwards [measure_zero_iff_ae_nmem.mp hsupp] with t ht
-    simp only [Set.mem_compl_iff, not_not] at ht; exact hM t ht
+    filter_upwards [ae_iff.mpr hsupp] with t ht
+    exact hM t ht
   have hI1 : Integrable (fun t : ℝ ↦ (1 / 4 : ℝ) * (t - 1) * Real.logb 2 t) μ :=
     hint_of_cont _ ((continuousOn_const.mul (continuousOn_id.sub continuousOn_const)).mul
       (ContinuousOn.div_const (Real.continuousOn_log.mono fun t ht ↦ ne_of_gt (lt_of_lt_of_le ha ht.1)) _))
@@ -199,7 +192,7 @@ theorem prop_3_3_qjjs_posDef {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ : 
   have hhalf_mean : ∫ t, (1 + t) / 2 ∂μ = 1 := by
     have hint_t : Integrable (fun t : ℝ ↦ t) μ := hint_of_cont _ continuousOn_id
     rw [integral_div, integral_add (integrable_const 1) hint_t, integral_const, smul_eq_mul,
-      hmean, show (μ univ).toReal = 1 by rw [measure_univ]; simp]
+      hmean, show μ.real univ = 1 by simp [Measure.real]]
     ring
   rw [hgx_split, hJ, ← hEq36, hhalf_mean, mul_one] at hgx_nn
   have hbeta : phiDerivParam x * c - betaParam x = phi c := by
@@ -618,6 +611,8 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
         simp only [DensityOp.midpoint, DensityOp.mix, Matrix.mul_add, Matrix.add_mul,
           Matrix.mul_smul, Matrix.smul_mul, hVρ'VH, hVσ'VH]
       rw [hS_iso (DensityOp.midpoint ρ' σ') (DensityOp.midpoint ρ σ) hmid]
+    -- Show `relEntropy ρ σ = relEntropy ρ' σ'` and `relEntropy σ ρ = relEntropy σ' ρ'`
+    -- via `relEntropy_eq_frenkel`? Even simpler: directly from `relEntropy` definition!
     have hD_iso : ∀ (τ₁' τ₂' : DensityOp d') (τ₁ τ₂ : DensityOp d),
         τ₁'.mat.PosDef → τ₂'.mat.PosDef →
         V * τ₁'.mat * Vᴴ = τ₁.mat → V * τ₂'.mat * Vᴴ = τ₂.mat →
@@ -806,32 +801,30 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
         obtain ⟨M, hM⟩ := isCompact_Icc.exists_bound_of_continuousOn hcont
         have hm : AEStronglyMeasurable (fun t : ℝ ↦
             t / 2 * Real.logb 2 (2 * t / (1 + t)) + 1 / 2 * Real.logb 2 (2 / (1 + t))) μ := by
-          refine (hcont.stronglyMeasurable_of_isClosed isClosed_Icc).aestronglyMeasurable.congr ?_
-          filter_upwards [measure_zero_iff_ae_nmem.mp hsuppμ] with t ht
-          simp only [Set.mem_compl_iff, not_not] at ht; exact Set.indicator_of_mem ht _
+          have hrest : μ.restrict (Icc a b) = μ := Measure.restrict_eq_self_of_ae_mem (ae_iff.mpr hsuppμ)
+          rw [← hrest]; exact hcont.aestronglyMeasurable measurableSet_Icc
         refine Integrable.mono' (integrable_const M) hm ?_
-        filter_upwards [measure_zero_iff_ae_nmem.mp hsuppμ] with t ht
-        simp only [Set.mem_compl_iff, not_not] at ht; exact hM t ht
+        filter_upwards [ae_iff.mpr hsuppμ] with t ht
+        exact hM t ht
       have hI_rhs : Integrable (fun t : ℝ ↦ (1 + t) / 2) μ := by
         have hcont : ContinuousOn (fun t : ℝ ↦ (1 + t) / 2) (Icc a b) := by fun_prop
         obtain ⟨M, hM⟩ := isCompact_Icc.exists_bound_of_continuousOn hcont
         refine Integrable.mono' (integrable_const M) (by fun_prop) ?_
-        filter_upwards [measure_zero_iff_ae_nmem.mp hsuppμ] with t ht
-        simp only [Set.mem_compl_iff, not_not] at ht; exact hM t ht
+        filter_upwards [ae_iff.mpr hsuppμ] with t ht
+        exact hM t ht
       have hint_le : ∫ t, (t / 2 * Real.logb 2 (2 * t / (1 + t)) + 1 / 2 * Real.logb 2 (2 / (1 + t))) ∂μ ≤
           ∫ t, ((1 + t) / 2 - δ) ∂μ := by
         apply integral_mono_ae hI_lhs (hI_rhs.sub (integrable_const δ))
-        filter_upwards [measure_zero_iff_ae_nmem.mp hsuppμ] with t ht
-        simp only [Set.mem_compl_iff, not_not] at ht; linarith [hmin ht]
+        filter_upwards [ae_iff.mpr hsuppμ] with t ht
+        linarith [hmin ht]
       have hrhs_val : ∫ t, ((1 + t) / 2 - δ) ∂μ = 1 - δ := by
         have hint_t : Integrable (fun t : ℝ ↦ t) μ := by
           refine Integrable.mono' (integrable_const b) continuous_id.aestronglyMeasurable ?_
-          filter_upwards [measure_zero_iff_ae_nmem.mp hsuppμ] with t ht
-          simp only [Set.mem_compl_iff, not_not, Set.mem_Icc] at ht
+          filter_upwards [ae_iff.mpr hsuppμ] with t ht
           rw [Real.norm_of_nonneg (by linarith [ht.1])]; exact ht.2
         rw [integral_sub hI_rhs (integrable_const δ), integral_div, integral_add (integrable_const 1) hint_t,
-          integral_const, smul_eq_mul, hmean, show (μ univ).toReal = 1 by rw [measure_univ]; simp,
-          integral_const, smul_eq_mul, show (μ univ).toReal = 1 by rw [measure_univ]; simp]
+          integral_const, smul_eq_mul, hmean, show μ.real univ = 1 by simp [Measure.real],
+          integral_const, smul_eq_mul, show μ.real univ = 1 by simp [Measure.real]]
         ring
       linarith
     unfold phiExt
