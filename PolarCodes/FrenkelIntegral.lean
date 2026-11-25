@@ -1294,7 +1294,8 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
       have hneg3 : negEigCount hD_herm = (Finset.univ.filter (fun k : d ↦ 1 + t * hM_herm.eigenvalues k < 0)).card := by
         have hsum_ind : ∑ k : d, (if hD_herm.eigenvalues k < 0 then (1 : ℝ) else 0) =
             ∑ k : d, (if 1 + t * hM_herm.eigenvalues k < 0 then (1 : ℝ) else 0) :=
-          spectral_sum_diagonal (fun k ↦ 1 + t * hM_herm.eigenvalues k) hD_herm (if_neg (lt_irrefl 0))
+          spectral_sum_diagonal (fun k ↦ 1 + t * hM_herm.eigenvalues k) hD_herm
+            (f := fun x : ℝ ↦ if x < 0 then (1 : ℝ) else 0) (if_neg (lt_irrefl 0))
         have hcard1 : (Finset.univ.filter (fun k : d ↦ hD_herm.eigenvalues k < 0)).card =
             ((∑ k : d, if hD_herm.eigenvalues k < 0 then (1 : ℝ) else 0) : ℝ) := by
           simp [Finset.sum_boole]
@@ -1401,8 +1402,9 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
   rw [MeasureTheory.lintegral_lintegral_swap hmeas_prod.aemeasurable]
   apply MeasureTheory.lintegral_congr
   intro t
-  rw [MeasureTheory.lintegral_mul_const (ENNReal.ofReal (1 / (|t| * (t - 1) ^ 2)))
-    ((measurable_negEigCount_pencil ρ σ).comp (measurable_id.prodMk measurable_const))]
+  have hmeas_t : Measurable (fun x : ℝ ↦ (negEigCount (isHermitian_pencil ρ σ x t) : ℝ≥0∞)) :=
+    (measurable_negEigCount_pencil ρ σ).comp (measurable_id.prodMk measurable_const)
+  rw [MeasureTheory.lintegral_mul_const _ hmeas_t]
   have hA_t : (((1 - t : ℝ) : ℂ) • ρ.mat + (t : ℂ) • σ.mat).IsHermitian := by
     have h1 : (((1 - t : ℝ) : ℂ) • ρ.mat).IsHermitian := by
       rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal, ρ.isHermitian.eq]
