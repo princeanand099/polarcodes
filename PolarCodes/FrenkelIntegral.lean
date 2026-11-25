@@ -753,6 +753,86 @@ private lemma frenkelG_pos_and_lintegral {ρ σ : DensityOp d}
         (continuous_abs.measurable.mul ((measurable_id.sub measurable_const).pow_const 2)))
     exact (Measurable.ite hmeas_set measurable_const measurable_const).mul hmeas_w
 
+/-! ### FTC + MCT and Tonelli Swap -/
+
+private lemma frenkel_integral_g_eq_F0 {ρ σ : DensityOp d}
+    (hρ : ρ.mat.PosDef) (hσ : σ.mat.PosDef) :
+    ∫⁻ r in Ioi (0 : ℝ), ENNReal.ofReal (frenkelG ρ σ r) ∂volume =
+      ENNReal.ofReal (frenkelF ρ σ 0) := by
+  have hunion : Ioi (0 : ℝ) = ⋃ n : ℕ, Ioc (0 : ℝ) ((n : ℝ) + 1) := by
+    ext r; simp only [mem_Ioi, mem_iUnion, mem_Ioc]
+    constructor
+    · intro hr; obtain ⟨n, hn⟩ := exists_nat_gt r; exact ⟨n, hr, by linarith⟩
+    · rintro ⟨n, h1, _⟩; exact h1
+  have hmono_sets : Monotone (fun n : ℕ ↦ Ioc (0 : ℝ) ((n : ℝ) + 1)) := by
+    intro m n hmn r ⟨h1, h2⟩
+    exact ⟨h1, by linarith [show (m : ℝ) ≤ (n : ℝ) by exact_mod_cast hmn]⟩
+  have hlim_int : Tendsto (fun n : ℕ ↦ ∫⁻ r in Ioc (0 : ℝ) ((n : ℝ) + 1),
+      ENNReal.ofReal (frenkelG ρ σ r) ∂volume) atTop
+      (𝓝 (∫⁻ r in Ioi (0 : ℝ), ENNReal.ofReal (frenkelG ρ σ r) ∂volume)) := by
+    rw [hunion]
+    have hg_meas : Measurable (fun r : ℝ ↦ ENNReal.ofReal (frenkelG ρ σ r)) := by
+      apply ENNReal.measurable_ofReal.comp
+      have h1 : Measurable (fun r : ℝ ↦ ∑ j : d, Real.log (σ.eigvals j + r)) :=
+        Finset.measurable_sum _ fun j _ ↦ Real.measurable_log.comp (measurable_const.add measurable_id)
+      have h2 : Measurable (fun r : ℝ ↦ ∑ i : d, Real.log (ρ.eigvals i + r)) :=
+        Finset.measurable_sum _ fun i _ ↦ Real.measurable_log.comp (measurable_const.add measurable_id)
+      have h3 : Measurable (fun r : ℝ ↦ ∑ i : d, ∑ j : d, ‖frenkelV ρ σ j i‖ ^ 2 *
+          ((ρ.eigvals i + r) / (σ.eigvals j + r))) :=
+        Finset.measurable_sum _ fun i _ ↦ Finset.measurable_sum _ fun j _ ↦
+          measurable_const.mul ((measurable_const.add measurable_id).div (measurable_const.add measurable_id))
+      exact ((h1.sub h2).sub measurable_const).add h3
+    exact tendsto_setLIntegral_monotone hmono_sets (fun _ ↦ measurableSet_Ioc) hg_meas
+  have hval_n : ∀ n : ℕ, ∫⁻ r in Ioc (0 : ℝ) ((n : ℝ) + 1), ENNReal.ofReal (frenkelG ρ σ r) ∂volume =
+      ENNReal.ofReal (frenkelF ρ σ 0 - frenkelF ρ σ ((n : ℝ) + 1)) := by
+    intro n
+    have hle : (0 : ℝ) ≤ (n : ℝ) + 1 := by positivity
+    have hint : IntervalIntegrable (frenkelG ρ σ) volume 0 ((n : ℝ) + 1) :=
+      ((frenkelG_continuousOn hρ hσ).mono (fun r hr ↦ hr.1)).intervalIntegrable_of_Icc hle
+    have hftc : ∫ r in (0 : ℝ)..((n : ℝ) + 1), frenkelG ρ σ r =
+        frenkelF ρ σ 0 - frenkelF ρ σ ((n : ℝ) + 1) := by
+      have h := intervalIntegral.integral_eq_sub_of_hasDerivAt
+        (f := fun r ↦ -frenkelF ρ σ r) (f' := frenkelG ρ σ)
+        (fun r hr ↦ by
+          rw [uIcc_of_le hle] at hr
+          simpa using (frenkelF_hasDerivAt hρ hσ hr.1).fun_neg) hint
+      linarith
+    rw [← hftc, intervalIntegral.integral_of_le hle,
+      MeasureTheory.ofReal_integral_eq_lintegral_ofReal hint.1]
+    filter_upwards [ae_restrict_mem measurableSet_Ioc] with r hr
+    exact (frenkelG_pos_and_lintegral hρ hσ hr.1).1
+  have hlim_rhs : Tendsto (fun n : ℕ ↦ ENNReal.ofReal (frenkelF ρ σ 0 - frenkelF ρ σ ((n : ℝ) + 1))) atTop
+      (𝓝 (ENNReal.ofReal (frenkelF ρ σ 0 - 0))) := by
+    apply ENNReal.continuous_ofReal.continuousAt.tendsto.comp
+    exact tendsto_const_nhds.sub
+      ((frenkelF_tendsto_zero hρ hσ).comp
+        (Filter.tendsto_atTop_add_const_right atTop (1 : ℝ) tendsto_natCast_atTop_atTop))
+  simp_rw [hval_n] at hlim_int
+  simpa using tendsto_nhds_unique hlim_int hlim_rhs
+
+private lemma frenkel_tonelli_swap (ρ σ : DensityOp d) :
+    (∫⁻ r in Ioi (0 : ℝ), ∫⁻ t : ℝ,
+        (negEigCount (isHermitian_pencil ρ σ r t) : ℝ≥0∞) *
+          ENNReal.ofReal (1 / (|t| * (t - 1) ^ 2)) ∂volume ∂volume) =
+      ∫⁻ t : ℝ, (∫⁻ r in Ioi (0 : ℝ),
+        (negEigCount (isHermitian_pencil ρ σ r t) : ℝ≥0∞) ∂volume) *
+          ENNReal.ofReal (1 / (|t| * (t - 1) ^ 2)) ∂volume := by
+  have hmeas_prod : Measurable (fun p : ℝ × ℝ ↦
+      (negEigCount (isHermitian_pencil ρ σ p.1 p.2) : ℝ≥0∞) *
+        ENNReal.ofReal (1 / (|p.2| * (p.2 - 1) ^ 2))) :=
+    (measurable_negEigCount_pencil ρ σ).mul
+      (ENNReal.measurable_ofReal.comp (measurable_const.div
+        ((continuous_abs.measurable.comp measurable_snd).mul
+          ((measurable_snd.sub measurable_const).pow_const 2))))
+  rw [MeasureTheory.lintegral_lintegral_swap
+    (f := fun r t ↦ (negEigCount (isHermitian_pencil ρ σ r t) : ℝ≥0∞) *
+      ENNReal.ofReal (1 / (|t| * (t - 1) ^ 2))) hmeas_prod.aemeasurable]
+  apply MeasureTheory.lintegral_congr
+  intro t
+  have hmeas_t : Measurable (fun x : ℝ ↦ (negEigCount (isHermitian_pencil ρ σ x t) : ℝ≥0∞)) :=
+    (measurable_negEigCount_pencil ρ σ).comp (measurable_id.prodMk measurable_const)
+  exact MeasureTheory.lintegral_mul_const _ hmeas_t
+
 /-! ### Main Theorem: Frenkel's Integral Formula (Eq. 3.7) -/
 
 /-- **Frenkel's Integral Formula (Theorem 6 / Eq. 3.7)** for full-rank density operators `ρ, σ ≻ 0`:
@@ -766,91 +846,35 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
         have h2 : ((t : ℂ) • σ.mat).IsHermitian := by
           rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal, σ.isHermitian.eq]
         exact h1.add h2) / (|t| * (t - 1) ^ 2)) ∂volume := by
-  have hint_g : ∫⁻ r in Ioi (0 : ℝ), ENNReal.ofReal (frenkelG ρ σ r) ∂volume =
-      ENNReal.ofReal (frenkelF ρ σ 0) := by
-    have hunion : Ioi (0 : ℝ) = ⋃ n : ℕ, Ioc (0 : ℝ) ((n : ℝ) + 1) := by
-      ext r; simp only [mem_Ioi, mem_iUnion, mem_Ioc]
-      constructor
-      · intro hr; obtain ⟨n, hn⟩ := exists_nat_gt r; exact ⟨n, hr, by linarith⟩
-      · rintro ⟨n, h1, _⟩; exact h1
-    have hmono_sets : Monotone (fun n : ℕ ↦ Ioc (0 : ℝ) ((n : ℝ) + 1)) := by
-      intro m n hmn r ⟨h1, h2⟩
-      exact ⟨h1, by linarith [show (m : ℝ) ≤ (n : ℝ) by exact_mod_cast hmn]⟩
-    have hlim_int : Tendsto (fun n : ℕ ↦ ∫⁻ r in Ioc (0 : ℝ) ((n : ℝ) + 1),
-        ENNReal.ofReal (frenkelG ρ σ r) ∂volume) atTop
-        (𝓝 (∫⁻ r in Ioi (0 : ℝ), ENNReal.ofReal (frenkelG ρ σ r) ∂volume)) := by
-      rw [hunion]
-      have hg_meas : Measurable (fun r : ℝ ↦ ENNReal.ofReal (frenkelG ρ σ r)) := by
-        apply ENNReal.measurable_ofReal.comp
-        have h1 : Measurable (fun r : ℝ ↦ ∑ j : d, Real.log (σ.eigvals j + r)) :=
-          Finset.measurable_sum _ fun j _ ↦ Real.measurable_log.comp (measurable_const.add measurable_id)
-        have h2 : Measurable (fun r : ℝ ↦ ∑ i : d, Real.log (ρ.eigvals i + r)) :=
-          Finset.measurable_sum _ fun i _ ↦ Real.measurable_log.comp (measurable_const.add measurable_id)
-        have h3 : Measurable (fun r : ℝ ↦ ∑ i : d, ∑ j : d, ‖frenkelV ρ σ j i‖ ^ 2 *
-            ((ρ.eigvals i + r) / (σ.eigvals j + r))) :=
-          Finset.measurable_sum _ fun i _ ↦ Finset.measurable_sum _ fun j _ ↦
-            measurable_const.mul ((measurable_const.add measurable_id).div (measurable_const.add measurable_id))
-        exact ((h1.sub h2).sub measurable_const).add h3
-      exact tendsto_setLIntegral_monotone hmono_sets (fun _ ↦ measurableSet_Ioc) hg_meas
-    have hval_n : ∀ n : ℕ, ∫⁻ r in Ioc (0 : ℝ) ((n : ℝ) + 1), ENNReal.ofReal (frenkelG ρ σ r) ∂volume =
-        ENNReal.ofReal (frenkelF ρ σ 0 - frenkelF ρ σ ((n : ℝ) + 1)) := by
-      intro n
-      have hle : (0 : ℝ) ≤ (n : ℝ) + 1 := by positivity
-      have hint : IntervalIntegrable (frenkelG ρ σ) volume 0 ((n : ℝ) + 1) :=
-        ((frenkelG_continuousOn hρ hσ).mono (fun r hr ↦ hr.1)).intervalIntegrable_of_Icc hle
-      have hftc : ∫ r in (0 : ℝ)..((n : ℝ) + 1), frenkelG ρ σ r =
-          frenkelF ρ σ 0 - frenkelF ρ σ ((n : ℝ) + 1) := by
-        have h := intervalIntegral.integral_eq_sub_of_hasDerivAt
-          (f := fun r ↦ -frenkelF ρ σ r) (f' := frenkelG ρ σ)
-          (fun r hr ↦ by
-            rw [uIcc_of_le hle] at hr
-            simpa using (frenkelF_hasDerivAt hρ hσ hr.1).fun_neg) hint
-        linarith
-      rw [← hftc, intervalIntegral.integral_of_le hle,
-        MeasureTheory.ofReal_integral_eq_lintegral_ofReal hint.1]
-      filter_upwards [ae_restrict_mem measurableSet_Ioc] with r hr
-      exact (frenkelG_pos_and_lintegral hρ hσ hr.1).1
-    have hlim_rhs : Tendsto (fun n : ℕ ↦ ENNReal.ofReal (frenkelF ρ σ 0 - frenkelF ρ σ ((n : ℝ) + 1))) atTop
-        (𝓝 (ENNReal.ofReal (frenkelF ρ σ 0 - 0))) := by
-      apply ENNReal.continuous_ofReal.continuousAt.tendsto.comp
-      exact tendsto_const_nhds.sub
-        ((frenkelF_tendsto_zero hρ hσ).comp
-          (Filter.tendsto_atTop_add_const_right atTop (1 : ℝ) tendsto_natCast_atTop_atTop))
-    simp_rw [hval_n] at hlim_int
-    simpa using tendsto_nhds_unique hlim_int hlim_rhs
-  rw [← frenkelF_zero_eq hρ hσ, ← hint_g]
-  have h1 : ∫⁻ r in Ioi (0 : ℝ), ENNReal.ofReal (frenkelG ρ σ r) ∂volume =
-      ∫⁻ r in Ioi (0 : ℝ), ∫⁻ t : ℝ,
-        (negEigCount (isHermitian_pencil ρ σ r t) : ℝ≥0∞) *
-          ENNReal.ofReal (1 / (|t| * (t - 1) ^ 2)) ∂volume ∂volume := by
-    apply MeasureTheory.setLIntegral_congr_fun measurableSet_Ioi
-    intro r hr; exact (frenkelG_pos_and_lintegral hρ hσ hr).2
-  rw [h1]
-  have hmeas_prod : Measurable (fun p : ℝ × ℝ ↦
-      (negEigCount (isHermitian_pencil ρ σ p.1 p.2) : ℝ≥0∞) *
-        ENNReal.ofReal (1 / (|p.2| * (p.2 - 1) ^ 2))) :=
-    (measurable_negEigCount_pencil ρ σ).mul
-      (ENNReal.measurable_ofReal.comp (measurable_const.div
-        ((continuous_abs.measurable.comp measurable_snd).mul
-          ((measurable_snd.sub measurable_const).pow_const 2))))
-  rw [MeasureTheory.lintegral_lintegral_swap hmeas_prod.aemeasurable]
-  apply MeasureTheory.lintegral_congr
-  intro t
-  have hmeas_t : Measurable (fun x : ℝ ↦ (negEigCount (isHermitian_pencil ρ σ x t) : ℝ≥0∞)) :=
-    (measurable_negEigCount_pencil ρ σ).comp (measurable_id.prodMk measurable_const)
-  rw [MeasureTheory.lintegral_mul_const _ hmeas_t]
-  have hA_t : (((1 - t : ℝ) : ℂ) • ρ.mat + (t : ℂ) • σ.mat).IsHermitian := by
-    have h1 : (((1 - t : ℝ) : ℂ) • ρ.mat).IsHermitian := by
-      rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal, ρ.isHermitian.eq]
-    have h2 : ((t : ℂ) • σ.mat).IsHermitian := by
-      rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal, σ.isHermitian.eq]
-    exact h1.add h2
-  have hpt : ∀ x : ℝ, (negEigCount (isHermitian_pencil ρ σ x t) : ℝ≥0∞) =
-      (negEigCount (hA_t.add (show ((x : ℂ) • (1 : Matrix d d ℂ)).IsHermitian by
-        rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Matrix.conjTranspose_one,
-          Complex.star_def, Complex.conj_ofReal])) : ℝ≥0∞) :=
-    fun x ↦ congr_arg Nat.cast (negEigCount_eq_of_eq _ _ rfl)
-  simp_rw [hpt]
-  rw [lintegral_negEigCount_eq_negPartTrace hA_t, ← ENNReal.ofReal_mul (negPartTrace_nonneg hA_t), mul_one_div]
+  calc relEntropy ρ σ * ENNReal.ofReal (Real.log 2)
+      = ENNReal.ofReal (frenkelF ρ σ 0) := (frenkelF_zero_eq hρ hσ).symm
+    _ = ∫⁻ r in Ioi (0 : ℝ), ENNReal.ofReal (frenkelG ρ σ r) ∂volume :=
+        (frenkel_integral_g_eq_F0 hρ hσ).symm
+    _ = ∫⁻ r in Ioi (0 : ℝ), ∫⁻ t : ℝ,
+          (negEigCount (isHermitian_pencil ρ σ r t) : ℝ≥0∞) *
+            ENNReal.ofReal (1 / (|t| * (t - 1) ^ 2)) ∂volume ∂volume :=
+        MeasureTheory.setLIntegral_congr_fun measurableSet_Ioi
+          (fun r hr ↦ (frenkelG_pos_and_lintegral hρ hσ hr).2)
+    _ = ∫⁻ t : ℝ, (∫⁻ r in Ioi (0 : ℝ),
+          (negEigCount (isHermitian_pencil ρ σ r t) : ℝ≥0∞) ∂volume) *
+            ENNReal.ofReal (1 / (|t| * (t - 1) ^ 2)) ∂volume :=
+        frenkel_tonelli_swap ρ σ
+    _ = _ := by
+        apply MeasureTheory.lintegral_congr
+        intro t
+        have hA_t : (((1 - t : ℝ) : ℂ) • ρ.mat + (t : ℂ) • σ.mat).IsHermitian := by
+          have h1 : (((1 - t : ℝ) : ℂ) • ρ.mat).IsHermitian := by
+            rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal, ρ.isHermitian.eq]
+          have h2 : ((t : ℂ) • σ.mat).IsHermitian := by
+            rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal, σ.isHermitian.eq]
+          exact h1.add h2
+        have hpt : ∀ x : ℝ, (negEigCount (isHermitian_pencil ρ σ x t) : ℝ≥0∞) =
+            (negEigCount (hA_t.add (show ((x : ℂ) • (1 : Matrix d d ℂ)).IsHermitian by
+              rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Matrix.conjTranspose_one,
+                Complex.star_def, Complex.conj_ofReal])) : ℝ≥0∞) :=
+          fun x ↦ congr_arg Nat.cast (negEigCount_eq_of_eq _ _ rfl)
+        simp_rw [hpt]
+        rw [lintegral_negEigCount_eq_negPartTrace hA_t,
+          ← ENNReal.ofReal_mul (negPartTrace_nonneg hA_t), mul_one_div]
 
 end PolarCodes
