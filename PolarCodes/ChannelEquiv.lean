@@ -792,17 +792,16 @@ lemma dual_isoEquiv_of_purification {d E : Type u} [Fintype d] [DecidableEq d]
     have hZ_comm : V * (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ) =
         (pauliZTensorI (E ⊕ d) : Matrix (Bool × (E ⊕ d)) (Bool × (E ⊕ d)) ℂ) * V := by
       ext ⟨b₁, y⟩ ⟨b₂, x⟩
-      simp [V, pauliZTensorI, Matrix.mul_apply, Matrix.diagonal_apply]
-      split_ifs <;> simp_all
+      simp only [V, pauliZTensorI, Matrix.mul_diagonal, Matrix.diagonal_mul, Matrix.of_apply]
+      cases b₁ <;> cases b₂ <;> simp
     have hZ_ι : (pauliZTensorI (E ⊕ d) : Matrix (Bool × (E ⊕ d)) (Bool × (E ⊕ d)) ℂ) * ι =
         ι * (pauliZTensorI E : Matrix (Bool × E) (Bool × E) ℂ) := by
       ext ⟨b₁, y⟩ ⟨b₂, e⟩
-      simp [ι, pauliZTensorI, Matrix.mul_apply, Matrix.diagonal_apply]
-      split_ifs <;> simp_all
+      simp only [ι, pauliZTensorI, Matrix.mul_diagonal, Matrix.diagonal_mul, Matrix.of_apply]
+      cases b₁ <;> cases b₂ <;> simp
     have hZ_M₀ : (pauliZTensorI E : Matrix (Bool × E) (Bool × E) ℂ) * M₀ = M₁ := by
       ext ⟨b, e⟩ x
-      simp only [pauliZTensorI, M₀, M₁, Matrix.mul_apply, Matrix.diagonal_apply, Matrix.of_apply,
-        ite_mul, zero_mul, Finset.sum_ite_eq, Finset.mem_univ, ↓reduceIte]
+      simp only [pauliZTensorI, M₀, M₁, Matrix.diagonal_mul, Matrix.of_apply]
       cases b <;> simp
     calc V * ((pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ) * gramFactor (W.out false) (W.out true))
         = (V * (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ)) * gramFactor (W.out false) (W.out true) := by
@@ -830,7 +829,7 @@ lemma dual_isoEquiv_of_purification {d E : Type u} [Fintype d] [DecidableEq d]
     set Zd := (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ)
     calc V * (Zd * (G * Gᴴ) * star Zd) * Vᴴ
         = (V * (Zd * G)) * (V * (Zd * G))ᴴ := by
-            simp [Matrix.conjTranspose_mul, Matrix.mul_assoc]
+            simp [Matrix.conjTranspose_mul, Matrix.mul_assoc, Matrix.star_eq_conjTranspose]
       _ = (ι * M₁) * (ι * M₁)ᴴ := by rw [hVM₁]
       _ = ι * (M₁ * M₁ᴴ) * ιᴴ := by simp [Matrix.conjTranspose_mul, Matrix.mul_assoc]
 
@@ -850,14 +849,14 @@ theorem prop_2_2_D3_isoEquiv_pure {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) 
     Matrix.of fun b _ ↦ if b = false then (Real.sqrt (1 - p) : ℂ) else -(Real.sqrt p : ℂ)
   have hA₀ : A₀ * A₀ᴴ = ((pureChannel f hf0 hf1).out false).mat := by
     ext i j
-    simp only [A₀, pureChannel, pureState, Matrix.mul_apply, Matrix.conjTranspose_apply,
-      Matrix.of_apply, Fintype.sum_unique, h1pf, h1mf]
-    cases i <;> cases j <;> simp
+    cases i <;> cases j <;>
+      simp [A₀, pureChannel, pureState, Matrix.mul_apply, Matrix.conjTranspose_apply,
+        Matrix.of_apply, Fintype.sum_unique, h1pf, h1mf]
   have hA₁ : A₁ * A₁ᴴ = ((pureChannel f hf0 hf1).out true).mat := by
     ext i j
-    simp only [A₁, pureChannel, pureState, Matrix.mul_apply, Matrix.conjTranspose_apply,
-      Matrix.of_apply, Fintype.sum_unique, h1pf, h1mf]
-    cases i <;> cases j <;> simp
+    cases i <;> cases j <;>
+      simp [A₁, pureChannel, pureState, Matrix.mul_apply, Matrix.conjTranspose_apply,
+        Matrix.of_apply, Fintype.sum_unique, h1pf, h1mf]
   obtain ⟨γ, _, _, V₁, V₂, h1, h2, heq⟩ :=
     dual_isoEquiv_of_purification (pureChannel f hf0 hf1) A₀ A₁ hA₀ hA₁
   let H : Matrix (Bool × PUnit.{1}) Bool ℂ :=
@@ -876,7 +875,7 @@ theorem prop_2_2_D3_isoEquiv_pure {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) 
     ext i j
     simp only [H, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
       Fintype.sum_prod_type, Fintype.sum_unique, Fintype.sum_bool, Matrix.one_apply, star_mul']
-    cases i <;> cases j <;> simp [hstar2] <;> linear_combination hmul2 * 2 <|> ring
+    cases i <;> cases j <;> (simp [hstar2, hmul2]; try norm_num)
   have hsp1 : (Real.sqrt (1 - p) : ℂ) * (Real.sqrt (1 - p) : ℂ) = ((1 - p : ℝ) : ℂ) := by
     rw [← Complex.ofReal_mul, Real.mul_self_sqrt (by linarith)]
   have hsp2 : (Real.sqrt p : ℂ) * (Real.sqrt p : ℂ) = (p : ℂ) := by
@@ -1119,11 +1118,7 @@ theorem prop_2_2_D3_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2)
       simp only [Vℳ, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
         Fintype.sum_prod_type, Fintype.sum_bool, Fin.sum_univ_three, Matrix.one_apply]
       fin_cases k₁ <;> fin_cases k₂ <;>
-        (simp only [Fin.reduceEq, Prod.mk.injEq, Bool.false_eq_true, Bool.true_eq_false,
-          ↓reduceIte, and_self, and_false, false_and, or_self, or_false, false_or,
-          star_zero, star_neg, hstar2, hmul2, zero_mul, mul_zero, add_zero, zero_add,
-          neg_mul, mul_neg, neg_neg];
-         try norm_num)
+        (simp [hstar2, hmul2]; try norm_num; try (ring_nf; simp only [sq, hmul2]; norm_num))
     let ℳ : CPTPMap.{0} (Fin 3) (Bool × Fin 3) :=
       ⟨Bool, inferInstance, inferInstance, Vℳ, hVℳ⟩
     have hstep2 : CQChannel.ChannelEquiv
