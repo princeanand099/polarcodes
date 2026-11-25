@@ -103,7 +103,7 @@ theorem prop_3_3_qjjs_posDef {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ : 
     have hrhs_val : ∫ t, ((1 + t) / 2 - δ) ∂μ = 1 - δ := by
       have h1 : ∫ t, ((1 + t) / 2) ∂μ = 1 := by
         have hint_t : Integrable (fun t : ℝ ↦ t) μ := by
-          refine Integrable.mono' (integrable_const b) continuous_id.aestronglyMeasurable ?_
+          refine Integrable.mono' (integrable_const b) (continuous_id : Continuous (fun t : ℝ ↦ t)).aestronglyMeasurable ?_
           filter_upwards [ae_iff.mpr hsupp] with t ht
           rw [Real.norm_of_nonneg (by linarith [ht.1])]; exact ht.2
         rw [integral_div, integral_add (integrable_const 1) hint_t, integral_const, smul_eq_mul,
@@ -819,7 +819,7 @@ theorem prop_3_3_qjjs (ρ σ : DensityOp d) :
         linarith [hmin ht]
       have hrhs_val : ∫ t, ((1 + t) / 2 - δ) ∂μ = 1 - δ := by
         have hint_t : Integrable (fun t : ℝ ↦ t) μ := by
-          refine Integrable.mono' (integrable_const b) continuous_id.aestronglyMeasurable ?_
+          refine Integrable.mono' (integrable_const b) (continuous_id : Continuous (fun t : ℝ ↦ t)).aestronglyMeasurable ?_
           filter_upwards [ae_iff.mpr hsuppμ] with t ht
           rw [Real.norm_of_nonneg (by linarith [ht.1])]; exact ht.2
         rw [integral_sub hI_rhs (integrable_const δ), integral_div, integral_add (integrable_const 1) hint_t,

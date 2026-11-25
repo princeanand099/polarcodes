@@ -187,7 +187,7 @@ theorem lemma_3_2_hockeyStick_measure {ρ σ : DensityOp d}
         rcases le_or_gt t s with hts | hst
         · have hemp : Iio t ∩ Ioc s b = ∅ := by
             ext u; simp only [Set.mem_inter_iff, Set.mem_Iio, Set.mem_Ioc, Set.mem_empty_iff_false,
-              iff_false, not_and]; intro h1 h2; linarith [h2.1]
+              iff_false, not_and]; intro h1 h2 _; linarith
           rw [hemp, measure_empty, max_eq_right (by linarith), ENNReal.ofReal_zero]
         · have hinter : Iio t ∩ Ioc s b = Ioo s t := by
             ext u; simp only [Set.mem_inter_iff, Set.mem_Iio, Set.mem_Ioc, Set.mem_Ioo]
@@ -209,13 +209,13 @@ theorem lemma_3_2_hockeyStick_measure {ρ σ : DensityOp d}
   have hmean : ∫ t, t ∂μ = 1 := by
     have h0 := hrep 0
     rw [hleft 0 (by linarith), sub_zero] at h0
-    rw [← h0]
+    rw [h0]
     apply integral_congr_ae
     filter_upwards [hae_supp] with t ht
     rw [sub_zero, max_eq_left (by linarith [ht.1])]
   have hmean_sub : ∫ t, (t - 1) ∂μ = 0 := by
     have hint_t : Integrable (fun t : ℝ ↦ t) μ := by
-      apply Integrable.mono' (integrable_const b) continuous_id.aestronglyMeasurable
+      apply Integrable.mono' (integrable_const b) (continuous_id : Continuous (fun t : ℝ ↦ t)).aestronglyMeasurable
       filter_upwards [hae_supp] with t ht
       rw [Real.norm_of_nonneg (by linarith [ht.1])]; exact ht.2
     rw [integral_sub hint_t (integrable_const 1), hmean, integral_const, smul_eq_mul,
@@ -346,7 +346,7 @@ theorem lemma_3_2_hockeyStick_measure {ρ σ : DensityOp d}
         have hI3 : Integrable (fun t : ℝ ↦ 1 - s * t) μ :=
           hint_of_cont _ (continuous_const.sub (continuous_const.mul continuous_id)).continuousOn
         rw [integral_add hI2 hI3, integral_sub (integrable_const 1)
-          ((hint_of_cont _ continuousOn_id).const_mul s), integral_const, smul_eq_mul,
+          ((hint_of_cont (fun t : ℝ ↦ t) continuousOn_id).const_mul s), integral_const, smul_eq_mul,
           hμ_real_univ, one_mul, integral_const_mul, hmean, mul_one]
         congr 1
         rw [← integral_const_mul]
@@ -503,7 +503,7 @@ theorem lemma_3_2_hockeyStick_measure {ρ σ : DensityOp d}
           have hstep : (s / (2 - s)) * (∫ t, max (t - 1 / (s / (2 - s))) 0 ∂μ) + (1 - s / (2 - s)) =
               ∫ t, (max ((s / (2 - s)) * t - 1) 0 + (1 - (s / (2 - s)) * t)) ∂μ := by
             rw [integral_add hI2 hI3, integral_sub (integrable_const 1)
-              ((hint_of_cont _ continuousOn_id).const_mul (s / (2 - s))), integral_const, smul_eq_mul,
+              ((hint_of_cont (fun t : ℝ ↦ t) continuousOn_id).const_mul (s / (2 - s))), integral_const, smul_eq_mul,
               hμ_real_univ, one_mul, integral_const_mul, hmean, mul_one]
             congr 1; rw [← integral_const_mul]
             apply integral_congr_ae; filter_upwards with t
