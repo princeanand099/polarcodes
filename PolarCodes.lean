@@ -23,6 +23,7 @@ import PolarCodes.PolarizationFine
 import PolarCodes.QJJS
 import PolarCodes.QuantumProps
 import PolarCodes.QuantumStates
+import PolarCodes.SanityChecks
 import PolarCodes.ScalarSupplements
 import PolarCodes.SpectralTrace
 import PolarCodes.SplittingBounds

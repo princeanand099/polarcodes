@@ -149,8 +149,9 @@ noncomputable def cqPolarProcess {d : Type u} [Fintype d] [DecidableEq d]
 
 lemma cqPolarProcess_symCap {d : Type u} [Fintype d] [DecidableEq d] (W : CQChannel d) :
     (cqPolarProcess W).symCap = W.symCapacity := by
-  unfold PolarProcess.symCap cqPolarProcess polarCondEntropy CQChannel.symCapacity
-  rfl
+  simp only [PolarProcess.symCap, cqPolarProcess, polarCondEntropy, polarChannelTree_zero,
+    CQChannel.condEntropy, CQChannel.symCapacity]
+  ring
 
 /-- **Theorem 1.1 (Polynomial-Blocklength Quantum Polarization)**:
 There exist universal constants `μ > 0` and `C₀ > 0` such that for every finite-dimensional
