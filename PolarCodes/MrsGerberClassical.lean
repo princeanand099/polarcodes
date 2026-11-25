@@ -188,7 +188,9 @@ lemma simultaneous_diagonalization {A B : Matrix d d ℂ}
         have hdiag_blk : star ((hBblk_herm (α i)).eigenvectorUnitary : Matrix _ _ ℂ) * Bblk (α i) *
             ((hBblk_herm (α i)).eigenvectorUnitary : Matrix _ _ ℂ) =
             Matrix.diagonal (Complex.ofReal ∘ (hBblk_herm (α i)).eigenvalues) := by
-          let Ublk : Matrix _ _ ℂ := (hBblk_herm (α i)).eigenvectorUnitary
+          let Ublk : Matrix {x : d // α x = α i} {x : d // α x = α i} ℂ :=
+            ((hBblk_herm (α i)).eigenvectorUnitary :
+              Matrix {x : d // α x = α i} {x : d // α x = α i} ℂ)
           have hspec : Bblk (α i) = Ublk *
               Matrix.diagonal (Complex.ofReal ∘ (hBblk_herm (α i)).eigenvalues) * star Ublk := by
             simpa [Ublk, Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply] using
@@ -274,7 +276,8 @@ private lemma vonNeumannEntropy_block_diag {w : d₂ → ℝ} (hw_nn : ∀ y, 0 
         apply Finset.sum_congr rfl; intro k _
         rw [Finset.sum_eq_single y₁]
         · simp only [Prod.mk.injEq, and_true, mul_ite, mul_zero, Finset.sum_ite_eq',
-            Finset.mem_univ, ↓reduceIte, Complex.ofReal_mul]
+            Finset.mem_univ, ↓reduceIte, Complex.ofReal_mul,
+            show (RCLike.ofReal : ℝ → ℂ) = Complex.ofReal from rfl]
           ring
         · intro z _ hz; simp [Ne.symm hz]
         · intro h; exact absurd (Finset.mem_univ _) h
@@ -617,7 +620,7 @@ theorem theorem_1_2a_classical (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (
         = ∑ y : d₂, w y * (1 - (vonNeumannEntropy (τm y) - (vonNeumannEntropy (τ₀ y) + vonNeumannEntropy (τ₁ y)) / 2)) := by
             have h1 : (1 : ℝ) = ∑ y : d₂, w y := hw_sum.symm
             conv_lhs => rw [h1]
-            simp_rw [mul_sub, mul_one, mul_div_assoc, mul_add, Finset.sum_sub_distrib,
+            simp_rw [mul_sub, mul_one, ← mul_div_assoc, mul_add, Finset.sum_sub_distrib,
               Finset.sum_add_distrib, ← Finset.sum_div]
             ring
       _ = ∑ y : d₂, w y * (CQChannel.checkCombine W₁ (bscChannel (q y) (hq0 y) (by linarith [hq1 y]))).condEntropy := by
