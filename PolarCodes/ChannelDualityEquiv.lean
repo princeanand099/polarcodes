@@ -384,7 +384,7 @@ theorem prop_2_2_D2_check_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Deci
       · intro w _ hne; apply Finset.sum_eq_zero; intro a _; apply Finset.sum_eq_zero; intro r _
         apply Finset.sum_eq_zero; intro c _; apply Finset.sum_eq_zero; intro s _; simp [hne]
       · intro h; exact absurd (Finset.mem_univ w₁) h
-    · simp only [h, ↓reduceIte]
+    · rw [if_neg h]
       apply Finset.sum_eq_zero; intro w _
       apply Finset.sum_eq_zero; intro a _
       apply Finset.sum_eq_zero; intro r _
@@ -432,10 +432,15 @@ theorem prop_2_2_D2_check_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Deci
                             simp only [↓reduceIte, Bool.true_eq_false, Bool.false_eq_true,
                               Bool.not_false, Bool.not_true, and_self, and_false, false_and,
                               star_one, star_neg, hG1] <;> push_cast <;> ring
-                        · cases w₁ <;> cases w₂ <;>
-                            simp only [hw, ↓reduceIte, Bool.true_eq_false, Bool.false_eq_true,
+                        · cases w₁ <;> cases w₂
+                          · exact absurd rfl hw
+                          · simp only [↓reduceIte, Bool.true_eq_false, Bool.false_eq_true,
                               and_self, and_false, false_and, mul_zero, zero_mul, add_zero,
-                              ULift.up.injEq] at hw ⊢
+                              ULift.up.injEq]
+                          · simp only [↓reduceIte, Bool.true_eq_false, Bool.false_eq_true,
+                              and_self, and_false, false_and, mul_zero, zero_mul, add_zero,
+                              ULift.up.injEq]
+                          · exact absurd rfl hw
                       · intro z _ hne; simp [Ne.symm hne]
                       · intro h; exact absurd (Finset.mem_univ s₁) h
                     · intro z _ hne; apply Finset.sum_eq_zero; intro _ _; simp [Ne.symm hne]
@@ -782,7 +787,10 @@ theorem prop_2_2_D2_var_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Decida
           · simp only [↓reduceIte, Bool.not_false, hprod]
             dsimp only [ρ₀, ρ₁, σ₀, σ₁] at hG1 hG2 ⊢
             rw [hG1, hG2]
-            cases a₁ <;> cases a₂ <;> cases c₁ <;> cases c₂ <;> simp_all <;> push_cast <;> ring
+            cases a₁ <;> cases a₂ <;> cases c₁ <;> cases c₂ <;>
+              (simp only [Bool.xor_false, Bool.xor_true, ↓reduceIte, Bool.true_eq_false,
+                Bool.false_eq_true] at hpar ⊢;
+               first | contradiction | exact absurd rfl hpar | exact absurd trivial hpar | (push_cast; ring))
           · simp only [Bool.true_eq_false, ↓reduceIte, Bool.not_true]
             have hprod' : ∑ i₁ : d₁, ∑ i₂ : d₂,
                 gramFactor ρ₀ ρ₁ (a₁, r₁) i₁ *
@@ -804,14 +812,20 @@ theorem prop_2_2_D2_var_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Decida
             rw [hprod']
             dsimp only [ρ₀, ρ₁, σ₀, σ₁] at hG1 hG2 ⊢
             rw [hG1, hG2]
-            cases a₁ <;> cases a₂ <;> cases c₁ <;> cases c₂ <;> simp_all <;> push_cast <;> ring
+            cases a₁ <;> cases a₂ <;> cases c₁ <;> cases c₂ <;>
+              (simp only [Bool.xor_false, Bool.xor_true, ↓reduceIte, Bool.true_eq_false,
+                Bool.false_eq_true] at hpar ⊢;
+               first | contradiction | exact absurd rfl hpar | exact absurd trivial hpar | (push_cast; ring))
         · have hne' : ¬ (xor a₂ c₂ = xor a₁ c₁) := fun h ↦ hpar h.symm
           simp only [hne', ↓reduceIte, star_zero, mul_zero, Finset.sum_const_zero]
           dsimp only [ρ₀, ρ₁, σ₀, σ₁] at hG1 hG2 ⊢
           cases b <;>
           · simp only [Bool.not_false, Bool.not_true]
             rw [hG1, hG2]
-            cases a₁ <;> cases a₂ <;> cases c₁ <;> cases c₂ <;> simp_all <;> push_cast <;> ring
+            cases a₁ <;> cases a₂ <;> cases c₁ <;> cases c₂ <;>
+              (simp only [Bool.xor_false, Bool.xor_true, ↓reduceIte, Bool.true_eq_false,
+                Bool.false_eq_true] at hpar ⊢;
+               first | contradiction | exact absurd rfl hpar | exact absurd trivial hpar | (push_cast; ring))
       · intro v _ hne; apply Finset.sum_eq_zero; intro i₁ _; apply Finset.sum_eq_zero; intro i₂ _
         simp [Ne.symm hne]
       · intro h; exact absurd (Finset.mem_univ (xor a₁ c₁)) h

@@ -102,7 +102,7 @@ private lemma traceNorm_hermitian_eq_sum_abs {Δ : Matrix α α ℂ} (hΔ : Δ.I
   have hU_mul : U * star U = 1 := Unitary.coe_mul_star_self hΔ.eigenvectorUnitary
   have hU_star : star U * U = 1 := Unitary.coe_star_mul_self hΔ.eigenvectorUnitary
   let sgn : α → ℂ := fun i ↦ if 0 ≤ hΔ.eigenvalues i then 1 else -1
-  let S : Matrix α α ℂ := U * Matrix.diagonal sgn * star U
+  set S : Matrix α α ℂ := U * Matrix.diagonal sgn * star U
   have hS_herm : Sᴴ = S := by
     have hd : (Matrix.diagonal sgn)ᴴ = Matrix.diagonal sgn := by
       ext i j; by_cases h : i = j
@@ -680,15 +680,13 @@ theorem gao_union_bound_density (ρ : DensityOp α) (Ps : List (Matrix α α ℂ
           = ((M * U) * Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) * (M * U)ᴴ).trace := by
               simp only [Matrix.conjTranspose_mul, Matrix.star_eq_conjTranspose, Matrix.mul_assoc]
         _ = ((M * U)ᴴ * (M * U) * Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals)).trace := by
-              rw [Matrix.trace_mul_cycle]; simp only [Matrix.mul_assoc]
+              rw [Matrix.trace_mul_cycle]
         _ = ∑ a : α, (ρ.eigvals a : ℂ) * vecInner (M.mulVec (col a)) (M.mulVec (col a)) := by
               rw [Matrix.trace]
               apply Finset.sum_congr rfl; intro a _
               simp only [Matrix.diag, Matrix.mul_diagonal, Function.comp_apply]
               rw [mul_comm]
               congr 1
-              simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, vecInner, Matrix.mulVec,
-                dotProduct, col]
     rw [h1, Complex.re_sum]
     apply Finset.sum_congr rfl; intro a _
     simp [vecInner_self_re]
