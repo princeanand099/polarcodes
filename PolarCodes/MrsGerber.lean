@@ -29,7 +29,7 @@ This module formalizes Section 4 of the manuscript:
    `½ (T(W⁻) + T(W⁺)) ≤ Λ₀ T(W)` with `Λ₀ = √(1 - θ₀²/4) < 1`.
 -/
 
-open Matrix BigOperators Real
+open Matrix BigOperators Real Filter Topology Set
 open scoped ComplexOrder
 
 namespace PolarCodes
@@ -156,14 +156,15 @@ private lemma condEntropy_checkCombine_flip (W₁ : CQChannel d₁) (W₂ : CQCh
 
 /-- Conditional entropy of a general channel `W` lies in `[0, 1]`. -/
 lemma condEntropy_mem_Icc (W : CQChannel d) : W.condEntropy ∈ Set.Icc (0 : ℝ) 1 := by
-  have h1 := qjs_le_one (W.out false) (W.out true)
-  -- `qjs ≥ 0` by `ε ↓ 0` perturbation with `maxMixedState`
   haveI : Nonempty d := by
     by_contra h0
     haveI : IsEmpty d := not_nonempty_iff.mp h0
     have htr := (W.out false).trace_one
     simp [Matrix.trace] at htr
-  have hq_nn : 0 ≤ qjs (W.out false) (W.out true) := by
+  have hmax_pd : (maxMixedState d).mat.PosDef := by
+    have hpos : (0 : ℝ) < ((Fintype.card d : ℝ)⁻¹) := inv_pos.mpr (Nat.cast_pos.mpr Fintype.card_pos)
+    simpa [maxMixedState, Complex.real_smul] using (Matrix.PosDef.one (n := d) (R := ℂ)).smul hpos
+  have hq_mem : qjs (W.out false) (W.out true) ∈ Set.Icc (0 : ℝ) 1 := by
     let ρ := W.out false
     let σ := W.out true
     let f : ℝ → ℝ := fun ε ↦
@@ -179,7 +180,7 @@ lemma condEntropy_mem_Icc (W : CQChannel d) : W.condEntropy ∈ Set.Icc (0 : ℝ
       refine hcomb.congr' ?_
       filter_upwards [Ioo_mem_nhdsGT (show (0 : ℝ) < 1 by norm_num)] with ε hε
       have hc : 0 ≤ ε ∧ ε ≤ 1 := ⟨le_of_lt hε.1, le_of_lt hε.2⟩
-      simp only [f, hc, ↓reduceDIte, qjs]
+      dsimp only [f]; rw [dif_pos hc, dif_pos hc, dif_pos hc, dif_pos hc]; unfold qjs
       have hmid : (DensityOp.midpoint (DensityOp.mix ε hc.1 hc.2 ρ (maxMixedState d))
           (DensityOp.mix ε hc.1 hc.2 σ (maxMixedState d))).mat =
           (DensityOp.mix ε hc.1 hc.2 (DensityOp.midpoint ρ σ) (maxMixedState d)).mat := by
@@ -187,20 +188,35 @@ lemma condEntropy_mem_Icc (W : CQChannel d) : W.condEntropy ∈ Set.Icc (0 : ℝ
         simp only [DensityOp.midpoint, DensityOp.mix, Matrix.add_apply, Matrix.smul_apply, Complex.real_smul]
         push_cast; ring
       rw [vonNeumannEntropy_eq_of_mat_eq hmid]
-    refine ge_of_tendsto hf ?_
-    filter_upwards [Ioo_mem_nhdsGT (show (0 : ℝ) < 1 by norm_num)] with ε hε
-    have hc : 0 ≤ ε ∧ ε ≤ 1 := ⟨le_of_lt hε.1, le_of_lt hε.2⟩
-    simp only [f, hc, ↓reduceDIte]
-    have hpd : ∀ τ : DensityOp d, (DensityOp.mix ε hc.1 hc.2 τ (maxMixedState d)).mat.PosDef := by
-      intro τ
-      have ha : (((1 - ε : ℝ) : ℂ) • τ.mat).PosSemidef := by
-        simpa [Complex.real_smul] using τ.posSemidef.smul (by linarith [hε.2])
-      have hb : ((ε : ℂ) • (maxMixedState d).mat).PosDef := by
-        simpa [Complex.real_smul] using (maxMixedState_posDef d).smul hε.1
+    have hpd_all : ∀ (ε : ℝ) (hε : ε ∈ Ioo (0 : ℝ) 1) (τ : DensityOp d),
+        (DensityOp.mix ε (le_of_lt hε.1) (le_of_lt hε.2) τ (maxMixedState d)).mat.PosDef := by
+      intro ε hε τ
+      have ha : ((1 - ε : ℝ) • τ.mat).PosSemidef := τ.posSemidef.smul (by linarith [hε.2])
+      have hb : (ε • (maxMixedState d).mat).PosDef := hmax_pd.smul hε.1
       simpa [DensityOp.mix, add_comm] using hb.add_posSemidef ha
-    exact (qjs_eq_half_relEntropy_midpoint (hpd ρ) (hpd σ)).1
+    constructor
+    · refine ge_of_tendsto hf ?_
+      filter_upwards [Ioo_mem_nhdsGT (show (0 : ℝ) < 1 by norm_num)] with ε hε
+      have hc : 0 ≤ ε ∧ ε ≤ 1 := ⟨le_of_lt hε.1, le_of_lt hε.2⟩
+      dsimp only [f]; rw [dif_pos hc]
+      exact (qjs_eq_half_relEntropy_midpoint (hpd_all ε hε ρ) (hpd_all ε hε σ)).1
+    · refine le_of_tendsto hf ?_
+      filter_upwards [Ioo_mem_nhdsGT (show (0 : ℝ) < 1 by norm_num)] with ε hε
+      have hc : 0 ≤ ε ∧ ε ≤ 1 := ⟨le_of_lt hε.1, le_of_lt hε.2⟩
+      dsimp only [f]; rw [dif_pos hc]
+      have hmid_le : qjs (DensityOp.mix ε hc.1 hc.2 ρ (maxMixedState d))
+          (DensityOp.mix ε hc.1 hc.2 σ (maxMixedState d)) ≤ 1 := by
+        have hW' : (CQChannel.mk fun b ↦ if b = false then DensityOp.mix ε hc.1 hc.2 ρ (maxMixedState d)
+            else DensityOp.mix ε hc.1 hc.2 σ (maxMixedState d)).condEntropy ≥ 0 := by
+          have h5 := condEntropy_ge_one_sub_h2 (CQChannel.mk fun b ↦ if b = false then DensityOp.mix ε hc.1 hc.2 ρ (maxMixedState d)
+            else DensityOp.mix ε hc.1 hc.2 σ (maxMixedState d))
+          have hh2 : h2 ((1 - (CQChannel.mk fun b ↦ if b = false then DensityOp.mix ε hc.1 hc.2 ρ (maxMixedState d)
+            else DensityOp.mix ε hc.1 hc.2 σ (maxMixedState d)).fidelityParam) / 2) ≤ 1 := h2_le_one _
+          linarith
+        simpa [CQChannel.condEntropy] using hW'
+      exact hmid_le
   unfold CQChannel.condEntropy
-  exact ⟨by linarith, by linarith⟩
+  exact ⟨by linarith [hq_mem.2], by linarith [hq_mem.1]⟩
 
 /-! ### Part 1: Theorem 1.2(a) — Pure-State Hybrid Bound -/
 
@@ -238,10 +254,10 @@ theorem theorem_1_2a_pure (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (hW₂
         vonNeumannEntropy_eq_of_mat_eq hm]
     rw [hq_eq, qjs_pureState φ₀ φ₁ hφ₀ hφ₁]
   have hinv₂ : h2Inv (1 - W₂.condEntropy) = p := by
-    rw [hH₂, sub_sub_cancel, h2Inv_h2 hp0 hp1]
+    rw [hH₂, sub_sub_cancel, h2Inv_h2 ⟨hp0, hp1⟩]
   -- Step 2: Both `U₁`-branches in Eq. (2.7) equal `dephaseCoherence p (gramState ρ₀ ρ₁)`
   have hbranch0 : 1 - qjs (DensityOp.tensor ρ₀ (W₂.out false)) (DensityOp.tensor ρ₁ (W₂.out true)) =
-      dephaseCoherence p hp0 hp1 (gramState ρ₀ ρ₁) := by
+      dephaseCoherence p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₀ ρ₁) := by
     have hL := lemma_4_1_gram_dephasing ρ₀ ρ₁ φ₀ φ₁ hφ₀ hφ₁
     have hq_eq : qjs (DensityOp.tensor ρ₀ (W₂.out false)) (DensityOp.tensor ρ₁ (W₂.out true)) =
         qjs (DensityOp.tensor ρ₀ σ₀) (DensityOp.tensor ρ₁ σ₁) := by
@@ -303,7 +319,7 @@ theorem theorem_1_2a_pure (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (hW₂
       hL.2.1, hL.2.2.1]
     ring
   have hbranch1 : 1 - qjs (DensityOp.tensor ρ₁ (W₂.out false)) (DensityOp.tensor ρ₀ (W₂.out true)) =
-      dephaseCoherence p hp0 hp1 (gramState ρ₀ ρ₁) := by
+      dephaseCoherence p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₀ ρ₁) := by
     -- Same via `lemma_4_1_gram_dephasing ρ₁ ρ₀ φ₀ φ₁` + `X ⊗ I` unitary equivalence of `gramState ρ₁ ρ₀` and `gramState ρ₀ ρ₁`
     have hL := lemma_4_1_gram_dephasing ρ₁ ρ₀ φ₀ φ₁ hφ₀ hφ₁
     let XI : Matrix.unitaryGroup (Bool × d₁) ℂ :=
@@ -335,8 +351,8 @@ theorem theorem_1_2a_pure (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (hW₂
           · exact h2.symm
         simp [this]
       · intro h; exact absurd (Finset.mem_univ _) h
-    have hX_deph : (DensityOp.conjUnitary XI (dephaseState p hp0 hp1 (gramState ρ₀ ρ₁))).mat =
-        (dephaseState p hp0 hp1 (gramState ρ₁ ρ₀)).mat := by
+    have hX_deph : (DensityOp.conjUnitary XI (dephaseState p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₀ ρ₁))).mat =
+        (dephaseState p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₁ ρ₀)).mat := by
       have hXZ : (XI : Matrix (Bool × d₁) (Bool × d₁) ℂ) * (pauliZTensorI d₁ : Matrix (Bool × d₁) (Bool × d₁) ℂ) =
           -((pauliZTensorI d₁ : Matrix (Bool × d₁) (Bool × d₁) ℂ) * (XI : Matrix (Bool × d₁) (Bool × d₁) ℂ)) := by
         ext ⟨a, i⟩ ⟨b, j⟩
@@ -373,8 +389,8 @@ theorem theorem_1_2a_pure (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (hW₂
       rw [show (XI : Matrix (Bool × d₁) (Bool × d₁) ℂ) * (gramState ρ₀ ρ₁).mat *
           star (XI : Matrix (Bool × d₁) (Bool × d₁) ℂ) = (gramState ρ₁ ρ₀).mat from hX_gram,
         hXZ_conj]
-    have hS_deph : vonNeumannEntropy (dephaseState p hp0 hp1 (gramState ρ₁ ρ₀)) =
-        vonNeumannEntropy (dephaseState p hp0 hp1 (gramState ρ₀ ρ₁)) := by
+    have hS_deph : vonNeumannEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₁ ρ₀)) =
+        vonNeumannEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₀ ρ₁)) := by
       rw [← vonNeumannEntropy_eq_of_mat_eq hX_deph, vonNeumannEntropy_conjUnitary]
     have hq_eq : qjs (DensityOp.tensor ρ₁ (W₂.out false)) (DensityOp.tensor ρ₀ (W₂.out true)) =
         qjs (DensityOp.tensor ρ₁ σ₀) (DensityOp.tensor ρ₀ σ₁) := by
@@ -435,7 +451,7 @@ theorem theorem_1_2a_pure (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (hW₂
       hL.2.1, hS_deph, hL0]
     ring
   -- Step 3: Apply Eq. (2.7) and Theorem 1.3
-  have hvar_eq : (CQChannel.varCombine W₁ W₂).condEntropy = dephaseCoherence p hp0 hp1 (gramState ρ₀ ρ₁) := by
+  have hvar_eq : (CQChannel.varCombine W₁ W₂).condEntropy = dephaseCoherence p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₀ ρ₁) := by
     have h27 := varCombine_condEntropy W₁ W₂
     linarith
   have hC0 : dephaseCoherence 0 le_rfl (by norm_num) (gramState ρ₀ ρ₁) = W₁.condEntropy := by
@@ -523,12 +539,15 @@ theorem theorem_1_2a_bsc (W₁ : CQChannel d₁) {q : ℝ} (hq0 : 0 ≤ q) (hq1 
           have hS_def : S = U * Matrix.diagonal (fun r ↦ (Real.sqrt (lam r) : ℂ)) * star U := rfl
           set dk := Real.sqrt (if k = b then 1 - q else q)
           have hmat_k : (W₂.out b).mat.mulVec (Pi.single k 1) = ((dk ^ 2 : ℝ) : ℂ) • Pi.single k 1 := by
-            rw [← hDD, Matrix.mulVec_mulVec, Matrix.mulVec_diagonal, Matrix.mulVec_diagonal]
-            ext r; simp only [Pi.smul_apply, smul_eq_mul, Pi.single_apply, dk]
+            ext r
+            rw [← hDD, ← Matrix.mulVec_mulVec, Matrix.mulVec_diagonal, Matrix.mulVec_diagonal]
+            simp only [Pi.smul_apply, smul_eq_mul, Pi.single_apply, dk]
             by_cases hr : r = k
             · subst hr; simp [sq, ← Complex.ofReal_mul]
             · simp [hr]
           set y : Bool → ℂ := (star U).mulVec (Pi.single k 1)
+          have hU_mul : U * star U = 1 := Unitary.coe_mul_star_self (W₂.out b).eigUnitary
+          have hU_smul : star U * U = 1 := Unitary.coe_star_mul_self (W₂.out b).eigUnitary
           have hy_coord : ∀ r : Bool, lam r ≠ dk ^ 2 → y r = 0 := by
             intro r hr
             have hspec : (W₂.out b).mat = U * Matrix.diagonal (Complex.ofReal ∘ lam) * star U := by
@@ -538,25 +557,24 @@ theorem theorem_1_2a_bsc (W₁ : CQChannel d₁) {q : ℝ} (hq0 : 0 ≤ q) (hq1 
             have hL : ((star U).mulVec ((W₂.out b).mat.mulVec (Pi.single k 1))) r = (lam r : ℂ) * y r := by
               conv_lhs => rw [hspec]
               rw [Matrix.mulVec_mulVec, ← Matrix.mul_assoc (star U), ← Matrix.mul_assoc (star U),
-                Unitary.coe_star_mul_self (W₂.out b).eigUnitary, Matrix.one_mul, Matrix.mulVec_mulVec,
-                Matrix.mulVec_diagonal]; rfl
+                hU_smul, Matrix.one_mul, ← Matrix.mulVec_mulVec, Matrix.mulVec_diagonal]; rfl
             rw [hL, Matrix.mulVec_smul, Pi.smul_apply, smul_eq_mul] at h1
             have hsub : ((lam r : ℂ) - ((dk ^ 2 : ℝ) : ℂ)) * y r = 0 := by linear_combination h1
             have hne : (lam r : ℂ) - ((dk ^ 2 : ℝ) : ℂ) ≠ 0 := by
               rw [← Complex.ofReal_sub]; exact_mod_cast sub_ne_zero.mpr hr
             exact (mul_eq_zero.mp hsub).resolve_left hne
           have hS_k : S.mulVec (Pi.single k 1) = (dk : ℂ) • Pi.single k 1 := by
-            rw [hS_def, Matrix.mulVec_mulVec, Matrix.mulVec_mulVec, Matrix.mulVec_diagonal]
-            have hdiag : (fun r : Bool ↦ (Real.sqrt (lam r) : ℂ) * y r) = (dk : ℂ) • y := by
-              ext r; simp only [Pi.smul_apply, smul_eq_mul]
+            rw [hS_def, ← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec]
+            have hdiag : Matrix.diagonal (fun r ↦ (Real.sqrt (lam r) : ℂ)) *ᵥ y = (dk : ℂ) • y := by
+              ext r; rw [Matrix.mulVec_diagonal]; simp only [Pi.smul_apply, smul_eq_mul]
               by_cases hr : lam r = dk ^ 2
               · rw [hr, Real.sqrt_sq (Real.sqrt_nonneg _)]
               · rw [hy_coord r hr, mul_zero, mul_zero]
             rw [hdiag, Matrix.mulVec_smul, show U.mulVec y = Pi.single k 1 by
-              simp only [y, Matrix.mulVec_mulVec, Unitary.coe_mul_star_self (W₂.out b).eigUnitary,
-                Matrix.one_mulVec]]
+              simp only [y, Matrix.mulVec_mulVec, hU_mul, Matrix.one_mulVec]]
+          ext r
           rw [hS_k, Matrix.mulVec_diagonal]
-          ext r; simp only [Pi.smul_apply, smul_eq_mul, Pi.single_apply, dk]
+          simp only [Pi.smul_apply, smul_eq_mul, Pi.single_apply, dk]
           by_cases hr : r = k
           · subst hr; simp
           · simp [hr]
@@ -936,9 +954,11 @@ lemma simultaneous_diagonalization {A B : Matrix d d ℂ}
             simpa [Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply] using (hBblk_herm (α i)).spectral_theorem
           conv_lhs => rw [hspec]
           simp only [Matrix.mul_assoc]
+          have hVstar : star ((hBblk_herm (α i)).eigenvectorUnitary : Matrix _ _ ℂ) *
+              ((hBblk_herm (α i)).eigenvectorUnitary : Matrix _ _ ℂ) = 1 :=
+            Unitary.coe_star_mul_self (hBblk_herm (α i)).eigenvectorUnitary
           rw [← Matrix.mul_assoc (star ((hBblk_herm (α i)).eigenvectorUnitary : Matrix _ _ ℂ)),
-            Unitary.coe_star_mul_self (hBblk_herm (α i)).eigenvectorUnitary, Matrix.one_mul,
-            Unitary.coe_star_mul_self (hBblk_herm (α i)).eigenvectorUnitary, Matrix.mul_one]
+            hVstar, Matrix.one_mul, hVstar, Matrix.mul_one]
         have hentry := congr_fun (congr_fun hdiag_blk ⟨i, rfl⟩) ⟨j, hij.symm⟩
         simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.diagonal_apply, Function.comp_apply] at hentry
         rw [hentry]
@@ -1505,7 +1525,7 @@ private lemma prop_4_2_branch1 (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
     dsimp only
     rw [qjs_pureState φ₀ φ₁ hφ₀ hφ₁, ← hF2]
   have hinv_p : h2Inv (1 - W₂p.condEntropy) = (1 - W₂.fidelityParam) / 2 := by
-    rw [hH₂p, sub_sub_cancel, h2Inv_h2 (by linarith) (by linarith)]
+    rw [hH₂p, sub_sub_cancel, h2Inv_h2 ⟨by linarith, by linarith⟩]
   have hdelta_eq : W₁.condEntropy + W₂p.condEntropy - 1 + gc (1 - W₁.condEntropy) (1 - W₂p.condEntropy) =
       W₁.condEntropy + deltaGap (1 - W₁.condEntropy) ((1 - W₂.fidelityParam) / 2) := by
     unfold deltaGap gc
