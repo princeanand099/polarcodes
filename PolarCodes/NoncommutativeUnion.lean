@@ -81,8 +81,10 @@ private lemma posSemidef_diag_re_nonneg {M : Matrix α α ℂ} (hM : M.PosSemide
     simpa [V, Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply] using hM.isHermitian.spectral_theorem
   have hval : M i i = ∑ k : α, ((hM.isHermitian.eigenvalues k : ℝ) : ℂ) * (V i k * star (V i k)) := by
     conv_lhs => rw [hspec]
-    simp only [Matrix.mul_diagonal, Matrix.mul_apply, Matrix.star_apply, Function.comp_apply]
-    apply Finset.sum_congr rfl; intro k _; ring
+    rw [Matrix.mul_apply]
+    apply Finset.sum_congr rfl; intro k _
+    rw [Matrix.mul_diagonal, Matrix.star_apply, Function.comp_apply]
+    ring
   rw [hval, Complex.re_sum]
   apply Finset.sum_nonneg; intro k _
   have hnorm : V i k * star (V i k) = ((‖V i k‖ ^ 2 : ℝ) : ℂ) := by
@@ -179,8 +181,10 @@ private lemma traceNorm_hermitian_eq_sum_abs {Δ : Matrix α α ℂ} (hΔ : Δ.I
           rw [RCLike.star_def, mul_comm, Complex.mul_conj, Complex.normSq_eq_norm_sq]
         rw [this, Complex.ofReal_re]
       have hsum_sq : ∑ j : α, ‖Q j i‖ ^ 2 = 1 := by
-        rw [Complex.re_sum] at hre_col
-        simpa [hterm] using hre_col
+        rw [Complex.re_sum, Complex.one_re] at hre_col
+        rw [← hre_col]
+        apply Finset.sum_congr rfl; intro j _
+        exact (hterm j).symm
       have hle_sq : ‖Q i i‖ ^ 2 ≤ 1 := by
         rw [← hsum_sq]
         exact Finset.single_le_sum (fun j _ ↦ sq_nonneg ‖Q j i‖) (Finset.mem_univ i)
@@ -212,7 +216,8 @@ lemma helstromProjector_isProjector (ρ₀ ρ₁ : DensityOp α) :
   have hD_idem : D * D = D := by
     rw [Matrix.diagonal_mul_diagonal]; congr 1; funext i; split_ifs <;> simp
   refine ⟨?_, ?_⟩
-  · simp only [helstromProjector, Matrix.conjTranspose_mul, Matrix.mul_assoc, hD_herm,
+  · change (U * D * star U)ᴴ = U * D * star U
+    simp only [Matrix.conjTranspose_mul, Matrix.mul_assoc, hD_herm,
       Matrix.star_eq_conjTranspose, Matrix.conjTranspose_conjTranspose]
   · calc (U * D * star U) * (U * D * star U)
         = U * (D * (star U * U) * D) * star U := by simp only [Matrix.mul_assoc]
@@ -234,7 +239,7 @@ theorem helstrom_error_eq (ρ₀ ρ₁ : DensityOp α) :
       rw [Matrix.trace_sub, ρ₀.trace_one, ρ₁.trace_one, sub_self]
     rw [h2] at h1
     exact Complex.ofReal_eq_zero.mp (by simpa using h1.symm)
-  have htr_ΠΔ : ((helstromProjector ρ₀ ρ₁ * (ρ₀.mat - ρ₁.mat)).trace).re =
+  have htr_PΔ : ((helstromProjector ρ₀ ρ₁ * (ρ₀.mat - ρ₁.mat)).trace).re =
       (1 / 2) * traceNorm (ρ₀.mat - ρ₁.mat) := by
     have hmul : helstromProjector ρ₀ ρ₁ * (ρ₀.mat - ρ₁.mat) =
         U * Matrix.diagonal (fun i : α ↦ if 0 ≤ hΔ.eigenvalues i then (hΔ.eigenvalues i : ℂ) else 0) * star U := by
@@ -248,7 +253,8 @@ theorem helstrom_error_eq (ρ₀ ρ₁ : DensityOp α) :
               Matrix.diagonal (Complex.ofReal ∘ hΔ.eigenvalues)) * star U := by
                 rw [Unitary.coe_star_mul_self hΔ.eigenvectorUnitary, Matrix.mul_one]
         _ = U * Matrix.diagonal (fun i : α ↦ if 0 ≤ hΔ.eigenvalues i then (hΔ.eigenvalues i : ℂ) else 0) * star U := by
-              rw [Matrix.diagonal_mul_diagonal]; congr 2; funext i; simp only [Function.comp_apply]
+              refine congr_arg (fun Z ↦ U * Z * star U) ?_
+              rw [Matrix.diagonal_mul_diagonal]; congr 1; funext i; simp only [Function.comp_apply]
               split_ifs <;> simp
     rw [hmul, Matrix.trace_mul_cycle, Unitary.coe_star_mul_self hΔ.eigenvectorUnitary,
       Matrix.one_mul, Matrix.trace_diagonal, Complex.re_sum, traceNorm_hermitian_eq_sum_abs hΔ]
@@ -320,7 +326,8 @@ theorem powers_stormer_traceNorm (ρ₀ ρ₁ : DensityOp α) :
       _ = U * (Matrix.diagonal sgn * Matrix.diagonal (Complex.ofReal ∘ hX.eigenvalues)) * star U := by
             rw [hU_star, Matrix.mul_one]
       _ = _ := by
-            rw [Matrix.diagonal_mul_diagonal]; congr 2; funext i; simp only [sgn, Function.comp_apply]
+            refine congr_arg (fun Z ↦ U * Z * star U) ?_
+            rw [Matrix.diagonal_mul_diagonal]; congr 1; funext i; simp only [sgn, Function.comp_apply]
             split_ifs with hi
             · rw [one_mul, abs_of_nonneg hi]
             · rw [neg_one_mul, abs_of_neg (lt_of_not_ge hi), Complex.ofReal_neg]
@@ -333,16 +340,21 @@ theorem powers_stormer_traceNorm (ρ₀ ρ₁ : DensityOp α) :
       _ = U * (Matrix.diagonal (Complex.ofReal ∘ hX.eigenvalues) * Matrix.diagonal sgn) * star U := by
             rw [hU_star, Matrix.mul_one]
       _ = _ := by
-            rw [Matrix.diagonal_mul_diagonal]; congr 2; funext i; simp only [sgn, Function.comp_apply]
+            refine congr_arg (fun Z ↦ U * Z * star U) ?_
+            rw [Matrix.diagonal_mul_diagonal]; congr 1; funext i; simp only [sgn, Function.comp_apply]
             split_ifs with hi
             · rw [mul_one, abs_of_nonneg hi]
             · rw [mul_neg_one, abs_of_neg (lt_of_not_ge hi), Complex.ofReal_neg]
   have htr_eq : (Sᴴ * (ρ₀.mat - ρ₁.mat)).trace =
       ∑ i : α, ((|hX.eigenvalues i| : ℝ) : ℂ) * (star U * Y * U) i i := by
     rw [hS_herm, hdiff, Matrix.mul_smul, Matrix.trace_smul, Matrix.mul_add, Matrix.trace_add]
-    have h1 : (S * (X * Y)).trace = ((S * X) * Y).trace := by rw [Matrix.mul_assoc]
+    have h1 : (S * (X * Y)).trace = ((S * X) * Y).trace := by
+      congr 1; exact (Matrix.mul_assoc S X Y).symm
     have h2 : (S * (Y * X)).trace = ((S * X) * Y).trace := by
-      rw [← Matrix.mul_assoc, Matrix.trace_mul_cycle, ← Matrix.mul_assoc, hXS]
+      calc (S * (Y * X)).trace = ((S * Y) * X).trace := by congr 1; exact (Matrix.mul_assoc S Y X).symm
+        _ = (X * (S * Y)).trace := Matrix.trace_mul_comm _ _
+        _ = ((X * S) * Y).trace := by congr 1; exact (Matrix.mul_assoc X S Y).symm
+        _ = ((S * X) * Y).trace := by rw [hXS]
     rw [h1, h2]
     have hhalf : (1 / 2 : ℂ) • (((S * X) * Y).trace + ((S * X) * Y).trace) = ((S * X) * Y).trace := by
       simp only [smul_eq_mul]; ring
@@ -588,7 +600,7 @@ private lemma gao_union_bound_vec (Ps : List (Matrix α α ℂ))
           have h4 : Real.sqrt b₂ ^ 2 = b₂ := Real.sq_sqrt hb₂
           nlinarith [sq_nonneg (Real.sqrt a₁ * Real.sqrt b₂ - Real.sqrt a₂ * Real.sqrt b₁)]
         have hmul_rt : Real.sqrt (a₁ + a₂) * Real.sqrt (b₁ + b₂) = Real.sqrt ((a₁ + a₂) * (b₁ + b₂)) :=
-          (Real.sqrt_mul (by linarith)).symm
+          (Real.sqrt_mul (by linarith) (b₁ + b₂)).symm
         rw [hmul_rt]
         exact Real.le_sqrt_of_sq_le hsq
       have hmap : ((P :: Qs).map (fun Q ↦ vecNormSq ((1 - Q).mulVec ψ))).sum = b₁ + b₂ := by
@@ -670,9 +682,7 @@ theorem gao_union_bound_density (ρ : DensityOp α) (Ps : List (Matrix α α ℂ
               simp only [Matrix.trace, Matrix.diag, Matrix.mul_apply, Matrix.diagonal_apply,
                 Matrix.conjTranspose_apply, Function.comp_apply, mul_ite, mul_zero,
                 Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte, vecInner, Matrix.mulVec,
-                dotProduct, col]
-              apply Finset.sum_congr rfl; intro a _
-              rw [mul_comm]
+                dotProduct, col, mul_comm]
     rw [h1, Complex.re_sum]
     apply Finset.sum_congr rfl; intro a _
     simp [vecInner_self_re]
@@ -841,7 +851,8 @@ lemma rootFidelity_of_reindex (e : α ≃ β) (ρ₁ ρ₂ : DensityOp α) (σ�
         calc V * Matrix.diagonal (fun k : β ↦ ((hM_psd.isHermitian.eigenvalues k ^ 2 : ℝ) : ℂ)) * star V
             = V * (Matrix.diagonal (Complex.ofReal ∘ hM_psd.isHermitian.eigenvalues) *
                 Matrix.diagonal (Complex.ofReal ∘ hM_psd.isHermitian.eigenvalues)) * star V := by
-                  rw [Matrix.diagonal_mul_diagonal]; congr 2; funext k; simp [sq]
+                  refine congr_arg (fun Z ↦ V * Z * star V) ?_
+                  rw [Matrix.diagonal_mul_diagonal]; congr 1; funext k; simp [sq]
           _ = V * (Matrix.diagonal (Complex.ofReal ∘ hM_psd.isHermitian.eigenvalues) * (star V * V) *
                 Matrix.diagonal (Complex.ofReal ∘ hM_psd.isHermitian.eigenvalues)) * star V := by
                   rw [hV_star, Matrix.mul_one]
@@ -869,8 +880,13 @@ lemma rootFidelity_of_reindex (e : α ≃ β) (ρ₁ ρ₂ : DensityOp α) (σ�
           rw [hval]
       ext i j
       conv_lhs => rw [hM_spec]
-      simp only [Matrix.mul_diagonal, Matrix.mul_apply, Matrix.star_apply, Function.comp_apply,
-        Matrix.diagonal_apply]
+      rw [Matrix.mul_apply]
+      have hterm : ∀ k : β,
+          (V * Matrix.diagonal (Complex.ofReal ∘ hM_psd.isHermitian.eigenvalues)) i k * (star V) k j =
+          V i k * (hM_psd.isHermitian.eigenvalues k : ℂ) * star (V j k) := by
+        intro k; rw [Matrix.mul_diagonal, Matrix.star_apply, Function.comp_apply]
+      simp_rw [hterm]
+      simp only [Matrix.diagonal_apply]
       calc ∑ k : β, V i k * (hM_psd.isHermitian.eigenvalues k : ℂ) * star (V j k)
           = ∑ k : β, (Real.sqrt (σ₁.eigvals i) : ℂ) * (V i k * star (V j k)) := by
               apply Finset.sum_congr rfl; intro k _
