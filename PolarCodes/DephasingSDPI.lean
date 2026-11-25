@@ -1083,7 +1083,7 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
       have hneg_sub : (Ψt (t + h) hth).mat - (Ψt t ht).mat = -((Ψt t ht).mat - (Ψt (t + h) hth).mat) := by abel
       dsimp only [Ψt] at hneg_sub ⊢
       rw [hneg_sub, hsemi, Matrix.neg_mul, Matrix.smul_mul, Matrix.trace_neg, Matrix.trace_smul,
-        Complex.neg_re, Complex.real_smul, Complex.mul_re, Complex.ofReal_re, Complex.ofReal_im]; ring
+        Complex.neg_re, smul_eq_mul, Complex.mul_re, Complex.ofReal_re, Complex.ofReal_im]; ring
     rw [htr_eq, hsym] at hklein
     -- Bound `D(Ψ_t ‖ Ψ̃_t) + D(Ψ̃_t ‖ Ψ_t) ≤ 2 * (-log lam_min / log 2)`
     have hD_ub : ∀ (A B : DensityOp (Bool × d)), A.mat.PosDef → B.mat.PosDef →
@@ -1232,6 +1232,7 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
           ((1 - Real.exp (-h)) / 4) *
             ((relEntropy (Ψt t ht) (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht))).toReal * Real.log 2 +
              (relEntropy (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht)) (Ψt t ht)).toReal * Real.log 2) := by
+        dsimp only [Ψt] at hdiff_C ⊢
         linarith
       have hB : ((relEntropy (Ψt t ht) (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht))).toReal * Real.log 2 +
              (relEntropy (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht)) (Ψt t ht)).toReal * Real.log 2) ≤
@@ -1254,9 +1255,11 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
   have hinv_ge : binConv (h2Inv (1 - dephaseCoherence 0 le_rfl (by norm_num) Ψ)) p ≤
       h2Inv (1 - dephaseCoherence p hp0 (le_trans hp1 (by norm_num)) Ψ) := by linarith
   have hconv_mem : binConv (h2Inv (1 - dephaseCoherence 0 le_rfl (by norm_num) Ψ)) p ∈ Icc (0 : ℝ) (1 / 2) := by
-    have h0m := h2Inv_mem_Icc ⟨by linarith [(hC_bounds 0 le_rfl).2, hC0], by linarith [(hC_bounds 0 le_rfl).1, hC0]⟩
+    have h0m : h2Inv (1 - dephaseCoherence 0 le_rfl (by norm_num) Ψ) ∈ Icc (0 : ℝ) (1 / 2) :=
+      h2Inv_mem_Icc ⟨by linarith [(hC_bounds 0 le_rfl).2, hC0], by linarith [(hC_bounds 0 le_rfl).1, hC0]⟩
     unfold binConv; constructor <;> nlinarith
-  have hinvT_mem := h2Inv_mem_Icc ⟨by linarith [(hC_bounds T hT_nn).2, hCT], by linarith [(hC_bounds T hT_nn).1, hCT]⟩
+  have hinvT_mem : h2Inv (1 - dephaseCoherence p hp0 (le_trans hp1 (by norm_num)) Ψ) ∈ Icc (0 : ℝ) (1 / 2) :=
+    h2Inv_mem_Icc ⟨by linarith [(hC_bounds T hT_nn).2, hCT], by linarith [(hC_bounds T hT_nn).1, hCT]⟩
   have hh2_le := h2_mono_Icc hconv_mem.1 hinvT_mem.2 hinv_ge
   rw [h2_h2Inv ⟨by linarith [(hC_bounds T hT_nn).2, hCT], by linarith [(hC_bounds T hT_nn).1, hCT]⟩] at hh2_le
   linarith
@@ -1316,7 +1319,7 @@ theorem theorem_1_3_dephasing_sdpi (Ψ : DensityOp (Bool × d))
     filter_upwards [Ioo_mem_nhdsGT (show (0 : ℝ) < 1 by norm_num)] with ε hε
     have hε01 : 0 ≤ ε ∧ ε ≤ 1 := ⟨le_of_lt hε.1, le_of_lt hε.2⟩
     have hcond : 0 ≤ ε ∧ ε ≤ 1 ∧ 0 ≤ q ∧ q ≤ 1 / 2 := ⟨le_of_lt hε.1, le_of_lt hε.2, hq0, hq1⟩
-    dsimp only [fC]; rw [dif_pos hε01, dif_pos hcond]; unfold dephaseCoherence
+    dsimp only [fC]; rw [dif_pos hε01, dif_pos hε01, dif_pos hcond]; unfold dephaseCoherence
     have hm1 := hdeph_mix (1 / 2) (by norm_num) le_rfl ε (le_of_lt hε.1) (le_of_lt hε.2)
     have hm2 := hdeph_mix q hq0 hq1 ε (le_of_lt hε.1) (le_of_lt hε.2)
     rw [vonNeumannEntropy_eq_of_mat_eq hm1, vonNeumannEntropy_eq_of_mat_eq hm2]
