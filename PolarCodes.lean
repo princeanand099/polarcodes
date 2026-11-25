@@ -3,9 +3,12 @@ Copyright (c) 2026 Prince Anand. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Prince Anand
 -/
+import PolarCodes.ArikanTransform
 import PolarCodes.Bhattacharyya
 import PolarCodes.BinaryEntropy
 import PolarCodes.ChannelDuality
+import PolarCodes.ChannelDualityEquiv
+import PolarCodes.ChannelEquiv
 import PolarCodes.Channels
 import PolarCodes.DataProcessing
 import PolarCodes.DephasingSDPI
@@ -16,22 +19,19 @@ import PolarCodes.HockeyStick
 import PolarCodes.HockeyStickMeasure
 import PolarCodes.MainTheorem
 import PolarCodes.MrsGerber
+import PolarCodes.NoncommutativeUnion
+import PolarCodes.PolarCoding
 import PolarCodes.Polarization
 import PolarCodes.PolarizationFine
 import PolarCodes.QJJS
+import PolarCodes.QuantumChannels
+import PolarCodes.QuantumPolarCoding
 import PolarCodes.QuantumProps
 import PolarCodes.QuantumStates
+import PolarCodes.Refinements
 import PolarCodes.ScalarSupplements
 import PolarCodes.SpectralTrace
 import PolarCodes.SplittingBounds
-import PolarCodes.SanityChecks
-import PolarCodes.QuantumChannels
-import PolarCodes.Refinements
-import PolarCodes.ChannelEquiv
-import PolarCodes.ChannelDualityEquiv
-import PolarCodes.NoncommutativeUnion
-import PolarCodes.ArikanTransform
-import PolarCodes.PolarCoding
 
 /-!
 # Polynomial-Blocklength Quantum Polar Codes

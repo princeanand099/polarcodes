@@ -490,8 +490,10 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
     refine ⟨e, fun b ⟨p₁, r₁⟩ ⟨p₂, r₂⟩ ↦ ?_⟩
     have hp : p₁ = p₂ := funext fun j ↦ False.elim (by have := j.isLt; omega)
     subst hp
-    simp only [polarChannelTree, synthChannel, synthState, synthBlockMat, Matrix.of_apply,
-      ↓reduceIte, pow_zero, Nat.sub_self, inv_one, one_mul, e, Equiv.coe_fn_mk]
+    change (W.out b).mat (r₁ ⟨0, by norm_num⟩) (r₂ ⟨0, by norm_num⟩) =
+      ((synthChannel W 0 i).out b).mat (p₁, r₁) (p₁, r₂)
+    simp only [synthChannel, synthState, synthBlockMat, Matrix.of_apply,
+      ↓reduceIte, pow_zero, Nat.sub_self, inv_one, one_mul]
     have hfilt : Finset.univ.filter (fun u : Fin 1 → Bool ↦ prefixOf i u = p₁ ∧ u i = b) =
         {fun _ ↦ b} := by
       ext u; simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_singleton]
@@ -547,7 +549,7 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
             simp only [Equiv.symm_apply_apply]
             exact Prod.ext (ePref.symm_apply_apply p) ((splitRegEquiv d n).symm_apply_apply r)
           right_inv := fun ⟨a, b⟩ ↦ by
-            simp only [Equiv.apply_symm_apply, Prod.mk.eta]; rfl }
+            simp only [Equiv.apply_symm_apply, Prod.mk.eta] }
       let e : ((Fin i.val → Bool) × (Fin (2 ^ (n + 1)) → d)) ≃
           (polarChannelTree W (n + 1) (bitPath (n + 1) i)).dim :=
         eRaw.trans (Equiv.cast (congrArg BundledCQChannel.dim htree.symm))
@@ -582,7 +584,7 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
           intro u
           have heq_ePref : ePref (prefixOf i u) = (prefixOf j (arikanEven n u), prefixOf j (arikanOdd n u)) := rfl
           constructor
-          · intro h; rw [← h, heq_ePref]
+          · intro h; rw [← h, heq_ePref]; exact ⟨rfl, rfl⟩
           · rintro ⟨h1, h2⟩
             exact ePref.injective (heq_ePref.trans (Prod.ext h1 h2))
         have hsum_split : synthBlockMat W (n + 1) i p₁ b r₁ r₂ =
@@ -615,7 +617,10 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
             constructor
             · rintro ⟨⟨h1, h2⟩, h3⟩
               refine ⟨h1, h2, ?_⟩
-              cases hv : v₂ j <;> cases h1v : v₁ j <;> cases b <;> simp_all
+              cases hv : v₂ j <;> cases h1v : v₁ j <;> cases b <;>
+                simp only [hv, h1v, Bool.xor_false, Bool.xor_true, Bool.false_xor, Bool.true_xor,
+                  true_and, and_true, false_and, and_false, or_false, false_or, true_or, or_true] at h3 ⊢ <;>
+                first | trivial | contradiction
             · rintro ⟨h1, h2, h3 | h3⟩ <;> refine ⟨⟨h1, h2⟩, ?_⟩ <;>
                 rcases h3 with ⟨ha, hb⟩ <;> rw [ha, hb] <;> cases b <;> rfl
           have hmat_uv : ∀ (v₁ v₂ : Fin (2 ^ n) → Bool),
