@@ -59,7 +59,8 @@ noncomputable def productState (W : CQChannel d) (n : ℕ) (x : Fin (2 ^ n) → 
         intro t
         rw [star_prod, ← Finset.prod_mul_distrib]
       simp_rw [hterm]
-      rw [← Fintype.prod_sum]
+      rw [← Fintype.prod_sum (fun k a ↦
+        (W.out (x k)).sqrtMat (r k) a * star ((W.out (x k)).sqrtMat (s k) a))]
       apply Finset.prod_congr rfl; intro k _
       have hsq := congr_fun (congr_fun (W.out (x k)).sqrtMat_mul_self (r k)) (s k)
       rw [← hsq]; simp only [Matrix.mul_apply]
@@ -72,7 +73,7 @@ noncomputable def productState (W : CQChannel d) (n : ℕ) (x : Fin (2 ^ n) → 
     exact posSemidef_mul_conjTranspose A
   trace_one := by
     simp only [Matrix.trace, Matrix.diag, productStateMat, Matrix.of_apply]
-    rw [← Fintype.prod_sum]
+    rw [← Fintype.prod_sum (fun k a ↦ (W.out (x k)).mat a a)]
     have h1 : ∀ k : Fin (2 ^ n), ∑ a : d, (W.out (x k)).mat a a = 1 := fun k ↦ (W.out (x k)).trace_one
     simp [h1]
 
@@ -164,9 +165,10 @@ lemma arikanTransform_bijective : ∀ n : ℕ, Function.Bijective (arikanTransfo
             simp [h1, h2]
         right_inv := fun x ↦ by
           funext k
+          dsimp only
           split_ifs with hk
           · rfl
-          · exact congr_arg x (Fin.ext (by omega)) }
+          · exact congr_arg x (Fin.ext (by dsimp; omega)) }
     have hcomp : arikanTransform (n + 1) =
         eConcat ∘ (Prod.map (arikanTransform n) (arikanTransform n)) ∘ arikanSplitEquiv n := rfl
     rw [hcomp]
@@ -183,9 +185,10 @@ def splitRegEquiv (d : Type u) (n : ℕ) :
   invFun p := fun k ↦ if hk : k.val < 2 ^ n then p.1 ⟨k.val, hk⟩ else p.2 ⟨k.val - 2 ^ n, by omega⟩
   left_inv r := by
     funext k
+    dsimp only
     split_ifs with hk
     · rfl
-    · exact congr_arg r (Fin.ext (by omega))
+    · exact congr_arg r (Fin.ext (by dsimp; omega))
   right_inv p := by
     rcases p with ⟨r₁, r₂⟩
     ext j
@@ -219,9 +222,10 @@ lemma productState_arikan_succ (W : CQChannel d) (n : ℕ) (u : Fin (2 ^ (n + 1)
           have h2 : j.val + 2 ^ n - 2 ^ n = j.val := by omega
           simp [h1, h2]
       right_inv := fun k ↦ by
+        dsimp only
         split_ifs with hk
         · rfl
-        · exact Fin.ext (by omega) }
+        · exact Fin.ext (by dsimp; omega) }
   rw [← Equiv.prod_comp e]
   rw [Fintype.prod_sum_type]
   congr 1
@@ -229,7 +233,7 @@ lemma productState_arikan_succ (W : CQChannel d) (n : ℕ) (u : Fin (2 ^ (n + 1)
     simp only [e, Equiv.coe_fn_mk, arikanTransform, j.isLt, ↓reduceDIte]
   · apply Finset.prod_congr rfl; intro j _
     have h1 : ¬ (j.val + 2 ^ n < 2 ^ n) := by omega
-    have h2 : (⟨j.val + 2 ^ n - 2 ^ n, by omega⟩ : Fin (2 ^ n)) = j := Fin.ext (by omega)
+    have h2 : (⟨j.val + 2 ^ n - 2 ^ n, by omega⟩ : Fin (2 ^ n)) = j := Fin.ext (by dsimp; omega)
     simp only [e, Equiv.coe_fn_mk, arikanTransform, h1, ↓reduceDIte, h2]
 
 /-! ### Explicit Synthesized Channels `W_n^{(i)}` -/
@@ -280,6 +284,7 @@ lemma card_filter_at_eq {N : ℕ} (i : Fin N) (b : Bool) :
       Fintype.card_bool, Fintype.card_fin]
   have hpow : 2 ^ N = 2 * 2 ^ (N - 1) := by
     conv_lhs => rw [h1, pow_succ, mul_comm]
+  change S_true.card = 2 ^ (N - 1)
   omega
 
 /-- Number of vectors `u : Fin N → Bool` with `prefixOf i u = p` and `u i = b` is `2^(N - 1 - i.val)`. -/
@@ -290,24 +295,26 @@ lemma card_filter_prefix_at_eq {N : ℕ} (i : Fin N) (p : Fin i.val → Bool) (b
     { toFun := fun u k ↦ u.1 ⟨i.val + 1 + k.val, by omega⟩
       invFun := fun s ↦
         ⟨fun k ↦ if h1 : k.val < i.val then p ⟨k.val, h1⟩
-          else if k.val = i.val then b
+          else if h2 : k.val = i.val then b
           else s ⟨k.val - i.val - 1, by omega⟩, by
           refine ⟨?_, ?_⟩
           · funext j; simp [prefixOf, j.isLt]
           · simp⟩
       left_inv := fun ⟨u, hp, hb⟩ ↦ by
         apply Subtype.ext; funext k
+        dsimp only
         split_ifs with h1 h2
         · have := congr_fun hp ⟨k.val, h1⟩
           simpa [prefixOf] using this
         · have hk : k = i := Fin.ext h2
           rw [hk, hb]
-        · exact congr_arg u (Fin.ext (by omega))
+        · exact congr_arg u (Fin.ext (by dsimp; omega))
       right_inv := fun s ↦ by
         funext k
         have h1 : ¬ (i.val + 1 + k.val < i.val) := by omega
         have h2 : i.val + 1 + k.val ≠ i.val := by omega
-        have h3 : (⟨i.val + 1 + k.val - i.val - 1, by omega⟩ : Fin (N - 1 - i.val)) = k := Fin.ext (by omega)
+        have h3 : (⟨i.val + 1 + k.val - i.val - 1, by omega⟩ : Fin (N - 1 - i.val)) = k :=
+          Fin.ext (by dsimp; omega)
         simp [h1, h2, h3] }
   have hcard : Fintype.card {u : Fin N → Bool // prefixOf i u = p ∧ u i = b} =
       (Finset.univ.filter (fun u : Fin N → Bool ↦ prefixOf i u = p ∧ u i = b)).card :=
@@ -368,7 +375,7 @@ noncomputable def synthState (W : CQChannel d) (n : ℕ) (i : Fin (2 ^ n)) (b : 
         rw [hzero, mul_zero]
     rw [hsum_eq]
     have hsum_psd : (∑ u ∈ Finset.univ.filter (fun u : Fin (2 ^ n) → Bool ↦ u i = b), block u).PosSemidef := by
-      exact Finset.sum_induction _ (fun M ↦ M.PosSemidef) (fun _ _ ha hb ↦ ha.add hb)
+      exact Finset.sum_induction _ (fun M : Matrix _ _ ℂ ↦ M.PosSemidef) (fun _ _ ha hb ↦ ha.add hb)
         Matrix.PosSemidef.zero (fun u _ ↦ hblock_psd u)
     simpa [Complex.real_smul] using hsum_psd.smul hc
   trace_one := by
@@ -418,43 +425,47 @@ def bitPathInv : (n : ℕ) → (Fin n → Bool) → Fin (2 ^ n)
         have h := (bitPathInv n (Fin.init b)).isLt
         cases b (Fin.last n) <;> simp <;> omega⟩
 
+/-- Forward map of `bitPath`: maps a coordinate in `Fin (2^n)` to its branch path `Fin n → Bool`. -/
+def bitPathFwd : (n : ℕ) → Fin (2 ^ n) → (Fin n → Bool)
+  | 0, _ => Fin.elim0
+  | n + 1, i => Fin.snoc (α := fun _ ↦ Bool) (bitPathFwd n ⟨i.val / 2, by omega⟩) (decide (i.val % 2 = 1))
+
+private lemma bitPathInv_fwd : ∀ (n : ℕ) (i : Fin (2 ^ n)), bitPathInv n (bitPathFwd n i) = i
+  | 0, i => Fin.ext (by omega)
+  | n + 1, i => by
+    apply Fin.ext
+    simp only [bitPathInv, bitPathFwd, Fin.init_snoc, Fin.snoc_last]
+    rw [bitPathInv_fwd n ⟨i.val / 2, by omega⟩]
+    dsimp only
+    by_cases hmod : i.val % 2 = 1 <;> simp [hmod] <;> omega
+
+private lemma bitPathFwd_inv : ∀ (n : ℕ) (b : Fin n → Bool), bitPathFwd n (bitPathInv n b) = b
+  | 0, b => funext (fun j ↦ Fin.elim0 j)
+  | n + 1, b => by
+    have hdiv : (bitPathInv (n + 1) b).val / 2 = (bitPathInv n (Fin.init b)).val := by
+      simp only [bitPathInv]
+      cases b (Fin.last n) <;> simp <;> omega
+    have hmod : decide ((bitPathInv (n + 1) b).val % 2 = 1) = b (Fin.last n) := by
+      simp only [bitPathInv]
+      cases b (Fin.last n) <;> simp <;> omega
+    have hfin : (⟨(bitPathInv (n + 1) b).val / 2, by omega⟩ : Fin (2 ^ n)) = bitPathInv n (Fin.init b) :=
+      Fin.ext hdiv
+    change Fin.snoc (α := fun _ ↦ Bool) (bitPathFwd n ⟨(bitPathInv (n + 1) b).val / 2, _⟩)
+      (decide ((bitPathInv (n + 1) b).val % 2 = 1)) = b
+    rw [hfin, hmod, bitPathFwd_inv n (Fin.init b), Fin.snoc_init_self]
+
 /-- Bijection `Fin (2^n) ≃ (Fin n → Bool)` matching Arıkan's synthesized channel indices with
 tree paths (`false` = minus branch `2j`, `true` = plus branch `2j + 1`). -/
-def bitPath : (n : ℕ) → Fin (2 ^ n) ≃ (Fin n → Bool)
-  | 0 =>
-    { toFun := fun _ ↦ Fin.elim0
-      invFun := fun _ ↦ ⟨0, by norm_num⟩
-      left_inv := fun i ↦ Fin.ext (by omega)
-      right_inv := fun b ↦ funext (fun j ↦ Fin.elim0 j) }
-  | n + 1 =>
-    { toFun := fun i ↦ Fin.snoc (α := fun _ ↦ Bool) (bitPath n ⟨i.val / 2, by omega⟩) (decide (i.val % 2 = 1))
-      invFun := bitPathInv (n + 1)
-      left_inv := fun i ↦ by
-        apply Fin.ext
-        simp only [bitPathInv, Fin.init_snoc, Fin.snoc_last]
-        have ih := (bitPath n).left_inv ⟨i.val / 2, by omega⟩
-        have hval : (bitPath n).symm (bitPath n ⟨i.val / 2, by omega⟩) = ⟨i.val / 2, by omega⟩ := ih
-        have hinv : bitPathInv n (bitPath n ⟨i.val / 2, by omega⟩) = ⟨i.val / 2, by omega⟩ := by
-          cases n <;> exact hval
-        rw [hinv]
-        by_cases hmod : i.val % 2 = 1 <;> simp [hmod] <;> omega
-      right_inv := fun b ↦ by
-        funext k
-        simp only [bitPathInv]
-        have hdiv : (2 * (bitPathInv n (Fin.init b)).val + if b (Fin.last n) then 1 else 0) / 2 =
-            (bitPathInv n (Fin.init b)).val := by
-          cases b (Fin.last n) <;> simp <;> omega
-        have hmod : decide ((2 * (bitPathInv n (Fin.init b)).val + if b (Fin.last n) then 1 else 0) % 2 = 1) =
-            b (Fin.last n) := by
-          cases b (Fin.last n) <;> simp <;> omega
-        have hfin : (⟨(2 * (bitPathInv n (Fin.init b)).val + if b (Fin.last n) then 1 else 0) / 2, by omega⟩ : Fin (2 ^ n)) =
-            bitPathInv n (Fin.init b) := Fin.ext hdiv
-        rw [hfin, hmod]
-        have hinv : bitPath n (bitPathInv n (Fin.init b)) = Fin.init b := by
-          cases n
-          · funext j; exact Fin.elim0 j
-          · exact (bitPath _).right_inv (Fin.init b)
-        rw [hinv, Fin.snoc_init_self] }
+def bitPath (n : ℕ) : Fin (2 ^ n) ≃ (Fin n → Bool) where
+  toFun := bitPathFwd n
+  invFun := bitPathInv n
+  left_inv := bitPathInv_fwd n
+  right_inv := bitPathFwd_inv n
+
+private lemma bundled_cast_mat {A B : BundledCQChannel.{u}} (h : A = B) (b : Bool) (x y : B.dim) :
+    (A.ch.out b).mat (cast (congrArg BundledCQChannel.dim h.symm) x)
+      (cast (congrArg BundledCQChannel.dim h.symm) y) = (B.ch.out b).mat x y := by
+  subst h; rfl
 
 /-- Exact basis-permutation equivalence between the explicit synthesized channel `synthChannel W n i`
 and the recursive tree channel `polarChannelTree W n (bitPath n i)`. -/
@@ -465,17 +476,17 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
           ((polarChannelTree W n (bitPath n i)).ch.out b).mat (e x) (e y) =
             ((synthChannel W n i).out b).mat x y
   | 0, i => by
-    have hi : i.val = 0 := by omega
+    have hi : i.val = 0 := by have := i.isLt; omega
     let e : ((Fin i.val → Bool) × (Fin (2 ^ 0) → d)) ≃ d :=
       { toFun := fun p ↦ p.2 ⟨0, by norm_num⟩
-        invFun := fun a ↦ (fun j ↦ False.elim (by omega), fun _ ↦ a)
+        invFun := fun a ↦ (fun j ↦ False.elim (by have := j.isLt; omega), fun _ ↦ a)
         left_inv := fun ⟨p, r⟩ ↦ by
           ext j
-          · exact False.elim (by omega)
-          · congr 1; exact Fin.ext (by omega)
+          · exact False.elim (by have := j.isLt; omega)
+          · congr 1; exact Fin.ext (by have := j.isLt; dsimp; omega)
         right_inv := fun _ ↦ rfl }
     refine ⟨e, fun b ⟨p₁, r₁⟩ ⟨p₂, r₂⟩ ↦ ?_⟩
-    have hp : p₁ = p₂ := funext fun j ↦ False.elim (by omega)
+    have hp : p₁ = p₂ := funext fun j ↦ False.elim (by have := j.isLt; omega)
     subst hp
     simp only [polarChannelTree, synthChannel, synthState, synthBlockMat, Matrix.of_apply,
       ↓reduceIte, pow_zero, Nat.sub_self, inv_one, one_mul, e, Equiv.coe_fn_mk]
@@ -483,23 +494,22 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
         {fun _ ↦ b} := by
       ext u; simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_singleton]
       constructor
-      · intro ⟨_, hu⟩; funext k; have hk : k = i := Fin.ext (by omega); rw [hk, hu]
-      · intro hu; subst hu; refine ⟨funext fun j ↦ False.elim (by omega), rfl⟩
+      · intro ⟨_, hu⟩; funext k; have hk : k = i := Fin.ext (by have := k.isLt; omega); rw [hk, hu]
+      · intro hu; subst hu; refine ⟨funext fun j ↦ False.elim (by have := j.isLt; omega), rfl⟩
     rw [hfilt, Finset.sum_singleton]
     simp [productState, productStateMat, arikanTransform]
   | n + 1, i => by
     set j : Fin (2 ^ n) := ⟨i.val / 2, by omega⟩
+    have hj : j.val = i.val / 2 := rfl
     obtain ⟨e_j, he_j⟩ := synthChannel_reindex_polarChannelTree W n j
-    -- Prefix splitting equivalence for `i = 2j` or `i = 2j + 1`
     by_cases hmod : i.val % 2 = 0
-    · -- Even case: `i = 2j`, `bitPath (n+1) i = Fin.snoc (bitPath n j) false`, minus branch `W_j⁻`
+    · -- Even case: `i = 2j`, minus branch `W_j⁻`
       have hi_eq : i.val = 2 * j.val := by omega
       have htree : polarChannelTree W (n + 1) (bitPath (n + 1) i) =
           (polarChannelTree W n (bitPath n j)).minus := by
         have hbp : bitPath (n + 1) i = Fin.snoc (α := fun _ ↦ Bool) (bitPath n j) false := by
-          simp [bitPath, j, show ¬ (i.val % 2 = 1) by omega]
+          simp [bitPath, bitPathFwd, j, show ¬ (i.val % 2 = 1) by omega]
         rw [hbp, polarChannelTree_snoc_false]
-      -- Prefix bijection `(Fin i.val → Bool) ≃ (Fin j.val → Bool) × (Fin j.val → Bool)`
       let ePref : (Fin i.val → Bool) ≃ (Fin j.val → Bool) × (Fin j.val → Bool) :=
         { toFun := fun p ↦
             (fun k ↦ xor (p ⟨2 * k.val, by omega⟩) (p ⟨2 * k.val + 1, by omega⟩),
@@ -508,10 +518,10 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
             if k.val % 2 = 0 then xor (q.1 ⟨k.val / 2, by omega⟩) (q.2 ⟨k.val / 2, by omega⟩)
             else q.2 ⟨k.val / 2, by omega⟩
           left_inv := fun p ↦ by
-            funext k; split_ifs with hk
-            · have h1 : (⟨2 * (k.val / 2), by omega⟩ : Fin i.val) = k := Fin.ext (by omega)
+            funext k; dsimp only; split_ifs with hk
+            · have h1 : (⟨2 * (k.val / 2), by omega⟩ : Fin i.val) = k := Fin.ext (by dsimp; omega)
               rw [h1]; cases p k <;> cases p ⟨2 * (k.val / 2) + 1, by omega⟩ <;> rfl
-            · exact congr_arg p (Fin.ext (by omega))
+            · exact congr_arg p (Fin.ext (by dsimp; omega))
           right_inv := fun ⟨q₁, q₂⟩ ↦ by
             ext k
             · have h1 : (2 * k.val) % 2 = 0 := by omega
@@ -524,24 +534,16 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
               have h4 : (2 * k.val + 1) / 2 = k.val := by omega
               simp only [h2, ↓reduceIte, h4] }
       let eRaw : ((Fin i.val → Bool) × (Fin (2 ^ (n + 1)) → d)) ≃
-          (polarChannelTree W n (bitPath n j)).dim × (polarChannelTree W n (bitPath n j)).dim :=
+          (polarChannelTree W n (bitPath n j)).minus.dim :=
         (ePref.prodCongr (splitRegEquiv d n)).trans
           ((Equiv.prodProdProdComm _ _ _ _).trans (e_j.prodCongr e_j))
       let e : ((Fin i.val → Bool) × (Fin (2 ^ (n + 1)) → d)) ≃
           (polarChannelTree W (n + 1) (bitPath (n + 1) i)).dim :=
-        eRaw.trans (Equiv.cast (by rw [htree]; rfl))
+        eRaw.trans (Equiv.cast (congrArg BundledCQChannel.dim htree.symm))
       refine ⟨e, fun b ⟨p₁, r₁⟩ ⟨p₂, r₂⟩ ↦ ?_⟩
-      -- Transport through `htree`
-      have hcast : ∀ x y,
-          ((polarChannelTree W (n + 1) (bitPath (n + 1) i)).ch.out b).mat (e x) (e y) =
-          (((polarChannelTree W n (bitPath n j)).minus).ch.out b).mat (eRaw x) (eRaw y) := by
-        intro x y
-        change ((polarChannelTree W (n + 1) (bitPath (n + 1) i)).ch.out b).mat
-          (cast _ (eRaw x)) (cast _ (eRaw y)) = _
-        revert eRaw
-        rw [htree]
-        intro _
-        rfl
+      have hcast : ((polarChannelTree W (n + 1) (bitPath (n + 1) i)).ch.out b).mat (e (p₁, r₁)) (e (p₂, r₂)) =
+          (((polarChannelTree W n (bitPath n j)).minus).ch.out b).mat (eRaw (p₁, r₁)) (eRaw (p₂, r₂)) :=
+        bundled_cast_mat htree b (eRaw (p₁, r₁)) (eRaw (p₂, r₂))
       rw [hcast]
       simp only [BundledCQChannel.minus, CQChannel.minusChannel, CQChannel.checkCombine,
         DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, Matrix.add_apply, Matrix.smul_apply,
@@ -557,24 +559,11 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
               prefixOf j (arikanEven n u) = (ePref p₁).1 ∧
               prefixOf j (arikanOdd n u) = (ePref p₁).2 := by
           intro u
+          have heq_ePref : ePref (prefixOf i u) = (prefixOf j (arikanEven n u), prefixOf j (arikanOdd n u)) := rfl
           constructor
-          · intro h
-            constructor <;> (funext k; simp only [prefixOf, arikanEven, arikanOdd, ePref, Equiv.coe_fn_mk, ← h])
+          · intro h; rw [← h, heq_ePref]
           · rintro ⟨h1, h2⟩
-            funext k
-            have hk1 := congr_fun h1 ⟨k.val / 2, by omega⟩
-            have hk2 := congr_fun h2 ⟨k.val / 2, by omega⟩
-            simp only [prefixOf, arikanEven, arikanOdd, ePref, Equiv.coe_fn_mk] at hk1 hk2
-            by_cases hkm : k.val % 2 = 0
-            · have heq : (⟨2 * (k.val / 2), by omega⟩ : Fin (2 ^ (n + 1))) = ⟨k.val, Nat.lt_trans k.isLt i.isLt⟩ := Fin.ext (by omega)
-              have heq' : (⟨2 * (k.val / 2), by omega⟩ : Fin i.val) = k := Fin.ext (by omega)
-              rw [heq, heq', hk2] at hk1
-              cases u ⟨k.val, Nat.lt_trans k.isLt i.isLt⟩ <;> cases p₁ k <;>
-                cases p₁ ⟨2 * (k.val / 2) + 1, by omega⟩ <;> simp_all [prefixOf]
-            · have heq : (⟨2 * (k.val / 2) + 1, by omega⟩ : Fin (2 ^ (n + 1))) = ⟨k.val, Nat.lt_trans k.isLt i.isLt⟩ := Fin.ext (by omega)
-              have heq' : (⟨2 * (k.val / 2) + 1, by omega⟩ : Fin i.val) = k := Fin.ext (by omega)
-              rw [heq, heq'] at hk2; exact hk2
-        -- Rewrite the RHS sum over `u` via `arikanSplitEquiv n` into `(v₁, v₂)` with `v₂ j = v`, `v₁ j = xor b v`
+            exact ePref.injective (heq_ePref.trans (Prod.ext h1 h2))
         have hsum_split : synthBlockMat W (n + 1) i p₁ b r₁ r₂ =
             (synthBlockMat W n j (ePref p₁).1 (xor b false) (splitRegEquiv d n r₁).1 (splitRegEquiv d n r₂).1 *
              synthBlockMat W n j (ePref p₁).2 false (splitRegEquiv d n r₁).2 (splitRegEquiv d n r₂).2) +
@@ -587,8 +576,7 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
               if prefixOf i u = p₁ ∧ u i = b then
                 (productState W (n + 1) (arikanTransform (n + 1) u)).mat r₁ r₂
               else 0)
-          rw [← Finset.sum_filter] at h1
-          rw [← h1]
+          rw [Finset.sum_filter, ← h1]
           simp only [Fintype.sum_prod_type]
           have hcond : ∀ (v₁ v₂ : Fin (2 ^ n) → Bool),
               let u := (arikanSplitEquiv n).symm (v₁, v₂)
@@ -597,9 +585,8 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
                  ((v₁ j = xor b false ∧ v₂ j = false) ∨ (v₁ j = xor b true ∧ v₂ j = true))) := by
             intro v₁ v₂
             have huv : arikanEven n ((arikanSplitEquiv n).symm (v₁, v₂)) = v₁ ∧
-                arikanOdd n ((arikanSplitEquiv n).symm (v₁, v₂)) = v₂ := by
-              have := (arikanSplitEquiv n).apply_symm_apply (v₁, v₂)
-              exact Prod.mk.inj this
+                arikanOdd n ((arikanSplitEquiv n).symm (v₁, v₂)) = v₂ :=
+              Prod.mk.inj ((arikanSplitEquiv n).apply_symm_apply (v₁, v₂))
             rw [hpref_split, huv.1, huv.2]
             have hui : (arikanSplitEquiv n).symm (v₁, v₂) i = xor (v₁ j) (v₂ j) := by
               simp [arikanSplitEquiv, hmod, j]
@@ -618,13 +605,16 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
             have huv := Prod.mk.inj ((arikanSplitEquiv n).apply_symm_apply (v₁, v₂))
             rw [productState_arikan_succ, huv.1, huv.2]
           simp_rw [hcond, hmat_uv]
-          -- Split the sum into `v₂ j = false` and `v₂ j = true`
-          rw [← Finset.sum_filter, ← Finset.sum_filter]
           simp only [Finset.sum_filter]
-          rw [← Finset.sum_add_distrib]
-          apply Finset.sum_congr rfl; intro v₁ _
+          rw [Finset.sum_comm (s := Finset.univ) (t := Finset.univ)]
+          conv_rhs =>
+            arg 1; rw [Finset.sum_comm]
+          conv_rhs =>
+            arg 2; rw [Finset.sum_comm]
           rw [← Finset.sum_add_distrib]
           apply Finset.sum_congr rfl; intro v₂ _
+          rw [← Finset.sum_add_distrib]
+          apply Finset.sum_congr rfl; intro v₁ _
           by_cases h1 : prefixOf j v₁ = (ePref p₁).1 <;>
             by_cases h2 : prefixOf j v₂ = (ePref p₁).2 <;>
             cases h3 : v₁ j <;> cases h4 : v₂ j <;> cases b <;> simp [h1, h2, h3, h4]
@@ -645,48 +635,47 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
         · have h2 : (ePref p₁).2 ≠ (ePref p₂).2 := fun h ↦ hne ⟨h1, h⟩
           simp [hp, h1, h2]
         · simp [hp, h1]
-    · -- Odd case: `i = 2j + 1`, `bitPath (n+1) i = Fin.snoc (bitPath n j) true`, plus branch `W_j⁺`
+    · -- Odd case: `i = 2j + 1`, plus branch `W_j⁺`
       have hmod1 : i.val % 2 = 1 := by omega
       have hi_eq : i.val = 2 * j.val + 1 := by omega
       have htree : polarChannelTree W (n + 1) (bitPath (n + 1) i) =
           (polarChannelTree W n (bitPath n j)).plus := by
         have hbp : bitPath (n + 1) i = Fin.snoc (α := fun _ ↦ Bool) (bitPath n j) true := by
-          simp [bitPath, j, hmod1]
+          simp [bitPath, bitPathFwd, j, hmod1]
         rw [hbp, polarChannelTree_snoc_true]
-      -- Prefix bijection `(Fin i.val → Bool) ≃ Bool × ((Fin j.val → Bool) × (Fin j.val → Bool))`
       let ePref : (Fin i.val → Bool) ≃ Bool × ((Fin j.val → Bool) × (Fin j.val → Bool)) :=
         { toFun := fun p ↦
             (p ⟨2 * j.val, by omega⟩,
              (fun k ↦ xor (p ⟨2 * k.val, by omega⟩) (p ⟨2 * k.val + 1, by omega⟩),
               fun k ↦ p ⟨2 * k.val + 1, by omega⟩))
           invFun := fun ⟨w, q₁, q₂⟩ k ↦
-            if k.val = 2 * j.val then w
-            else if k.val % 2 = 0 then xor (q₁ ⟨k.val / 2, by omega⟩) (q₂ ⟨k.val / 2, by omega⟩)
-            else q₂ ⟨k.val / 2, by omega⟩
+            if hk0 : k.val = 2 * j.val then w
+            else if k.val % 2 = 0 then xor (q₁ ⟨k.val / 2, by have := k.isLt; omega⟩) (q₂ ⟨k.val / 2, by have := k.isLt; omega⟩)
+            else q₂ ⟨k.val / 2, by have := k.isLt; omega⟩
           left_inv := fun p ↦ by
-            funext k; split_ifs with hk0 hk
-            · exact congr_arg p (Fin.ext (by omega))
-            · have h1 : (⟨2 * (k.val / 2), by omega⟩ : Fin i.val) = k := Fin.ext (by omega)
-              rw [h1]; cases p k <;> cases p ⟨2 * (k.val / 2) + 1, by omega⟩ <;> rfl
-            · exact congr_arg p (Fin.ext (by omega))
+            funext k; dsimp only; split_ifs with hk0 hk
+            · exact congr_arg p (Fin.ext (by dsimp; omega))
+            · have h1 : (⟨2 * (k.val / 2), by have := k.isLt; omega⟩ : Fin i.val) = k := Fin.ext (by dsimp; omega)
+              rw [h1]; cases p k <;> cases p ⟨2 * (k.val / 2) + 1, by have := k.isLt; omega⟩ <;> rfl
+            · exact congr_arg p (Fin.ext (by dsimp; omega))
           right_inv := fun ⟨w, q₁, q₂⟩ ↦ by
             refine Prod.ext (by simp) (Prod.ext ?_ ?_)
             · funext k
-              have h0 : 2 * k.val ≠ 2 * j.val := by omega
-              have h0' : 2 * k.val + 1 ≠ 2 * j.val := by omega
+              have h0 : 2 * k.val ≠ 2 * j.val := by have := k.isLt; omega
+              have h0' : 2 * k.val + 1 ≠ 2 * j.val := by have := k.isLt; omega
               have h1 : (2 * k.val) % 2 = 0 := by omega
               have h2 : (2 * k.val + 1) % 2 ≠ 0 := by omega
               have h3 : (2 * k.val) / 2 = k.val := by omega
               have h4 : (2 * k.val + 1) / 2 = k.val := by omega
-              simp only [h0, h0', h1, h2, ↓reduceIte, h3, h4]
+              simp only [h0, h0', h1, h2, ↓reduceDIte, ↓reduceIte, h3, h4]
               cases q₁ k <;> cases q₂ k <;> rfl
             · funext k
-              have h0' : 2 * k.val + 1 ≠ 2 * j.val := by omega
+              have h0' : 2 * k.val + 1 ≠ 2 * j.val := by have := k.isLt; omega
               have h2 : (2 * k.val + 1) % 2 ≠ 0 := by omega
               have h4 : (2 * k.val + 1) / 2 = k.val := by omega
-              simp only [h0', h2, ↓reduceIte, h4] }
+              simp only [h0', h2, ↓reduceDIte, ↓reduceIte, h4] }
       let eRaw : ((Fin i.val → Bool) × (Fin (2 ^ (n + 1)) → d)) ≃
-          Bool × ((polarChannelTree W n (bitPath n j)).dim × (polarChannelTree W n (bitPath n j)).dim) :=
+          (polarChannelTree W n (bitPath n j)).plus.dim :=
         { toFun := fun ⟨p, r⟩ ↦
             ((ePref p).1,
              (e_j ((ePref p).2.1, (splitRegEquiv d n r).1),
@@ -698,28 +687,34 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
             simp only [Equiv.symm_apply_apply]
             exact Prod.ext (ePref.symm_apply_apply p) ((splitRegEquiv d n).symm_apply_apply r)
           right_inv := fun ⟨w, a, b⟩ ↦ by
-            simp only [Equiv.apply_symm_apply] }
+            simp only [Equiv.apply_symm_apply, Prod.mk.eta] }
       let e : ((Fin i.val → Bool) × (Fin (2 ^ (n + 1)) → d)) ≃
           (polarChannelTree W (n + 1) (bitPath (n + 1) i)).dim :=
-        eRaw.trans (Equiv.cast (by rw [htree]; rfl))
+        eRaw.trans (Equiv.cast (congrArg BundledCQChannel.dim htree.symm))
       refine ⟨e, fun b ⟨p₁, r₁⟩ ⟨p₂, r₂⟩ ↦ ?_⟩
-      have hcast : ∀ x y,
-          ((polarChannelTree W (n + 1) (bitPath (n + 1) i)).ch.out b).mat (e x) (e y) =
-          (((polarChannelTree W n (bitPath n j)).plus).ch.out b).mat (eRaw x) (eRaw y) := by
-        intro x y
-        change ((polarChannelTree W (n + 1) (bitPath (n + 1) i)).ch.out b).mat
-          (cast _ (eRaw x)) (cast _ (eRaw y)) = _
-        revert eRaw
-        rw [htree]
-        intro _
-        rfl
+      have hcast : ((polarChannelTree W (n + 1) (bitPath (n + 1) i)).ch.out b).mat (e (p₁, r₁)) (e (p₂, r₂)) =
+          (((polarChannelTree W n (bitPath n j)).plus).ch.out b).mat (eRaw (p₁, r₁)) (eRaw (p₂, r₂)) :=
+        bundled_cast_mat htree b (eRaw (p₁, r₁)) (eRaw (p₂, r₂))
       rw [hcast]
-      simp only [BundledCQChannel.plus, CQChannel.plusChannel, CQChannel.varCombine,
-        DensityOp.mix, DensityOp.tensor, Matrix.add_apply, Matrix.smul_apply,
-        Matrix.kroneckerMap_apply, Matrix.diagonal_apply, smul_eq_mul, eRaw, Equiv.coe_fn_mk]
+      have hplus_entry : ∀ (b' : Bool) (w₁ w₂ : Bool)
+          (x₁ y₁ x₂ y₂ : (polarChannelTree W n (bitPath n j)).dim),
+          (((polarChannelTree W n (bitPath n j)).plus).ch.out b').mat (w₁, x₁, y₁) (w₂, x₂, y₂) =
+            if w₁ = w₂ then
+              (1 / 2 : ℂ) *
+                ((polarChannelTree W n (bitPath n j)).ch.out (if w₁ = false then b' else !b')).mat x₁ x₂ *
+                ((polarChannelTree W n (bitPath n j)).ch.out b').mat y₁ y₂
+            else 0 := by
+        intro b' w₁ w₂ x₁ y₁ x₂ y₂
+        simp only [BundledCQChannel.plus, CQChannel.plusChannel, CQChannel.varCombine,
+          DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, CQChannel.ketBraBool,
+          Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Matrix.of_apply,
+          Complex.real_smul]
+        cases w₁ <;> cases w₂ <;> simp <;> push_cast <;> ring
+      simp only [eRaw, Equiv.coe_fn_mk]
+      rw [hplus_entry]
       by_cases hp : p₁ = p₂
       · subst hp
-        have hw : (ePref p₁).1 = (ePref p₁).1 := rfl
+        simp only [↓reduceIte, synthChannel, synthState, Matrix.of_apply]
         have hpref_split : ∀ u : Fin (2 ^ (n + 1)) → Bool,
             (prefixOf i u = p₁ ∧ u i = b) ↔
               (prefixOf j (arikanEven n u) = (ePref p₁).2.1 ∧
@@ -727,42 +722,24 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
                arikanEven n u j = xor (ePref p₁).1 b ∧
                arikanOdd n u j = b) := by
           intro u
+          have h2j1 : (⟨2 * j.val + 1, by omega⟩ : Fin (2 ^ (n + 1))) = i := Fin.ext (by dsimp; omega)
+          have heq_ePref : ePref (prefixOf i u) =
+              (u ⟨2 * j.val, by omega⟩, (prefixOf j (arikanEven n u), prefixOf j (arikanOdd n u))) := rfl
           constructor
           · rintro ⟨h1, h2⟩
-            refine ⟨?_, ?_, ?_, ?_⟩
-            · funext k; simp only [prefixOf, arikanEven, ePref, Equiv.coe_fn_mk, ← h1]
-            · funext k; simp only [prefixOf, arikanOdd, ePref, Equiv.coe_fn_mk, ← h1]
-            · simp only [arikanEven, ePref, Equiv.coe_fn_mk]
-              have h2j : u ⟨2 * j.val, by omega⟩ = p₁ ⟨2 * j.val, by omega⟩ := by
-                have := congr_fun h1 ⟨2 * j.val, by omega⟩; exact this
-              have h2j1 : (⟨2 * j.val + 1, by omega⟩ : Fin (2 ^ (n + 1))) = i := Fin.ext (by omega)
-              rw [h2j, h2j1, h2]
-            · simp only [arikanOdd]
-              have h2j1 : (⟨2 * j.val + 1, by omega⟩ : Fin (2 ^ (n + 1))) = i := Fin.ext (by omega)
-              rw [h2j1, h2]
+            have h1' : ePref (prefixOf i u) = ePref p₁ := congr_arg ePref h1
+            rw [heq_ePref] at h1'
+            rcases Prod.mk.inj h1' with ⟨hw, hq⟩
+            rcases Prod.mk.inj hq with ⟨hq1, hq2⟩
+            refine ⟨hq1, hq2, ?_, ?_⟩
+            · simp only [arikanEven, h2j1, h2, hw]
+            · simp only [arikanOdd, h2j1, h2]
           · rintro ⟨h1, h2, h3, h4⟩
-            have h2j1 : (⟨2 * j.val + 1, by omega⟩ : Fin (2 ^ (n + 1))) = i := Fin.ext (by omega)
             have hui : u i = b := by rw [← h2j1]; exact h4
-            refine ⟨?_, hui⟩
-            funext k
-            by_cases hk0 : k.val = 2 * j.val
-            · have hk_eq : (⟨k.val, Nat.lt_trans k.isLt i.isLt⟩ : Fin (2 ^ (n + 1))) = ⟨2 * j.val, by omega⟩ := Fin.ext hk0
-              have hk_eq' : k = ⟨2 * j.val, by omega⟩ := Fin.ext hk0
-              simp only [prefixOf, hk_eq, hk_eq']
-              simp only [arikanEven, ePref, Equiv.coe_fn_mk, h2j1, hui] at h3
-              cases u ⟨2 * j.val, by omega⟩ <;> cases p₁ ⟨2 * j.val, by omega⟩ <;> cases b <;> simp_all
-            · have hk1 := congr_fun h1 ⟨k.val / 2, by omega⟩
-              have hk2 := congr_fun h2 ⟨k.val / 2, by omega⟩
-              simp only [prefixOf, arikanEven, arikanOdd, ePref, Equiv.coe_fn_mk] at hk1 hk2
-              by_cases hkm : k.val % 2 = 0
-              · have heq : (⟨2 * (k.val / 2), by omega⟩ : Fin (2 ^ (n + 1))) = ⟨k.val, Nat.lt_trans k.isLt i.isLt⟩ := Fin.ext (by omega)
-                have heq' : (⟨2 * (k.val / 2), by omega⟩ : Fin i.val) = k := Fin.ext (by omega)
-                rw [heq, heq', hk2] at hk1
-                cases u ⟨k.val, Nat.lt_trans k.isLt i.isLt⟩ <;> cases p₁ k <;>
-                  cases p₁ ⟨2 * (k.val / 2) + 1, by omega⟩ <;> simp_all [prefixOf]
-              · have heq : (⟨2 * (k.val / 2) + 1, by omega⟩ : Fin (2 ^ (n + 1))) = ⟨k.val, Nat.lt_trans k.isLt i.isLt⟩ := Fin.ext (by omega)
-                have heq' : (⟨2 * (k.val / 2) + 1, by omega⟩ : Fin i.val) = k := Fin.ext (by omega)
-                rw [heq, heq'] at hk2; exact hk2
+            have hw : u ⟨2 * j.val, by omega⟩ = (ePref p₁).1 := by
+              simp only [arikanEven, h2j1, hui] at h3
+              cases u ⟨2 * j.val, by omega⟩ <;> cases (ePref p₁).1 <;> cases b <;> simp_all
+            refine ⟨ePref.injective (heq_ePref.trans (Prod.ext hw (Prod.ext h1 h2))), hui⟩
         have hsum_split : synthBlockMat W (n + 1) i p₁ b r₁ r₂ =
             synthBlockMat W n j (ePref p₁).2.1 (xor (ePref p₁).1 b) (splitRegEquiv d n r₁).1 (splitRegEquiv d n r₂).1 *
             synthBlockMat W n j (ePref p₁).2.2 b (splitRegEquiv d n r₁).2 (splitRegEquiv d n r₂).2 := by
@@ -773,8 +750,7 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
               if prefixOf i u = p₁ ∧ u i = b then
                 (productState W (n + 1) (arikanTransform (n + 1) u)).mat r₁ r₂
               else 0)
-          rw [← Finset.sum_filter] at h1
-          rw [← h1]
+          rw [Finset.sum_filter, ← h1]
           simp only [Fintype.sum_prod_type]
           have hcond : ∀ (v₁ v₂ : Fin (2 ^ n) → Bool),
               let u := (arikanSplitEquiv n).symm (v₁, v₂)
@@ -793,8 +769,9 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
             rw [productState_arikan_succ, huv.1, huv.2]
           simp_rw [hcond, hmat_uv]
           simp only [Finset.sum_filter]
-          apply Finset.sum_congr rfl; intro v₁ _
+          rw [Finset.sum_comm]
           apply Finset.sum_congr rfl; intro v₂ _
+          apply Finset.sum_congr rfl; intro v₁ _
           split_ifs <;> simp_all
         have hpow_eq : ((2 : ℂ) ^ (2 ^ (n + 1) - 1))⁻¹ =
             (1 / 2 : ℂ) * (((2 : ℂ) ^ (2 ^ n - 1))⁻¹ * ((2 : ℂ) ^ (2 ^ n - 1))⁻¹) := by
@@ -803,46 +780,44 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
             omega
           rw [hexp, pow_add, pow_add, pow_one, mul_inv, mul_inv]
           ring
-        cases hwv : (ePref p₁).1 <;> cases b <;>
-        · simp only [↓reduceIte, Bool.false_eq_true, Bool.true_eq_false, mul_zero, zero_mul,
-            add_zero, zero_add, one_mul, he_j, synthChannel, synthState, Matrix.of_apply]
-          rw [hsum_split, hwv, hpow_eq]
-          simp; ring
+        rw [he_j, he_j, hsum_split, hpow_eq]
+        simp only [synthChannel, synthState, Matrix.of_apply, ↓reduceIte]
+        cases hwv : (ePref p₁).1 <;> cases b <;> simp <;> ring
       · have hne : ¬ ((ePref p₁).1 = (ePref p₂).1 ∧ (ePref p₁).2.1 = (ePref p₂).2.1 ∧
             (ePref p₁).2.2 = (ePref p₂).2.2) := by
           intro ⟨h1, h2, h3⟩
           exact hp (ePref.injective (Prod.ext h1 (Prod.ext h2 h3)))
         simp only [synthChannel, synthState, Matrix.of_apply, hp, ↓reduceIte]
         by_cases hw : (ePref p₁).1 = (ePref p₂).1
-        · cases hw1 : (ePref p₁).1 <;> cases hw2 : (ePref p₂).1 <;>
-          · simp only [hw1, hw2] at hw
-            try cases hw
-            simp only [↓reduceIte, Bool.false_eq_true, Bool.true_eq_false, mul_zero, zero_mul,
-              add_zero, zero_add, one_mul, he_j, synthChannel, synthState, Matrix.of_apply]
-            by_cases h1 : (ePref p₁).2.1 = (ePref p₂).2.1
-            · have h2 : (ePref p₁).2.2 ≠ (ePref p₂).2.2 := fun h ↦ hne ⟨by rw [hw1, hw2], h1, h⟩
-              simp [h1, h2]
-            · simp [h1]
-        · cases hw1 : (ePref p₁).1 <;> cases hw2 : (ePref p₂).1 <;> simp_all
+        · simp only [hw, ↓reduceIte]
+          rw [he_j, he_j]
+          simp only [synthChannel, synthState, Matrix.of_apply]
+          by_cases h1 : (ePref p₁).2.1 = (ePref p₂).2.1
+          · have h2 : (ePref p₁).2.2 ≠ (ePref p₂).2.2 := fun h ↦ hne ⟨hw, h1, h⟩
+            simp [h1, h2]
+          · simp [h1]
+        · simp [hw]
 
 /-- Exact equality of conditional entropy between the explicit synthesized channel `W_n^{(i)}`
 and `polarChannelTree W n (bitPath n i)`. -/
 theorem synthChannel_condEntropy_eq (W : CQChannel d) (n : ℕ) (i : Fin (2 ^ n)) :
     (synthChannel W n i).condEntropy = polarCondEntropy W n (bitPath n i) := by
   obtain ⟨e, he⟩ := synthChannel_reindex_polarChannelTree W n i
-  unfold CQChannel.condEntropy polarCondEntropy
+  unfold CQChannel.condEntropy polarCondEntropy qjs
   have hmid : ∀ x y,
-      ((polarChannelTree W n (bitPath n i)).ch.avgOutput).mat (e x) (e y) =
-        ((synthChannel W n i).avgOutput).mat x y := by
+      (DensityOp.midpoint ((polarChannelTree W n (bitPath n i)).ch.out false)
+        ((polarChannelTree W n (bitPath n i)).ch.out true)).mat (e x) (e y) =
+        (DensityOp.midpoint ((synthChannel W n i).out false) ((synthChannel W n i).out true)).mat x y := by
     intro x y
-    simp only [CQChannel.avgOutput, DensityOp.midpoint, DensityOp.mix, Matrix.add_apply,
-      Matrix.smul_apply, he]
+    simp only [DensityOp.midpoint, DensityOp.mix, Matrix.add_apply, Matrix.smul_apply, he]
   have hS0 := vonNeumannEntropy_of_reindex e ((synthChannel W n i).out false)
     ((polarChannelTree W n (bitPath n i)).ch.out false) (he false)
   have hS1 := vonNeumannEntropy_of_reindex e ((synthChannel W n i).out true)
     ((polarChannelTree W n (bitPath n i)).ch.out true) (he true)
-  have hSm := vonNeumannEntropy_of_reindex e (synthChannel W n i).avgOutput
-    (polarChannelTree W n (bitPath n i)).ch.avgOutput hmid
+  have hSm := vonNeumannEntropy_of_reindex e
+    (DensityOp.midpoint ((synthChannel W n i).out false) ((synthChannel W n i).out true))
+    (DensityOp.midpoint ((polarChannelTree W n (bitPath n i)).ch.out false)
+      ((polarChannelTree W n (bitPath n i)).ch.out true)) hmid
   linarith
 
 /-- Exact equality of Bhattacharyya / root fidelity between the explicit synthesized channel
