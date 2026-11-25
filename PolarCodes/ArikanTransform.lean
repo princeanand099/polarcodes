@@ -600,8 +600,8 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
           rw [Finset.sum_filter, ← h1]
           simp only [Fintype.sum_prod_type]
           have hcond : ∀ (v₁ v₂ : Fin (2 ^ n) → Bool),
-              let u := (arikanSplitEquiv n).symm (v₁, v₂)
-              (prefixOf i u = p₁ ∧ u i = b) ↔
+              (prefixOf i ((arikanSplitEquiv n).symm (v₁, v₂)) = p₁ ∧
+               (arikanSplitEquiv n).symm (v₁, v₂) i = b) ↔
                 (prefixOf j v₁ = (ePref p₁).1 ∧ prefixOf j v₂ = (ePref p₁).2 ∧
                  ((v₁ j = xor b false ∧ v₂ j = false) ∨ (v₁ j = xor b true ∧ v₂ j = true))) := by
             intro v₁ v₂
@@ -613,10 +613,10 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
               simp [arikanSplitEquiv, hmod, j]
             rw [hui]
             constructor
-            · rintro ⟨h1, h2, h3⟩
+            · rintro ⟨⟨h1, h2⟩, h3⟩
               refine ⟨h1, h2, ?_⟩
               cases hv : v₂ j <;> cases h1v : v₁ j <;> cases b <;> simp_all
-            · rintro ⟨h1, h2, h3 | h3⟩ <;> refine ⟨h1, h2, ?_⟩ <;>
+            · rintro ⟨h1, h2, h3 | h3⟩ <;> refine ⟨⟨h1, h2⟩, ?_⟩ <;>
                 rcases h3 with ⟨ha, hb⟩ <;> rw [ha, hb] <;> cases b <;> rfl
           have hmat_uv : ∀ (v₁ v₂ : Fin (2 ^ n) → Bool),
               (productState W (n + 1) (arikanTransform (n + 1) ((arikanSplitEquiv n).symm (v₁, v₂)))).mat r₁ r₂ =
@@ -628,17 +628,15 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
           simp_rw [hcond, hmat_uv]
           simp only [Finset.sum_filter]
           rw [Finset.sum_comm (s := Finset.univ) (t := Finset.univ)]
-          conv_rhs =>
-            arg 1; rw [Finset.sum_comm]
-          conv_rhs =>
-            arg 2; rw [Finset.sum_comm]
           rw [← Finset.sum_add_distrib]
           apply Finset.sum_congr rfl; intro v₂ _
-          rw [← Finset.sum_add_distrib]
-          apply Finset.sum_congr rfl; intro v₁ _
-          by_cases h1 : prefixOf j v₁ = (ePref p₁).1 <;>
-            by_cases h2 : prefixOf j v₂ = (ePref p₁).2 <;>
-            cases h3 : v₁ j <;> cases h4 : v₂ j <;> cases b <;> simp [h1, h2, h3, h4]
+          by_cases h2 : prefixOf j v₂ = (ePref p₁).2
+          · cases h4 : v₂ j
+            · simp only [h2, h4, true_and, and_true, Bool.false_eq_true, and_false, or_false,
+                ↓reduceIte, add_zero]
+            · simp only [h2, h4, true_and, and_true, Bool.true_eq_false, and_false, false_or,
+                ↓reduceIte, zero_add]
+          · simp [h2]
         rw [hsum_split]
         have hpow_eq : ((2 : ℂ) ^ (2 ^ (n + 1) - 1))⁻¹ =
             (1 / 2 : ℂ) * (((2 : ℂ) ^ (2 ^ n - 1))⁻¹ * ((2 : ℂ) ^ (2 ^ n - 1))⁻¹) := by
@@ -708,7 +706,7 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
             simp only [Equiv.symm_apply_apply]
             exact Prod.ext (ePref.symm_apply_apply p) ((splitRegEquiv d n).symm_apply_apply r)
           right_inv := fun ⟨w, a, b⟩ ↦ by
-            simp only [Equiv.apply_symm_apply, Prod.mk.eta]; rfl }
+            simp only [Equiv.apply_symm_apply, Prod.mk.eta] }
       let e : ((Fin i.val → Bool) × (Fin (2 ^ (n + 1)) → d)) ≃
           (polarChannelTree W (n + 1) (bitPath (n + 1) i)).dim :=
         eRaw.trans (Equiv.cast (congrArg BundledCQChannel.dim htree.symm))
@@ -753,13 +751,15 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
             rcases Prod.mk.inj h1' with ⟨hw, hq⟩
             rcases Prod.mk.inj hq with ⟨hq1, hq2⟩
             refine ⟨hq1, hq2, ?_, ?_⟩
-            · simp only [arikanEven, h2j1, h2, hw]
+            · simp only [arikanEven, h2j1, h2, hw]; rfl
             · simp only [arikanOdd, h2j1, h2]
           · rintro ⟨h1, h2, h3, h4⟩
             have hui : u i = b := by rw [← h2j1]; exact h4
             have hw : u ⟨2 * j.val, by omega⟩ = (ePref p₁).1 := by
               simp only [arikanEven, h2j1, hui] at h3
-              cases u ⟨2 * j.val, by omega⟩ <;> cases (ePref p₁).1 <;> cases b <;> simp_all
+              cases hu0 : u ⟨2 * j.val, by omega⟩ <;> cases hw0 : (ePref p₁).1 <;> cases b <;>
+                simp only [hu0, hw0, Bool.xor_false, Bool.xor_true, Bool.false_xor, Bool.true_xor] at h3 ⊢ <;>
+                first | rfl | contradiction
             refine ⟨ePref.injective (heq_ePref.trans (Prod.ext hw (Prod.ext h1 h2))), hui⟩
         have hsum_split : synthBlockMat W (n + 1) i p₁ b r₁ r₂ =
             synthBlockMat W n j (ePref p₁).2.1 (xor (ePref p₁).1 b) (splitRegEquiv d n r₁).1 (splitRegEquiv d n r₂).1 *
@@ -774,8 +774,8 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
           rw [Finset.sum_filter, ← h1]
           simp only [Fintype.sum_prod_type]
           have hcond : ∀ (v₁ v₂ : Fin (2 ^ n) → Bool),
-              let u := (arikanSplitEquiv n).symm (v₁, v₂)
-              (prefixOf i u = p₁ ∧ u i = b) ↔
+              (prefixOf i ((arikanSplitEquiv n).symm (v₁, v₂)) = p₁ ∧
+               (arikanSplitEquiv n).symm (v₁, v₂) i = b) ↔
                 ((prefixOf j v₁ = (ePref p₁).2.1 ∧ v₁ j = xor (ePref p₁).1 b) ∧
                  (prefixOf j v₂ = (ePref p₁).2.2 ∧ v₂ j = b)) := by
             intro v₁ v₂
@@ -792,8 +792,9 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
           simp only [Finset.sum_filter]
           rw [Finset.sum_comm]
           apply Finset.sum_congr rfl; intro v₂ _
-          apply Finset.sum_congr rfl; intro v₁ _
-          split_ifs <;> simp_all
+          by_cases h2 : prefixOf j v₂ = (ePref p₁).2.2 ∧ v₂ j = b
+          · simp only [h2, and_true, ↓reduceIte]
+          · simp [h2]
         have hpow_eq : ((2 : ℂ) ^ (2 ^ (n + 1) - 1))⁻¹ =
             (1 / 2 : ℂ) * (((2 : ℂ) ^ (2 ^ n - 1))⁻¹ * ((2 : ℂ) ^ (2 ^ n - 1))⁻¹) := by
           have hexp : 2 ^ (n + 1) - 1 = 1 + ((2 ^ n - 1) + (2 ^ n - 1)) := by
