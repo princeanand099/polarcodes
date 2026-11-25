@@ -696,14 +696,14 @@ theorem lemma_3_2_hockeyStick_measure_equalSupport {d : Type*} [Fintype d] [Deci
         apply Finset.sum_congr rfl; intro i _
         split_ifs with hi
         · simp [hi, Real.negMulLog]
-        · simp [Real.negMulLog, Real.logb]; ring
+        · rw [Complex.ofReal_re]; simp only [Real.negMulLog, Real.logb]; ring
       have hconvA' : ∑ i : d', (if A'.eigvals i = 0 then (0 : ℂ) else ↑(A'.eigvals i * Real.logb 2 (A'.eigvals i))).re =
           (-∑ i : d', Real.negMulLog (A'.eigvals i)) / Real.log 2 := by
         rw [← Finset.sum_neg_distrib, Finset.sum_div]
         apply Finset.sum_congr rfl; intro i _
         split_ifs with hi
         · simp [hi, Real.negMulLog]
-        · simp [Real.negMulLog, Real.logb]; ring
+        · rw [Complex.ofReal_re]; simp only [Real.negMulLog, Real.logb]; ring
       rw [hconvA, hconvA'] at hre
       have hlog : Real.log 2 ≠ 0 := ne_of_gt (Real.log_pos (by norm_num))
       have := (div_left_inj' hlog).mp hre
