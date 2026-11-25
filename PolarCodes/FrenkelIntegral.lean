@@ -22,6 +22,17 @@ variable {d : Type*} [Fintype d] [DecidableEq d]
 
 /-! ### Shifted Relative Entropy `frenkelF` and Negative Derivative `frenkelG` -/
 
+private lemma eigUnitary_mul_star (ρ : DensityOp d) :
+    (ρ.eigUnitary : Matrix d d ℂ) * star (ρ.eigUnitary : Matrix d d ℂ) = 1 :=
+  Unitary.coe_mul_star_self ρ.eigUnitary
+
+private lemma eigUnitary_star_mul (ρ : DensityOp d) :
+    star (ρ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ) = 1 :=
+  Unitary.coe_star_mul_self ρ.eigUnitary
+
+private lemma eigvals_pos {ρ : DensityOp d} (hρ : ρ.mat.PosDef) (i : d) : 0 < ρ.eigvals i :=
+  hρ.eigenvalues_pos i
+
 private noncomputable def frenkelV (ρ σ : DensityOp d) : Matrix d d ℂ :=
   star (σ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ)
 
@@ -29,13 +40,13 @@ private lemma frenkelV_star_mul (ρ σ : DensityOp d) :
     star (frenkelV ρ σ) * frenkelV ρ σ = 1 := by
   simp only [frenkelV, star_mul, star_star, Matrix.mul_assoc]
   rw [← Matrix.mul_assoc (σ.eigUnitary : Matrix d d ℂ) (star (σ.eigUnitary : Matrix d d ℂ)),
-    Unitary.coe_mul_star_self σ.eigUnitary, Matrix.one_mul, Unitary.coe_star_mul_self ρ.eigUnitary]
+    eigUnitary_mul_star σ, Matrix.one_mul, eigUnitary_star_mul ρ]
 
 private lemma frenkelV_mul_star (ρ σ : DensityOp d) :
     frenkelV ρ σ * star (frenkelV ρ σ) = 1 := by
   simp only [frenkelV, star_mul, star_star, Matrix.mul_assoc]
   rw [← Matrix.mul_assoc (ρ.eigUnitary : Matrix d d ℂ) (star (ρ.eigUnitary : Matrix d d ℂ)),
-    Unitary.coe_mul_star_self ρ.eigUnitary, Matrix.one_mul, Unitary.coe_star_mul_self σ.eigUnitary]
+    eigUnitary_mul_star ρ, Matrix.one_mul, eigUnitary_star_mul σ]
 
 private lemma frenkelV_col_sum (ρ σ : DensityOp d) (i : d) :
     ∑ j : d, ‖frenkelV ρ σ j i‖ ^ 2 = 1 := by
@@ -64,8 +75,8 @@ private noncomputable def frenkelG (ρ σ : DensityOp d) (r : ℝ) : ℝ :=
 
 private lemma frenkelF_zero_eq {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ : σ.mat.PosDef) :
     ENNReal.ofReal (frenkelF ρ σ 0) = relEntropy ρ σ * ENNReal.ofReal (Real.log 2) := by
-  have hα_pos : ∀ i : d, 0 < ρ.eigvals i := fun i ↦ hρ.eigenvalues_pos i
-  have hβ_pos : ∀ j : d, 0 < σ.eigvals j := fun j ↦ hσ.eigenvalues_pos j
+  have hα_pos : ∀ i : d, 0 < ρ.eigvals i := eigvals_pos hρ
+  have hβ_pos : ∀ j : d, 0 < σ.eigvals j := eigvals_pos hσ
   have hsupp : suppSubset ρ σ := fun _ j _ hβ0 ↦ absurd hβ0 (ne_of_gt (hβ_pos j))
   have hlog2_pos : 0 < Real.log 2 := Real.log_pos (by norm_num)
   have hnn : 0 ≤ frenkelF ρ σ 0 := by
@@ -100,8 +111,8 @@ private lemma frenkelF_zero_eq {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ 
 private lemma frenkelF_hasDerivAt {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ : σ.mat.PosDef)
     {r : ℝ} (hr : 0 ≤ r) :
     HasDerivAt (frenkelF ρ σ) (-frenkelG ρ σ r) r := by
-  have hα_pos : ∀ i : d, 0 < ρ.eigvals i := fun i ↦ hρ.eigenvalues_pos i
-  have hβ_pos : ∀ j : d, 0 < σ.eigvals j := fun j ↦ hσ.eigenvalues_pos j
+  have hα_pos : ∀ i : d, 0 < ρ.eigvals i := eigvals_pos hρ
+  have hβ_pos : ∀ j : d, 0 < σ.eigvals j := eigvals_pos hσ
   have hterm : ∀ i j : d, HasDerivAt
       (fun s : ℝ ↦ ‖frenkelV ρ σ j i‖ ^ 2 *
         ((ρ.eigvals i + s) * (Real.log (ρ.eigvals i + s) - Real.log (σ.eigvals j + s))))
@@ -157,8 +168,8 @@ private lemma frenkelF_hasDerivAt {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (h
 
 private lemma frenkelG_continuousOn {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ : σ.mat.PosDef) :
     ContinuousOn (frenkelG ρ σ) (Ici 0) := by
-  have hα_pos : ∀ i : d, 0 < ρ.eigvals i := fun i ↦ hρ.eigenvalues_pos i
-  have hβ_pos : ∀ j : d, 0 < σ.eigvals j := fun j ↦ hσ.eigenvalues_pos j
+  have hα_pos : ∀ i : d, 0 < ρ.eigvals i := eigvals_pos hρ
+  have hβ_pos : ∀ j : d, 0 < σ.eigvals j := eigvals_pos hσ
   have hcont_sum : ∀ (s : Finset d) (f : d → ℝ → ℝ) (x : ℝ),
       (∀ i ∈ s, ContinuousAt (f i) x) → ContinuousAt (fun y ↦ ∑ i ∈ s, f i y) x := by
     intro s f x hf
@@ -188,8 +199,8 @@ private lemma frenkelG_continuousOn {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) 
 
 private lemma frenkelF_tendsto_zero {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) (hσ : σ.mat.PosDef) :
     Tendsto (frenkelF ρ σ) atTop (𝓝 0) := by
-  have hα_pos : ∀ i : d, 0 < ρ.eigvals i := fun i ↦ hρ.eigenvalues_pos i
-  have hβ_pos : ∀ j : d, 0 < σ.eigvals j := fun j ↦ hσ.eigenvalues_pos j
+  have hα_pos : ∀ i : d, 0 < ρ.eigvals i := eigvals_pos hρ
+  have hβ_pos : ∀ j : d, 0 < σ.eigvals j := eigvals_pos hσ
   have hterm : ∀ i j : d, Tendsto
       (fun r : ℝ ↦ ‖frenkelV ρ σ j i‖ ^ 2 *
         ((ρ.eigvals i + r) * (Real.log (ρ.eigvals i + r) - Real.log (σ.eigvals j + r))))
@@ -302,29 +313,29 @@ private lemma frenkelS_mul_Sinv {ρ : DensityOp d} (hρ : ρ.mat.PosDef) {r : �
     frenkelS ρ r * frenkelSinv ρ r = 1 := by
   simp only [frenkelS, frenkelSinv, Matrix.mul_assoc]
   rw [← Matrix.mul_assoc (star (ρ.eigUnitary : Matrix d d ℂ)) (ρ.eigUnitary : Matrix d d ℂ),
-    Unitary.coe_star_mul_self ρ.eigUnitary, Matrix.one_mul,
+    eigUnitary_star_mul ρ, Matrix.one_mul,
     ← Matrix.mul_assoc (Matrix.diagonal _), Matrix.diagonal_mul_diagonal]
   have hd : Matrix.diagonal (fun i : d ↦
       ((Real.sqrt (ρ.eigvals i + r) : ℝ) : ℂ) * (((Real.sqrt (ρ.eigvals i + r))⁻¹ : ℝ) : ℂ)) = 1 := by
     rw [← Matrix.diagonal_one]; congr 1; ext i
     rw [← Complex.ofReal_mul,
-      mul_inv_cancel₀ (ne_of_gt (Real.sqrt_pos.mpr (by linarith [hρ.eigenvalues_pos i]))),
+      mul_inv_cancel₀ (ne_of_gt (Real.sqrt_pos.mpr (by linarith [eigvals_pos hρ i]))),
       Complex.ofReal_one]
-  rw [hd, Matrix.one_mul, Unitary.coe_mul_star_self ρ.eigUnitary]
+  rw [hd, Matrix.one_mul, eigUnitary_mul_star ρ]
 
 private lemma frenkelSinv_mul_S {ρ : DensityOp d} (hρ : ρ.mat.PosDef) {r : ℝ} (hr : 0 < r) :
     frenkelSinv ρ r * frenkelS ρ r = 1 := by
   simp only [frenkelS, frenkelSinv, Matrix.mul_assoc]
   rw [← Matrix.mul_assoc (star (ρ.eigUnitary : Matrix d d ℂ)) (ρ.eigUnitary : Matrix d d ℂ),
-    Unitary.coe_star_mul_self ρ.eigUnitary, Matrix.one_mul,
+    eigUnitary_star_mul ρ, Matrix.one_mul,
     ← Matrix.mul_assoc (Matrix.diagonal _), Matrix.diagonal_mul_diagonal]
   have hd : Matrix.diagonal (fun i : d ↦
       (((Real.sqrt (ρ.eigvals i + r))⁻¹ : ℝ) : ℂ) * ((Real.sqrt (ρ.eigvals i + r) : ℝ) : ℂ)) = 1 := by
     rw [← Matrix.diagonal_one]; congr 1; ext i
     rw [← Complex.ofReal_mul,
-      inv_mul_cancel₀ (ne_of_gt (Real.sqrt_pos.mpr (by linarith [hρ.eigenvalues_pos i]))),
+      inv_mul_cancel₀ (ne_of_gt (Real.sqrt_pos.mpr (by linarith [eigvals_pos hρ i]))),
       Complex.ofReal_one]
-  rw [hd, Matrix.one_mul, Unitary.coe_mul_star_self ρ.eigUnitary]
+  rw [hd, Matrix.one_mul, eigUnitary_mul_star ρ]
 
 private lemma densityOp_add_smul_spectral (ρ : DensityOp d) (r : ℝ) :
     ρ.mat + (r : ℂ) • (1 : Matrix d d ℂ) =
@@ -339,7 +350,7 @@ private lemma densityOp_add_smul_spectral (ρ : DensityOp d) (r : ℝ) :
       Unitary.conjStarAlgAut_apply] using ρ.isHermitian.spectral_theorem
   have hI_spec : (r : ℂ) • (1 : Matrix d d ℂ) = (ρ.eigUnitary : Matrix d d ℂ) *
       Matrix.diagonal (fun _ : d ↦ (r : ℂ)) * star (ρ.eigUnitary : Matrix d d ℂ) := by
-    rw [hdiag_r, Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_one, Unitary.coe_mul_star_self ρ.eigUnitary]
+    rw [hdiag_r, Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_one, eigUnitary_mul_star ρ]
   rw [hρ_spec, hI_spec, ← Matrix.add_mul, ← Matrix.mul_add]
   congr 2; ext i j; simp only [Matrix.add_apply, Matrix.diagonal_apply, Function.comp_apply]
   split_ifs <;> simp [Complex.ofReal_add]
@@ -349,11 +360,11 @@ private lemma frenkelS_sq {ρ : DensityOp d} (hρ : ρ.mat.PosDef) {r : ℝ} (hr
   rw [densityOp_add_smul_spectral ρ r]
   simp only [frenkelS, Matrix.mul_assoc]
   rw [← Matrix.mul_assoc (star (ρ.eigUnitary : Matrix d d ℂ)) (ρ.eigUnitary : Matrix d d ℂ),
-    Unitary.coe_star_mul_self ρ.eigUnitary, Matrix.one_mul,
+    eigUnitary_star_mul ρ, Matrix.one_mul,
     ← Matrix.mul_assoc (Matrix.diagonal _), Matrix.diagonal_mul_diagonal]
   congr 2; ext i j; simp only [Matrix.diagonal_apply]
   split_ifs
-  · rw [← Complex.ofReal_mul, Real.mul_self_sqrt (by linarith [hρ.eigenvalues_pos i])]
+  · rw [← Complex.ofReal_mul, Real.mul_self_sqrt (by linarith [eigvals_pos hρ i])]
   · simp
 
 private lemma frenkelQinv_mul_Q {σ : DensityOp d} (hσ : σ.mat.PosDef) {r : ℝ} (hr : 0 < r) :
@@ -361,15 +372,15 @@ private lemma frenkelQinv_mul_Q {σ : DensityOp d} (hσ : σ.mat.PosDef) {r : �
   rw [densityOp_add_smul_spectral σ r]
   simp only [frenkelQinv, Matrix.mul_assoc]
   rw [← Matrix.mul_assoc (star (σ.eigUnitary : Matrix d d ℂ)) (σ.eigUnitary : Matrix d d ℂ),
-    Unitary.coe_star_mul_self σ.eigUnitary, Matrix.one_mul,
+    eigUnitary_star_mul σ, Matrix.one_mul,
     ← Matrix.mul_assoc (Matrix.diagonal _), Matrix.diagonal_mul_diagonal]
   have hd : Matrix.diagonal (fun j : d ↦
       (((σ.eigvals j + r)⁻¹ : ℝ) : ℂ) * ((σ.eigvals j + r : ℝ) : ℂ)) = 1 := by
     rw [← Matrix.diagonal_one]; congr 1; ext j
     rw [← Complex.ofReal_mul,
-      inv_mul_cancel₀ (ne_of_gt (by linarith [hσ.eigenvalues_pos j] : 0 < σ.eigvals j + r)),
+      inv_mul_cancel₀ (ne_of_gt (by linarith [eigvals_pos hσ j] : 0 < σ.eigvals j + r)),
       Complex.ofReal_one]
-  rw [hd, Matrix.one_mul, Unitary.coe_mul_star_self σ.eigUnitary]
+  rw [hd, Matrix.one_mul, eigUnitary_mul_star σ]
 
 private lemma frenkelM_one_add {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef) {r : ℝ} (hr : 0 < r) :
     1 + frenkelM ρ σ r = frenkelSinv ρ r * (σ.mat + (r : ℂ) • (1 : Matrix d d ℂ)) * frenkelSinv ρ r := by
@@ -506,7 +517,6 @@ private lemma frenkelG_eq_spectral_sum {ρ σ : DensityOp d}
           rw [← Matrix.add_mul, ← Matrix.mul_add]
           congr 2; ext i j; simp only [Matrix.add_apply, Matrix.diagonal_apply, Function.comp_apply]
           split_ifs <;> simp [Complex.ofReal_add]
-  -- (a) Determinant identity
   have hdet_eq : ∏ k : d, (1 + hM.eigenvalues k) =
       (∏ j : d, (σ.eigvals j + r)) / (∏ i : d, (ρ.eigvals i + r)) := by
     have h1 : (1 + frenkelM ρ σ r).det = ∏ k : d, ((1 + hM.eigenvalues k : ℝ) : ℂ) := by
@@ -525,23 +535,22 @@ private lemma frenkelG_eq_spectral_sum {ρ σ : DensityOp d}
         _ = (σ.mat + (r : ℂ) • 1).det := by rw [frenkelSinv_mul_S hρ hr, Matrix.det_one]; ring
     have hdetP : (ρ.mat + (r : ℂ) • (1 : Matrix d d ℂ)).det = ∏ i : d, ((ρ.eigvals i + r : ℝ) : ℂ) := by
       rw [densityOp_add_smul_spectral ρ r, Matrix.det_mul, Matrix.det_mul, mul_right_comm,
-        ← Matrix.det_mul, Unitary.coe_mul_star_self ρ.eigUnitary, Matrix.det_one, one_mul, Matrix.det_diagonal]
+        ← Matrix.det_mul, eigUnitary_mul_star ρ, Matrix.det_one, one_mul, Matrix.det_diagonal]
     have hdetQ : (σ.mat + (r : ℂ) • (1 : Matrix d d ℂ)).det = ∏ j : d, ((σ.eigvals j + r : ℝ) : ℂ) := by
       rw [densityOp_add_smul_spectral σ r, Matrix.det_mul, Matrix.det_mul, mul_right_comm,
-        ← Matrix.det_mul, Unitary.coe_mul_star_self σ.eigUnitary, Matrix.det_one, one_mul, Matrix.det_diagonal]
+        ← Matrix.det_mul, eigUnitary_mul_star σ, Matrix.det_one, one_mul, Matrix.det_diagonal]
     rw [h1, hdetP, hdetQ] at h2
     have h2_re := congr_arg Complex.re h2
     simp only [← Complex.ofReal_prod, ← Complex.ofReal_mul, Complex.ofReal_re] at h2_re
-    have hP_pos : 0 < ∏ i : d, (ρ.eigvals i + r) := Finset.prod_pos fun i _ ↦ by linarith [hρ.eigenvalues_pos i]
+    have hP_pos : 0 < ∏ i : d, (ρ.eigvals i + r) := Finset.prod_pos fun i _ ↦ by linarith [eigvals_pos hρ i]
     exact (eq_div_iff (ne_of_gt hP_pos)).mpr h2_re
   have hlog_sum : ∑ k : d, Real.log (1 + hM.eigenvalues k) =
       ∑ j : d, Real.log (σ.eigvals j + r) - ∑ i : d, Real.log (ρ.eigvals i + r) := by
     rw [← Real.log_prod (fun k _ ↦ ne_of_gt (by linarith [hlam_gt k])), hdet_eq,
-      Real.log_div (ne_of_gt (Finset.prod_pos fun j _ ↦ by linarith [hσ.eigenvalues_pos j]))
-        (ne_of_gt (Finset.prod_pos fun i _ ↦ by linarith [hρ.eigenvalues_pos i])),
-      Real.log_prod (fun j _ ↦ ne_of_gt (by linarith [hσ.eigenvalues_pos j])),
-      Real.log_prod (fun i _ ↦ ne_of_gt (by linarith [hρ.eigenvalues_pos i]))]
-  -- (b) Trace of inverse
+      Real.log_div (ne_of_gt (Finset.prod_pos fun j _ ↦ by linarith [eigvals_pos hσ j]))
+        (ne_of_gt (Finset.prod_pos fun i _ ↦ by linarith [eigvals_pos hρ i])),
+      Real.log_prod (fun j _ ↦ ne_of_gt (by linarith [eigvals_pos hσ j])),
+      Real.log_prod (fun i _ ↦ ne_of_gt (by linarith [eigvals_pos hρ i]))]
   have htr_inv : ∑ k : d, (1 + hM.eigenvalues k)⁻¹ =
       ∑ i : d, ∑ j : d, ‖frenkelV ρ σ j i‖ ^ 2 * ((ρ.eigvals i + r) / (σ.eigvals j + r)) := by
     let inv1pM : Matrix d d ℂ := (hM.eigenvectorUnitary : Matrix d d ℂ) *
@@ -836,7 +845,12 @@ theorem relEntropy_frenkel_integral {ρ σ : DensityOp d}
     have h2 : ((t : ℂ) • σ.mat).IsHermitian := by
       rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal, σ.isHermitian.eq]
     exact h1.add h2
-  have hlc := lintegral_negEigCount_eq_negPartTrace hA_t
-  rw [hlc, ← ENNReal.ofReal_mul (negPartTrace_nonneg hA_t), mul_one_div]
+  have hpt : ∀ x : ℝ, (negEigCount (isHermitian_pencil ρ σ x t) : ℝ≥0∞) =
+      (negEigCount (hA_t.add (show ((x : ℂ) • (1 : Matrix d d ℂ)).IsHermitian by
+        rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Matrix.conjTranspose_one,
+          Complex.star_def, Complex.conj_ofReal])) : ℝ≥0∞) :=
+    fun x ↦ congr_arg Nat.cast (negEigCount_eq_of_eq _ _ rfl)
+  simp_rw [hpt]
+  rw [lintegral_negEigCount_eq_negPartTrace hA_t, ← ENNReal.ofReal_mul (negPartTrace_nonneg hA_t), mul_one_div]
 
 end PolarCodes
