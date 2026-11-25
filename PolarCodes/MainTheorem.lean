@@ -149,8 +149,8 @@ noncomputable def cqPolarProcess {d : Type u} [Fintype d] [DecidableEq d]
 
 lemma cqPolarProcess_symCap {d : Type u} [Fintype d] [DecidableEq d] (W : CQChannel d) :
     (cqPolarProcess W).symCap = W.symCapacity := by
-  simp only [PolarProcess.symCap, cqPolarProcess, polarCondEntropy, polarChannelTree_zero,
-    CQChannel.condEntropy, CQChannel.symCapacity]
+  change 1 - W.condEntropy = W.symCapacity
+  unfold CQChannel.condEntropy CQChannel.symCapacity
   ring
 
 /-- **Theorem 1.1 (Polynomial-Blocklength Quantum Polarization)**:
