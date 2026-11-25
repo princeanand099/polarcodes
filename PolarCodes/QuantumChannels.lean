@@ -153,8 +153,6 @@ def comp (ℳ : CPTPMap d₂ d₃) (𝒩 : CPTPMap d₁ d₂) : CPTPMap d₁ d�
           rw [Finset.sum_comm]
           apply Finset.sum_congr rfl; intro b₂ _
           rw [Finset.sum_comm]
-          apply Finset.sum_congr rfl; intro e₁ _
-          simp_rw [Finset.mul_sum]
       _ = ∑ b₁ : d₂, ∑ b₂ : d₂, ∑ e₁ : 𝒩.env,
             star (𝒩.isom (b₁, e₁) i) * 𝒩.isom (b₂, e₁) j *
             (1 : Matrix d₂ d₂ ℂ) b₁ b₂ := by
@@ -192,6 +190,8 @@ lemma comp_apply (ℳ : CPTPMap d₂ d₃) (𝒩 : CPTPMap d₁ d₂) (ρ : Dens
   conv_lhs => arg 2; ext e₁; rw [Finset.sum_comm]
   rw [Finset.sum_comm]
   apply Finset.sum_congr rfl; intro b₁ _
+  dsimp only [LinearMap.coe_mk, AddHom.coe_mk]
+  simp only [Matrix.of_apply, Finset.mul_sum, Finset.sum_mul]
   apply Finset.sum_congr rfl; intro e₁ _
   apply Finset.sum_congr rfl; intro a₂ _
   apply Finset.sum_congr rfl; intro a₁ _

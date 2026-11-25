@@ -16,7 +16,6 @@ import PolarCodes.HockeyStick
 import PolarCodes.HockeyStickMeasure
 import PolarCodes.MainTheorem
 import PolarCodes.MrsGerber
-import PolarCodes.MrsGerberClassical
 import PolarCodes.MrsGerberHybrid
 import PolarCodes.Polarization
 import PolarCodes.PolarizationFine
@@ -24,6 +23,7 @@ import PolarCodes.QJJS
 import PolarCodes.QuantumChannels
 import PolarCodes.QuantumProps
 import PolarCodes.QuantumStates
+import PolarCodes.Refinements
 import PolarCodes.SanityChecks
 import PolarCodes.ScalarSupplements
 import PolarCodes.SpectralTrace
