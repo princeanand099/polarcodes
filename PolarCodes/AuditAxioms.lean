@@ -20,8 +20,9 @@ and zero `sorryAx`.
 #print axioms PolarCodes.prop_2_2_D2
 #print axioms PolarCodes.prop_2_2_D3
 
--- Section 3: Binary entropy, Frenkel integral, hockey-stick, QJJS, Nonlinear SDPI
+-- Section 3: Binary entropy, Lemma 3.1, Frenkel integral, hockey-stick, QJJS, Nonlinear SDPI
 #print axioms PolarCodes.antitoneOn_deltaGap
+#print axioms PolarCodes.lemma_3_1_gx_nonneg
 #print axioms PolarCodes.convexOn_gc
 #print axioms PolarCodes.relEntropy_frenkel_integral
 #print axioms PolarCodes.relEntropy_hockeyStick_integral

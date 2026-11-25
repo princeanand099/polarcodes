@@ -12,6 +12,8 @@ Concrete non-vacuity checks verifying that the core channel types, density opera
 theorems apply to explicit finite-dimensional quantum channels without vacuous hypotheses.
 -/
 
+open scoped ComplexOrder
+
 namespace PolarCodes.SanityChecks
 
 /-- The unique 1-dimensional density operator `|0⟩⟨0|`. -/
