@@ -53,13 +53,14 @@ private lemma posSemidef_mulVec_eq_zero_of_dot {A : Matrix d d ℂ} (hA : A.PosS
     simpa [Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply] using hA.isHermitian.spectral_theorem
   set U := (hA.isHermitian.eigenvectorUnitary : Matrix d d ℂ)
   set w := star U *ᵥ v
+  have hAv_eq : A *ᵥ v = U *ᵥ (Matrix.diagonal (Complex.ofReal ∘ hA.isHermitian.eigenvalues) *ᵥ w) := by
+    calc A *ᵥ v = (U * Matrix.diagonal (Complex.ofReal ∘ hA.isHermitian.eigenvalues) * star U) *ᵥ v := by
+            exact congrArg (· *ᵥ v) hspec
+      _ = U *ᵥ (Matrix.diagonal (Complex.ofReal ∘ hA.isHermitian.eigenvalues) *ᵥ w) := by
+            simp [w, Matrix.mulVec_mulVec, Matrix.mul_assoc]
   have hsum : ∑ j : d, hA.isHermitian.eigenvalues j * ‖w j‖ ^ 2 = 0 := by
     have hre : (star v ⬝ᵥ (A *ᵥ v)).re = ∑ j : d, hA.isHermitian.eigenvalues j * ‖w j‖ ^ 2 := by
-      rw [hspec]
-      have hassoc : (U * Matrix.diagonal (Complex.ofReal ∘ hA.isHermitian.eigenvalues) * star U) *ᵥ v =
-          U *ᵥ (Matrix.diagonal (Complex.ofReal ∘ hA.isHermitian.eigenvalues) *ᵥ w) := by
-        simp [w, Matrix.mulVec_mulVec, Matrix.mul_assoc]
-      rw [hassoc, Matrix.dotProduct_mulVec]
+      rw [hAv_eq, Matrix.dotProduct_mulVec]
       have hvec : star v ᵥ* U = star w := by
         ext j; simp [w, Matrix.vecMul, Matrix.mulVec, dotProduct, Matrix.star_apply, mul_comm]
       rw [hvec, dotProduct]
@@ -72,11 +73,7 @@ private lemma posSemidef_mulVec_eq_zero_of_dot {A : Matrix d d ℂ} (hA : A.PosS
         _ = (((hA.isHermitian.eigenvalues j * ‖w j‖ ^ 2 : ℝ) : ℂ)).re := by rw [hsq]; push_cast; ring_nf
         _ = hA.isHermitian.eigenvalues j * ‖w j‖ ^ 2 := Complex.ofReal_re _
     rw [← hre, hv, Complex.zero_re]
-  rw [hspec]
-  have hassoc : (U * Matrix.diagonal (Complex.ofReal ∘ hA.isHermitian.eigenvalues) * star U) *ᵥ v =
-      U *ᵥ (Matrix.diagonal (Complex.ofReal ∘ hA.isHermitian.eigenvalues) *ᵥ w) := by
-    simp [w, Matrix.mulVec_mulVec, Matrix.mul_assoc]
-  rw [hassoc]
+  rw [hAv_eq]
   have hdiag0 : Matrix.diagonal (Complex.ofReal ∘ hA.isHermitian.eigenvalues) *ᵥ w = 0 := by
     ext j
     simp only [Matrix.mulVec_diagonal, Function.comp_apply, Pi.zero_apply]
@@ -260,31 +257,30 @@ private lemma isom_func_eq {d d' : Type*} [Fintype d] [DecidableEq d]
       star (A.eigUnitary : Matrix d d ℂ) =
     V * ((A'.eigUnitary : Matrix d' d' ℂ) * Matrix.diagonal (fun k ↦ f (A'.eigvals k)) *
       star (A'.eigUnitary : Matrix d' d' ℂ)) * Vᴴ := by
-  set Q : Matrix d d' ℂ := star (A.eigUnitary : Matrix d d ℂ) * V * (A'.eigUnitary : Matrix d' d' ℂ)
+  set UA := (A.eigUnitary : Matrix d d ℂ)
+  set UA' := (A'.eigUnitary : Matrix d' d' ℂ)
+  have hUA_l : star UA * UA = 1 := Unitary.coe_star_mul_self A.eigUnitary
+  have hUA_r : UA * star UA = 1 := Unitary.coe_mul_star_self A.eigUnitary
+  have hUA'_l : star UA' * UA' = 1 := Unitary.coe_star_mul_self A'.eigUnitary
+  have hUA'_r : UA' * star UA' = 1 := Unitary.coe_mul_star_self A'.eigUnitary
+  set Q : Matrix d d' ℂ := star UA * V * UA'
   have hQ_intertwine : ∀ i k, (A.eigvals i : ℂ) * Q i k = Q i k * (A'.eigvals k : ℂ) := by
     intro i k
     have h1 : Matrix.diagonal (Complex.ofReal ∘ A.eigvals) * Q =
         Q * Matrix.diagonal (Complex.ofReal ∘ A'.eigvals) := by
-      have hspecA := density_spectral_eq A
-      have hspecA' := density_spectral_eq A'
+      have hspecA : A.mat = UA * Matrix.diagonal (Complex.ofReal ∘ A.eigvals) * star UA :=
+        density_spectral_eq A
+      have hspecA' : A'.mat = UA' * Matrix.diagonal (Complex.ofReal ∘ A'.eigvals) * star UA' :=
+        density_spectral_eq A'
       have hAV : A.mat * V = V * A'.mat := by
         rw [← hA]; calc (V * A'.mat * Vᴴ) * V = V * A'.mat * (Vᴴ * V) := by simp [Matrix.mul_assoc]
           _ = V * A'.mat := by rw [hVHV, Matrix.mul_one]
-      have hUA_l : star (A.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ) = 1 :=
-        Unitary.coe_star_mul_self A.eigUnitary
-      have hUA'_l : star (A'.eigUnitary : Matrix d' d' ℂ) * (A'.eigUnitary : Matrix d' d' ℂ) = 1 :=
-        Unitary.coe_star_mul_self A'.eigUnitary
       calc Matrix.diagonal (Complex.ofReal ∘ A.eigvals) * Q
-          = (star (A.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) *
-            Matrix.diagonal (Complex.ofReal ∘ A.eigvals) *
-            (star (A.eigUnitary : Matrix d d ℂ) * V * (A'.eigUnitary : Matrix d' d' ℂ)) := by
+          = (star UA * UA) * Matrix.diagonal (Complex.ofReal ∘ A.eigvals) * (star UA * V * UA') := by
               rw [hUA_l, Matrix.one_mul]
-        _ = star (A.eigUnitary : Matrix d d ℂ) * (A.mat * V) * (A'.eigUnitary : Matrix d' d' ℂ) := by
-              rw [hspecA]; simp [Matrix.mul_assoc]
-        _ = star (A.eigUnitary : Matrix d d ℂ) * (V * A'.mat) * (A'.eigUnitary : Matrix d' d' ℂ) := by
-              rw [hAV]
-        _ = Q * Matrix.diagonal (Complex.ofReal ∘ A'.eigvals) *
-            (star (A'.eigUnitary : Matrix d' d' ℂ) * (A'.eigUnitary : Matrix d' d' ℂ)) := by
+        _ = star UA * (A.mat * V) * UA' := by rw [hspecA]; simp [Matrix.mul_assoc]
+        _ = star UA * (V * A'.mat) * UA' := by rw [hAV]
+        _ = Q * Matrix.diagonal (Complex.ofReal ∘ A'.eigvals) * (star UA' * UA') := by
               rw [hspecA']; simp [Q, Matrix.mul_assoc]
         _ = Q * Matrix.diagonal (Complex.ofReal ∘ A'.eigvals) := by rw [hUA'_l, Matrix.mul_one]
     have := congr_fun (congr_fun h1 i) k
@@ -296,15 +292,13 @@ private lemma isom_func_eq {d d' : Type*} [Fintype d] [DecidableEq d]
     rcases mul_eq_zero.mp hsub with h0 | h0
     · exact absurd (sub_eq_zero.mp (Complex.ofReal_eq_zero.mp h0)) hne
     · exact h0
-  have hQQ : Q * Qᴴ = star (A.eigUnitary : Matrix d d ℂ) * (V * Vᴴ) * (A.eigUnitary : Matrix d d ℂ) := by
-    have h1 : (A'.eigUnitary : Matrix d' d' ℂ) * (A'.eigUnitary : Matrix d' d' ℂ)ᴴ = 1 :=
-      Unitary.coe_mul_star_self A'.eigUnitary
+  have hQQ : Q * Qᴴ = star UA * (V * Vᴴ) * UA := by
+    have h1 : UA' * UA'ᴴ = 1 := hUA'_r
+    have hst : (star UA)ᴴ = UA := by rw [Matrix.star_eq_conjTranspose, Matrix.conjTranspose_conjTranspose]
     calc Q * Qᴴ
-        = star (A.eigUnitary : Matrix d d ℂ) * V *
-          ((A'.eigUnitary : Matrix d' d' ℂ) * (A'.eigUnitary : Matrix d' d' ℂ)ᴴ) *
-          Vᴴ * (A.eigUnitary : Matrix d d ℂ) := by
+        = star UA * V * (UA' * UA'ᴴ) * Vᴴ * (star UA)ᴴ := by
             simp [Q, Matrix.conjTranspose_mul, Matrix.mul_assoc]
-      _ = _ := by rw [h1, Matrix.mul_one]; simp [Matrix.mul_assoc]
+      _ = star UA * (V * Vᴴ) * UA := by rw [h1, hst, Matrix.mul_one]; simp [Matrix.mul_assoc]
   have hQQ_diag : Matrix.diagonal (fun i ↦ f (A.eigvals i)) * (Q * Qᴴ) =
       Matrix.diagonal (fun i ↦ f (A.eigvals i)) := by
     have hVV_A : (V * Vᴴ) * A.mat = A.mat := by
@@ -313,39 +307,41 @@ private lemma isom_func_eq {d d' : Type*} [Fintype d] [DecidableEq d]
     have hQQ_A : (Q * Qᴴ) * Matrix.diagonal (Complex.ofReal ∘ A.eigvals) =
         Matrix.diagonal (Complex.ofReal ∘ A.eigvals) := by
       rw [hQQ]
-      have hspecA := density_spectral_eq A
-      have hUA_l : star (A.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ) = 1 :=
-        Unitary.coe_star_mul_self A.eigUnitary
-      have hUA_r : (A.eigUnitary : Matrix d d ℂ) * star (A.eigUnitary : Matrix d d ℂ) = 1 :=
-        Unitary.coe_mul_star_self A.eigUnitary
-      calc star (A.eigUnitary : Matrix d d ℂ) * (V * Vᴴ) * (A.eigUnitary : Matrix d d ℂ) *
-            Matrix.diagonal (Complex.ofReal ∘ A.eigvals)
-          = star (A.eigUnitary : Matrix d d ℂ) * ((V * Vᴴ) * A.mat) * (A.eigUnitary : Matrix d d ℂ) := by
-              rw [hspecA]; simp only [Matrix.mul_assoc]
-              rw [← Matrix.mul_assoc (star (A.eigUnitary : Matrix d d ℂ)) (A.eigUnitary : Matrix d d ℂ),
-                  hUA_l, Matrix.one_mul]
-        _ = star (A.eigUnitary : Matrix d d ℂ) * A.mat * (A.eigUnitary : Matrix d d ℂ) := by rw [hVV_A]
-        _ = Matrix.diagonal (Complex.ofReal ∘ A.eigvals) := by
-              rw [hspecA]; simp only [Matrix.mul_assoc]
-              rw [← Matrix.mul_assoc (star (A.eigUnitary : Matrix d d ℂ)) (A.eigUnitary : Matrix d d ℂ),
-                  hUA_l, Matrix.one_mul, ← Matrix.mul_assoc (Matrix.diagonal _),
-                  hUA_l, Matrix.mul_one]
+      have hspecA : A.mat = UA * Matrix.diagonal (Complex.ofReal ∘ A.eigvals) * star UA :=
+        density_spectral_eq A
+      calc star UA * (V * Vᴴ) * UA * Matrix.diagonal (Complex.ofReal ∘ A.eigvals)
+          = star UA * (V * Vᴴ) * UA * Matrix.diagonal (Complex.ofReal ∘ A.eigvals) * (star UA * UA) := by
+              rw [hUA_l, Matrix.mul_one]
+        _ = star UA * ((V * Vᴴ) * A.mat) * UA := by rw [hspecA]; simp [Matrix.mul_assoc]
+        _ = star UA * A.mat * UA := by rw [hVV_A]
+        _ = (star UA * UA) * Matrix.diagonal (Complex.ofReal ∘ A.eigvals) * (star UA * UA) := by
+              rw [hspecA]; simp [Matrix.mul_assoc]
+        _ = Matrix.diagonal (Complex.ofReal ∘ A.eigvals) := by rw [hUA_l, Matrix.one_mul, Matrix.mul_one]
     ext i j
-    simp only [Matrix.mul_apply, Matrix.diagonal_apply, ite_mul, zero_mul,
-      Finset.sum_ite_eq, Finset.mem_univ, ↓reduceIte]
+    have hL : (Matrix.diagonal (fun i ↦ f (A.eigvals i)) * (Q * Qᴴ)) i j =
+        f (A.eigvals i) * (Q * Qᴴ) i j := by
+      simp [Matrix.mul_apply, Matrix.diagonal_apply]
+    rw [hL, Matrix.diagonal_apply]
     by_cases hi : A.eigvals i = 0
     · simp [hi, hf0]
     · have h := congr_fun (congr_fun hQQ_A j) i
       simp only [Matrix.mul_apply, Matrix.diagonal_apply, mul_ite, mul_zero,
         Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte, Function.comp_apply] at h
-      have hji : (Q * Qᴴ) j i = if j = i then 1 else 0 :=
-        mul_right_cancel₀ (Complex.ofReal_ne_zero.mpr hi) (by simpa [mul_ite] using h)
+      have hji : (Q * Qᴴ) j i = if j = i then 1 else 0 := by
+        have h' : (Q * Qᴴ) j i * (A.eigvals i : ℂ) = (if j = i then (1 : ℂ) else 0) * (A.eigvals i : ℂ) := by
+          change (∑ k, Q j k * Qᴴ k i) * (A.eigvals i : ℂ) = _
+          rw [h]; by_cases hEq : j = i <;> simp [hEq]
+        exact mul_right_cancel₀ (Complex.ofReal_ne_zero.mpr hi) h'
       have hij : (Q * Qᴴ) i j = if i = j then 1 else 0 := by
         have hherm : (Q * Qᴴ)ᴴ = Q * Qᴴ := by simp [Matrix.conjTranspose_mul]
         have hst := congr_fun (congr_fun hherm i) j
         simp only [Matrix.conjTranspose_apply] at hst
-        rw [← hst, hji]; split_ifs with h1 h2 <;> simp_all
-      rw [hij]; split_ifs <;> simp
+        rw [← hst, hji]
+        by_cases hEq : i = j
+        · subst hEq; simp
+        · simp [hEq, Ne.symm hEq]
+      rw [hij]
+      by_cases hEq : i = j <;> simp [hEq]
   have hMQ : Matrix.diagonal (fun i ↦ f (A.eigvals i)) * Q =
       Q * Matrix.diagonal (fun k ↦ f (A'.eigvals k)) := by
     ext i k
@@ -358,19 +354,18 @@ private lemma isom_func_eq {d d' : Type*} [Fintype d] [DecidableEq d]
       Q * Matrix.diagonal (fun k ↦ f (A'.eigvals k)) * Qᴴ := by
     calc Matrix.diagonal (fun i ↦ f (A.eigvals i))
         = Matrix.diagonal (fun i ↦ f (A.eigvals i)) * (Q * Qᴴ) := hQQ_diag.symm
-      _ = (Matrix.diagonal (fun i ↦ f (A.eigvals i)) * Q) * Qᴴ := by rw [Matrix.mul_assoc]
+      _ = (Matrix.diagonal (fun i ↦ f (A.eigvals i)) * Q) * Qᴴ := (Matrix.mul_assoc _ _ _).symm
       _ = Q * Matrix.diagonal (fun k ↦ f (A'.eigvals k)) * Qᴴ := by rw [hMQ]
-  have hUA_r : (A.eigUnitary : Matrix d d ℂ) * star (A.eigUnitary : Matrix d d ℂ) = 1 :=
-    Unitary.coe_mul_star_self A.eigUnitary
+  have hst : (star UA)ᴴ = UA := by rw [Matrix.star_eq_conjTranspose, Matrix.conjTranspose_conjTranspose]
+  have hst' : UA'ᴴ = star UA' := (Matrix.star_eq_conjTranspose UA').symm
+  change UA * Matrix.diagonal (fun i ↦ f (A.eigvals i)) * star UA =
+    V * (UA' * Matrix.diagonal (fun k ↦ f (A'.eigvals k)) * star UA') * Vᴴ
   rw [hcore]
-  calc (A.eigUnitary : Matrix d d ℂ) * (Q * Matrix.diagonal (fun k ↦ f (A'.eigvals k)) * Qᴴ) *
-        star (A.eigUnitary : Matrix d d ℂ)
-      = ((A.eigUnitary : Matrix d d ℂ) * star (A.eigUnitary : Matrix d d ℂ)) *
-        V * ((A'.eigUnitary : Matrix d' d' ℂ) * Matrix.diagonal (fun k ↦ f (A'.eigvals k)) *
-        star (A'.eigUnitary : Matrix d' d' ℂ)) * Vᴴ *
-        ((A.eigUnitary : Matrix d d ℂ) * star (A.eigUnitary : Matrix d d ℂ)) := by
-          simp [Q, Matrix.conjTranspose_mul, Matrix.mul_assoc]
-    _ = _ := by rw [hUA_r, Matrix.one_mul, Matrix.mul_one]
+  calc UA * (Q * Matrix.diagonal (fun k ↦ f (A'.eigvals k)) * Qᴴ) * star UA
+      = (UA * star UA) * V * (UA' * Matrix.diagonal (fun k ↦ f (A'.eigvals k)) * UA'ᴴ) *
+        Vᴴ * ((star UA)ᴴ * star UA) := by simp [Q, Matrix.conjTranspose_mul, Matrix.mul_assoc]
+    _ = V * (UA' * Matrix.diagonal (fun k ↦ f (A'.eigvals k)) * star UA') * Vᴴ := by
+          rw [hst, hst', hUA_r, Matrix.one_mul, Matrix.mul_one]
 
 end Helpers
 
@@ -394,14 +389,14 @@ lemma posPartTrace_eq_of_isom {d d' : Type*} [Fintype d] [DecidableEq d]
         rw [← Matrix.sub_mul, ← Matrix.mul_sub]
         have hdecomp := posPartMat_sub_negPartMat hH'
         have heq : posPartMat hH' - H' = negPartMat hH' :=
-          sub_eq_of_eq_add' (eq_add_of_sub_eq hdecomp).symm
+          sub_eq_of_eq_add' (eq_add_of_sub_eq hdecomp)
         rw [heq]
       rw [hsub]
       exact (negPartMat_posSemidef hH').mul_mul_conjTranspose_same V
     have hle := posPartTrace_le_trace_of_le hH hP_psd hdiff_psd
     have htr : (V * posPartMat hH' * Vᴴ).trace = (posPartMat hH').trace := by
       rw [Matrix.trace_mul_cycle, hVHV, Matrix.one_mul]
-    rw [htr, posPartTrace_eq_trace hH'] at hle
+    rw [htr, trace_posPartMat hH', Complex.ofReal_re] at hle
     exact hle
   have hH'_eq : Vᴴ * H * V = H' := by
     rw [← hmat]
@@ -416,7 +411,7 @@ lemma posPartTrace_eq_of_isom {d d' : Type*} [Fintype d] [DecidableEq d]
         rw [← Matrix.sub_mul, ← Matrix.mul_sub]
         have hdecomp := posPartMat_sub_negPartMat hH
         have heq : posPartMat hH - H = negPartMat hH :=
-          sub_eq_of_eq_add' (eq_add_of_sub_eq hdecomp).symm
+          sub_eq_of_eq_add' (eq_add_of_sub_eq hdecomp)
         rw [heq]
       rw [hsub]
       exact (negPartMat_posSemidef hH).conjTranspose_mul_mul_same V
@@ -434,15 +429,18 @@ lemma posPartTrace_eq_of_isom {d d' : Type*} [Fintype d] [DecidableEq d]
         rw [hproj]
         exact Matrix.posSemidef_conjTranspose_mul_self _
       have htr_eq : (Vᴴ * posPartMat hH * V).trace = (posPartMat hH * (V * Vᴴ)).trace := by
-        rw [Matrix.trace_mul_cycle, Matrix.mul_assoc]
+        calc (Vᴴ * posPartMat hH * V).trace
+            = (V * (Vᴴ * posPartMat hH)).trace := Matrix.trace_mul_comm _ _
+          _ = ((V * Vᴴ) * posPartMat hH).trace := by rw [Matrix.mul_assoc]
+          _ = (posPartMat hH * (V * Vᴴ)).trace := Matrix.trace_mul_comm _ _
       have hdiff : ((posPartMat hH).trace - (Vᴴ * posPartMat hH * V).trace).re =
           (posPartMat hH * (1 - V * Vᴴ)).trace.re := by
         rw [htr_eq, Matrix.mul_sub, Matrix.mul_one, Matrix.trace_sub]
       have hnn : 0 ≤ (posPartMat hH * (1 - V * Vᴴ)).trace.re :=
-        trace_mul_posSemidef_nonneg (posPartMat_posSemidef hH) hVV_le
+        re_trace_mul_nonneg_of_posSemidef (posPartMat_posSemidef hH) hVV_le
       rw [Complex.sub_re] at hdiff
       linarith
-    rw [posPartTrace_eq_trace hH] at htr
+    rw [trace_posPartMat hH, Complex.ofReal_re] at htr
     exact le_trans hle htr
   exact le_antisymm hle1 hle2
 
@@ -503,13 +501,14 @@ theorem lemma_3_2_hockeyStick_measure_equalSupport {d : Type*} [Fintype d] [Deci
     intro τ hker
     have hVV : V * Vᴴ = U * Matrix.diagonal (fun i : d ↦ if i ∈ S_pos then (1 : ℂ) else 0) * star U := by
       ext r s
-      simp only [V, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
-        Matrix.diagonal_apply, mul_ite, mul_one, mul_zero, Finset.sum_ite_eq, Finset.mem_univ,
-        ↓reduceIte, Matrix.star_apply]
-      simp only [ite_mul, zero_mul]
-      rw [← Finset.sum_coe_sort S_pos (fun i ↦ U r i * star (U s i))]
-      rw [← Finset.sum_filter]
-      rfl
+      have hL : (V * Vᴴ) r s = ∑ k : d', U r k.1 * star (U s k.1) := by
+        simp [V, Matrix.mul_apply, Matrix.conjTranspose_apply]
+      have hR : (U * Matrix.diagonal (fun i : d ↦ if i ∈ S_pos then (1 : ℂ) else 0) * star U) r s =
+          ∑ i : d, if i ∈ S_pos then U r i * star (U s i) else 0 := by
+        simp only [Matrix.mul_apply, Matrix.diagonal_apply, mul_ite, mul_one, mul_zero,
+          Finset.sum_ite_eq, Finset.mem_univ, ↓reduceIte, Matrix.star_apply, ite_mul, zero_mul]
+      rw [hL, hR, ← Finset.sum_filter]
+      exact (Finset.sum_coe_sort S_pos (fun i ↦ U r i * star (U s i))).symm
     have hPτ : (V * Vᴴ) * τ.mat = τ.mat := by
       rw [hVV]
       ext r s
@@ -554,18 +553,14 @@ theorem lemma_3_2_hockeyStick_measure_equalSupport {d : Type*} [Fintype d] [Deci
       posSemidef := ρ.posSemidef.conjTranspose_mul_mul_same V
       trace_one := by
         have htr : (Vᴴ * ρ.mat * V).trace = (V * (Vᴴ * ρ.mat * V) * Vᴴ).trace := by
-          calc (Vᴴ * ρ.mat * V).trace = (1 * (Vᴴ * ρ.mat * V)).trace := by rw [Matrix.one_mul]
-            _ = (Vᴴ * V * (Vᴴ * ρ.mat * V)).trace := by rw [hVHV]
-            _ = (V * (Vᴴ * ρ.mat * V) * Vᴴ).trace := by rw [Matrix.trace_mul_cycle]; simp [Matrix.mul_assoc]
+          rw [Matrix.trace_mul_cycle V (Vᴴ * ρ.mat * V) Vᴴ, hVHV, Matrix.one_mul]
         rw [htr, hρ_comp, ρ.trace_one] }
   let σ' : DensityOp d' :=
     { mat := Vᴴ * σ.mat * V
       posSemidef := σ.posSemidef.conjTranspose_mul_mul_same V
       trace_one := by
         have htr : (Vᴴ * σ.mat * V).trace = (V * (Vᴴ * σ.mat * V) * Vᴴ).trace := by
-          calc (Vᴴ * σ.mat * V).trace = (1 * (Vᴴ * σ.mat * V)).trace := by rw [Matrix.one_mul]
-            _ = (Vᴴ * V * (Vᴴ * σ.mat * V)).trace := by rw [hVHV]
-            _ = (V * (Vᴴ * σ.mat * V) * Vᴴ).trace := by rw [Matrix.trace_mul_cycle]; simp [Matrix.mul_assoc]
+          rw [Matrix.trace_mul_cycle V (Vᴴ * σ.mat * V) Vᴴ, hVHV, Matrix.one_mul]
         rw [htr, hσ_comp, σ.trace_one] }
   have hρ'_pd : ρ'.mat.PosDef := by
     rw [Matrix.posDef_iff_dotProduct_mulVec]
@@ -619,12 +614,14 @@ theorem lemma_3_2_hockeyStick_measure_equalSupport {d : Type*} [Fintype d] [Deci
     have hnn := σ'.posSemidef.dotProduct_mulVec_nonneg x
     by_contra hnot
     have h0 : star x ⬝ᵥ (σ'.mat *ᵥ x) = 0 := by
+      have hge : 0 ≤ (star x ⬝ᵥ (σ'.mat *ᵥ x)).re := by
+        simpa using (Complex.le_def.mp hnn).1
       have hre0 : (star x ⬝ᵥ (σ'.mat *ᵥ x)).re = 0 := by
         have hle : ¬ (0 < (star x ⬝ᵥ (σ'.mat *ᵥ x)).re) := by
           intro hpos
           apply hnot
-          exact (Complex.lt_def.mpr ⟨hpos, (Complex.le_def.mp hnn).2.symm⟩)
-        linarith [(Complex.le_def.mp hnn).1]
+          exact Complex.lt_def.mpr ⟨hpos, (Complex.le_def.mp hnn).2⟩
+        linarith
       exact Complex.ext hre0 (Complex.le_def.mp hnn).2.symm
     have hσVx : star (V *ᵥ x) ⬝ᵥ (σ.mat *ᵥ (V *ᵥ x)) = 0 := by
       have hvec : star (V *ᵥ x) ⬝ᵥ (σ.mat *ᵥ (V *ᵥ x)) = star x ⬝ᵥ (σ'.mat *ᵥ x) := by
@@ -633,14 +630,16 @@ theorem lemma_3_2_hockeyStick_measure_equalSupport {d : Type*} [Fintype d] [Deci
         calc star (V *ᵥ x) ⬝ᵥ (σ.mat *ᵥ (V *ᵥ x))
             = (star x ᵥ* Vᴴ) ⬝ᵥ (σ.mat *ᵥ (V *ᵥ x)) := by rw [hst]
           _ = star x ⬝ᵥ (Vᴴ *ᵥ (σ.mat *ᵥ (V *ᵥ x))) := (Matrix.dotProduct_mulVec _ _ _).symm
-          _ = star x ⬝ᵥ (σ'.mat *ᵥ x) := by simp [σ', Matrix.mulVec_mulVec]
+          _ = star x ⬝ᵥ (σ'.mat *ᵥ x) := by
+                simp only [σ', Matrix.mulVec_mulVec, Matrix.mul_assoc]
       rw [hvec, h0]
     have hσ_zero : σ.mat *ᵥ (V *ᵥ x) = 0 := posSemidef_mulVec_eq_zero_of_dot σ.posSemidef hσVx
     have hρ_zero : ρ.mat *ᵥ (V *ᵥ x) = 0 := suppSubset_ker_aux hsupp.1 hσ_zero
     have hρ'_zero : ρ'.mat *ᵥ x = 0 := by
-      calc ρ'.mat *ᵥ x = Vᴴ *ᵥ (ρ.mat *ᵥ (V *ᵥ x)) := by simp [ρ', Matrix.mulVec_mulVec]
+      calc ρ'.mat *ᵥ x = Vᴴ *ᵥ (ρ.mat *ᵥ (V *ᵥ x)) := by
+              simp only [ρ', Matrix.mulVec_mulVec, Matrix.mul_assoc]
         _ = 0 := by rw [hρ_zero, Matrix.mulVec_zero]
-    have hpos := (Matrix.posDef_iff_dotProduct_mulVec.mp hρ'_pd).2 x hx
+    have hpos := (Matrix.posDef_iff_dotProduct_mulVec.mp hρ'_pd).2 hx
     rw [hρ'_zero, dotProduct_zero] at hpos
     exact lt_irrefl 0 hpos
   obtain ⟨a, b, μ, ha, hab, hprob, hsuppμ, hhs, hint, hD1, hD2, hqjs⟩ :=
@@ -673,60 +672,67 @@ theorem lemma_3_2_hockeyStick_measure_equalSupport {d : Type*} [Fintype d] [Deci
     have hD_eq : relEntropy A B = relEntropy A' B' := by
       have hsuppAB : suppSubset A B := by
         intro i j hi hj
-        have hBi : B.mat *ᵥ (fun r ↦ (B.eigUnitary : Matrix d d ℂ) r j) = 0 := by
+        set v : d → ℂ := fun r ↦ (B.eigUnitary : Matrix d d ℂ) r j
+        have hBi : B.mat *ᵥ v = 0 := by
           rw [density_spectral_eq B]
-          have hvec : star (B.eigUnitary : Matrix d d ℂ) *ᵥ
-              (fun r ↦ (B.eigUnitary : Matrix d d ℂ) r j) = Pi.single j 1 := by
+          have hvec : star (B.eigUnitary : Matrix d d ℂ) *ᵥ v = Pi.single j 1 := by
             ext k
             have h := congr_fun (congr_fun (Unitary.coe_star_mul_self B.eigUnitary) k) j
-            simpa [Matrix.mulVec, dotProduct, Matrix.mul_apply, Matrix.star_apply,
+            simpa [v, Matrix.mulVec, dotProduct, Matrix.mul_apply, Matrix.star_apply,
               Matrix.one_apply, Pi.single_apply, eq_comm] using h
           calc ((B.eigUnitary : Matrix d d ℂ) * Matrix.diagonal (Complex.ofReal ∘ B.eigvals) *
-                star (B.eigUnitary : Matrix d d ℂ)) *ᵥ (fun r ↦ (B.eigUnitary : Matrix d d ℂ) r j)
-              = (B.eigUnitary : Matrix d d ℂ) *ᵥ (Matrix.diagonal (Complex.ofReal ∘ B.eigvals) *ᵥ
-                Pi.single j 1) := by simp [Matrix.mulVec_mulVec, Matrix.mul_assoc, hvec]
+                star (B.eigUnitary : Matrix d d ℂ)) *ᵥ v
+              = (B.eigUnitary : Matrix d d ℂ) *ᵥ
+                (Matrix.diagonal (Complex.ofReal ∘ B.eigvals) *ᵥ (star (B.eigUnitary : Matrix d d ℂ) *ᵥ v)) := by
+                  rw [← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec]
+            _ = (B.eigUnitary : Matrix d d ℂ) *ᵥ
+                (Matrix.diagonal (Complex.ofReal ∘ B.eigvals) *ᵥ Pi.single j 1) := by rw [hvec]
             _ = 0 := by
                 have h0 : Matrix.diagonal (Complex.ofReal ∘ B.eigvals) *ᵥ Pi.single j 1 = 0 := by
                   ext k; simp only [Matrix.mulVec_diagonal, Pi.single_apply, Function.comp_apply, Pi.zero_apply]
                   by_cases hkj : k = j <;> simp [hkj, hj]
                 rw [h0, Matrix.mulVec_zero]
-        have hVHB : Vᴴ *ᵥ (fun r ↦ (B.eigUnitary : Matrix d d ℂ) r j) = 0 := by
+        have hVHB : Vᴴ *ᵥ v = 0 := by
           by_contra hne
-          have hpos := (Matrix.posDef_iff_dotProduct_mulVec.mp hB'_pd).2 _ hne
-          have hzero : B'.mat *ᵥ (Vᴴ *ᵥ (fun r ↦ (B.eigUnitary : Matrix d d ℂ) r j)) = 0 := by
+          have hpos := (Matrix.posDef_iff_dotProduct_mulVec.mp hB'_pd).2 hne
+          have hzero : B'.mat *ᵥ (Vᴴ *ᵥ v) = 0 := by
             have hBV : Vᴴ * B.mat = B'.mat * Vᴴ := by
               rw [← hB]; simp [Matrix.mul_assoc, hVHV]
-            calc B'.mat *ᵥ (Vᴴ *ᵥ (fun r ↦ (B.eigUnitary : Matrix d d ℂ) r j))
-                = (B'.mat * Vᴴ) *ᵥ (fun r ↦ (B.eigUnitary : Matrix d d ℂ) r j) := by
-                    rw [Matrix.mulVec_mulVec]
-              _ = (Vᴴ * B.mat) *ᵥ (fun r ↦ (B.eigUnitary : Matrix d d ℂ) r j) := by rw [← hBV]
-              _ = Vᴴ *ᵥ (B.mat *ᵥ (fun r ↦ (B.eigUnitary : Matrix d d ℂ) r j)) := by
-                    rw [Matrix.mulVec_mulVec]
+            calc B'.mat *ᵥ (Vᴴ *ᵥ v) = (B'.mat * Vᴴ) *ᵥ v := by rw [Matrix.mulVec_mulVec]
+              _ = (Vᴴ * B.mat) *ᵥ v := by rw [← hBV]
+              _ = Vᴴ *ᵥ (B.mat *ᵥ v) := by rw [Matrix.mulVec_mulVec]
               _ = 0 := by rw [hBi, Matrix.mulVec_zero]
           rw [hzero, dotProduct_zero] at hpos
           exact lt_irrefl 0 hpos
-        have hAi : A.mat *ᵥ (fun r ↦ (B.eigUnitary : Matrix d d ℂ) r j) = 0 := by
+        have hAi : A.mat *ᵥ v = 0 := by
           rw [← hA]
-          calc (V * A'.mat * Vᴴ) *ᵥ (fun r ↦ (B.eigUnitary : Matrix d d ℂ) r j)
-              = (V * A'.mat) *ᵥ (Vᴴ *ᵥ (fun r ↦ (B.eigUnitary : Matrix d d ℂ) r j)) := by
-                  simp [Matrix.mulVec_mulVec, Matrix.mul_assoc]
+          calc (V * A'.mat * Vᴴ) *ᵥ v = (V * A'.mat) *ᵥ (Vᴴ *ᵥ v) := by rw [Matrix.mulVec_mulVec]
             _ = 0 := by rw [hVHB, Matrix.mulVec_zero]
-        have h0 := congr_fun (congr_arg (fun v ↦ star (A.eigUnitary : Matrix d d ℂ) *ᵥ v) hAi) i
-        rw [density_spectral_eq A] at h0
-        simp only [Matrix.mulVec_mulVec, Matrix.mulVec_zero, Pi.zero_apply] at h0
         have h2 : (Matrix.diagonal (Complex.ofReal ∘ A.eigvals) *ᵥ
-            (star (A.eigUnitary : Matrix d d ℂ) *ᵥ (fun r ↦ (B.eigUnitary : Matrix d d ℂ) r j))) i = 0 := by
-          simpa [Matrix.mul_assoc, Unitary.coe_star_mul_self] using h0
+            (star (A.eigUnitary : Matrix d d ℂ) *ᵥ v)) i = 0 := by
+          have hmul : star (A.eigUnitary : Matrix d d ℂ) *ᵥ (A.mat *ᵥ v) = 0 := by
+            rw [hAi, Matrix.mulVec_zero]
+          have hrew : star (A.eigUnitary : Matrix d d ℂ) *ᵥ (A.mat *ᵥ v) =
+              Matrix.diagonal (Complex.ofReal ∘ A.eigvals) *ᵥ (star (A.eigUnitary : Matrix d d ℂ) *ᵥ v) := by
+            rw [density_spectral_eq A]
+            calc star (A.eigUnitary : Matrix d d ℂ) *ᵥ
+                  (((A.eigUnitary : Matrix d d ℂ) * Matrix.diagonal (Complex.ofReal ∘ A.eigvals) *
+                    star (A.eigUnitary : Matrix d d ℂ)) *ᵥ v)
+                = ((star (A.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) *
+                    Matrix.diagonal (Complex.ofReal ∘ A.eigvals)) *ᵥ
+                  (star (A.eigUnitary : Matrix d d ℂ) *ᵥ v) := by
+                    simp [Matrix.mulVec_mulVec, Matrix.mul_assoc]
+              _ = _ := by rw [Unitary.coe_star_mul_self, Matrix.one_mul]
+          rw [← hrew]; exact congr_fun hmul i
         simp only [Matrix.mulVec_diagonal, Function.comp_apply] at h2
-        rcases mul_eq_zero.mp h2 with hλ | hw
-        · exact absurd (Complex.ofReal_eq_zero.mp hλ) hi
+        rcases mul_eq_zero.mp h2 with hlam | hw
+        · exact absurd (Complex.ofReal_eq_zero.mp hlam) hi
         · have hst : (star (B.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i =
-              star ((star (A.eigUnitary : Matrix d d ℂ) *ᵥ
-                (fun r ↦ (B.eigUnitary : Matrix d d ℂ) r j)) i) := by
-            simp [Matrix.mul_apply, Matrix.mulVec, dotProduct, Matrix.star_apply, mul_comm]
+              star ((star (A.eigUnitary : Matrix d d ℂ) *ᵥ v) i) := by
+            simp [v, Matrix.mul_apply, Matrix.mulVec, dotProduct, Matrix.star_apply, mul_comm]
           rw [hst, hw, star_zero]
       have hsuppA'B' : suppSubset A' B' := fun _ j _ hj ↦
-        absurd hj (ne_of_gt (B'.eigvals_pos_of_posDef hB'_pd j))
+        absurd hj (ne_of_gt (hB'_pd.eigenvalues_pos j))
       rw [relEntropy_eq_trace_log A B hsuppAB, relEntropy_eq_trace_log A' B' hsuppA'B', hS_eq]
       have hcommB := isom_func_eq V hVHV B B' hB
         (fun t ↦ if t = 0 then (0 : ℂ) else (Real.log t : ℂ)) (by simp)
@@ -755,8 +761,8 @@ theorem lemma_3_2_hockeyStick_measure_equalSupport {d : Type*} [Fintype d] [Deci
   have hmid'_pd : (DensityOp.midpoint ρ' σ').mat.PosDef := by
     rw [Matrix.posDef_iff_dotProduct_mulVec]
     refine ⟨(DensityOp.midpoint ρ' σ').posSemidef.isHermitian, fun x hx ↦ ?_⟩
-    have h1x := (Matrix.posDef_iff_dotProduct_mulVec.mp hρ'_pd).2 x hx
-    have h2x := (Matrix.posDef_iff_dotProduct_mulVec.mp hσ'_pd).2 x hx
+    have h1x := (Matrix.posDef_iff_dotProduct_mulVec.mp hρ'_pd).2 hx
+    have h2x := (Matrix.posDef_iff_dotProduct_mulVec.mp hσ'_pd).2 hx
     simp only [DensityOp.midpoint, DensityOp.mix, Matrix.add_mulVec, Matrix.smul_mulVec,
       dotProduct_add, dotProduct_smul, smul_eq_mul]
     have hpos1 : (0 : ℂ) < ((1 - 1 / 2 : ℝ) : ℂ) * (star x ⬝ᵥ (ρ'.mat *ᵥ x)) := by
@@ -813,36 +819,22 @@ theorem prop_3_3_qjjs_classical_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 
   set ρ := symClassicalPair0 x hx0 hx1
   set σ := symClassicalPair1 x hx0 hx1
   set p := (1 - x) / 2
-  have hp0 : 0 ≤ p := by linarith
-  have hp1 : p ≤ 1 / 2 := by linarith
-  have hp1' : p ≤ 1 := by linarith
-  have hρ_bsc : ρ.mat = ((bscChannel p hp0 hp1').out false).mat := by
+  have hp0 : 0 ≤ p := by simp only [p]; linarith
+  have hp1 : p ≤ 1 / 2 := by simp only [p]; linarith
+  have hp1' : p ≤ 1 := by simp only [p]; linarith
+  have hEq : ∀ {A B : DensityOp Bool}, A.mat = B.mat → A = B := fun {A B} h ↦ by
+    cases A; cases B; congr
+  have hρ_bsc : ρ = (bscChannel p hp0 hp1').out false := hEq (by
     ext i j; cases i <;> cases j <;> simp [ρ, symClassicalPair0, bscChannel, p] <;>
-      (push_cast; ring)
-  have hσ_bsc : σ.mat = ((bscChannel p hp0 hp1').out true).mat := by
+      (push_cast; ring))
+  have hσ_bsc : σ = (bscChannel p hp0 hp1').out true := hEq (by
     ext i j; cases i <;> cases j <;> simp [σ, symClassicalPair1, bscChannel, p] <;>
-      (push_cast; ring)
+      (push_cast; ring))
   have hqjs_val : qjs ρ σ = 1 - h2 p := by
+    rw [hρ_bsc, hσ_bsc]
     have hcond := condEntropy_bscChannel p hp0 hp1'
-    have hqjs_bsc : qjs ((bscChannel p hp0 hp1').out false) ((bscChannel p hp0 hp1').out true) =
-        1 - (bscChannel p hp0 hp1').condEntropy := by
-      unfold CQChannel.condEntropy; ring
-    have hSρ : vonNeumannEntropy ρ = vonNeumannEntropy ((bscChannel p hp0 hp1').out false) := by
-      cases ρ; cases ((bscChannel p hp0 hp1').out false); simp_all
-    have hSσ : vonNeumannEntropy σ = vonNeumannEntropy ((bscChannel p hp0 hp1').out true) := by
-      cases σ; cases ((bscChannel p hp0 hp1').out true); simp_all
-    have hSmid : vonNeumannEntropy (DensityOp.midpoint ρ σ) =
-        vonNeumannEntropy (DensityOp.midpoint ((bscChannel p hp0 hp1').out false)
-          ((bscChannel p hp0 hp1').out true)) := by
-      have hmat : (DensityOp.midpoint ρ σ).mat =
-          (DensityOp.midpoint ((bscChannel p hp0 hp1').out false)
-            ((bscChannel p hp0 hp1').out true)).mat := by
-        simp [DensityOp.midpoint, DensityOp.mix, hρ_bsc, hσ_bsc]
-      cases DensityOp.midpoint ρ σ
-      cases DensityOp.midpoint ((bscChannel p hp0 hp1').out false) ((bscChannel p hp0 hp1').out true)
-      simp_all
-    unfold qjs at hqjs_bsc ⊢
-    rw [hSmid, hSρ, hSσ, hqjs_bsc, hcond]
+    unfold CQChannel.condEntropy at hcond
+    linarith
   by_cases hx_eq1 : x = 1
   · have hp_zero : p = 0 := by simp [p, hx_eq1]
     have hqjs1 : qjs ρ σ = 1 := by rw [hqjs_val, hp_zero, h2_zero]; ring
@@ -857,8 +849,8 @@ theorem prop_3_3_qjjs_classical_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 
     rw [hqjs1, hDtop]
     simp [phiExt]
   · have hx_lt1 : x < 1 := lt_of_le_of_ne hx1 hx_eq1
-    have hp_pos : 0 < p := by linarith
-    have h1mp_pos : 0 < 1 - p := by linarith
+    have hp_pos : 0 < p := by simp only [p]; linarith
+    have h1mp_pos : 0 < 1 - p := by simp only [p]; linarith
     have hq_lt1 : qjs ρ σ < 1 := by
       rw [hqjs_val]
       have hh2_pos : 0 < h2 p := by
@@ -881,17 +873,20 @@ theorem prop_3_3_qjjs_classical_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 
         rw [hB, Matrix.posDef_diagonal_iff]
         intro i; exact Complex.zero_lt_real.mpr (hb i)
       have hsupp : suppSubset A B := fun _ j _ hj ↦
-        absurd hj (ne_of_gt (B.eigvals_pos_of_posDef hB_pd j))
+        absurd hj (ne_of_gt (hB_pd.eigenvalues_pos j))
       rw [relEntropy_eq_trace_log A B hsupp]
       have hSA : vonNeumannEntropy A = -∑ i : Bool, a i * Real.logb 2 (a i) := by
-        have hspecA := density_spectral_eq A
         set UA := (A.eigUnitary : Matrix Bool Bool ℂ)
+        have hUA_l : star UA * UA = 1 := Unitary.coe_star_mul_self A.eigUnitary
+        have hUA_r : UA * star UA = 1 := Unitary.coe_mul_star_self A.eigUnitary
+        have hspecA : A.mat = UA * Matrix.diagonal (Complex.ofReal ∘ A.eigvals) * star UA :=
+          density_spectral_eq A
         have hcomm : UA * Matrix.diagonal (Complex.ofReal ∘ A.eigvals) =
             Matrix.diagonal (Complex.ofReal ∘ a) * UA := by
           calc UA * Matrix.diagonal (Complex.ofReal ∘ A.eigvals)
-              = (UA * Matrix.diagonal (Complex.ofReal ∘ A.eigvals) * star UA) * UA := by
-                  simp [Matrix.mul_assoc, Unitary.coe_star_mul_self]
-            _ = A.mat * UA := by rw [← hspecA]
+              = UA * Matrix.diagonal (Complex.ofReal ∘ A.eigvals) * (star UA * UA) := by
+                  rw [hUA_l, Matrix.mul_one]
+            _ = A.mat * UA := by rw [hspecA]; simp [Matrix.mul_assoc]
             _ = Matrix.diagonal (Complex.ofReal ∘ a) * UA := by rw [hA]
         have hcomm_f : UA * Matrix.diagonal (fun j ↦ (Real.negMulLog (A.eigvals j) : ℂ)) =
             Matrix.diagonal (fun i : Bool ↦ (Real.negMulLog (a i) : ℂ)) * UA := by
@@ -910,27 +905,30 @@ theorem prop_3_3_qjjs_classical_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 
             rw [heq, mul_comm]
         have htr : (UA * Matrix.diagonal (fun j ↦ (Real.negMulLog (A.eigvals j) : ℂ)) * star UA).trace =
             (Matrix.diagonal (fun i : Bool ↦ (Real.negMulLog (a i) : ℂ))).trace := by
-          rw [hcomm_f, Matrix.mul_assoc, Unitary.coe_mul_star_self, Matrix.mul_one]
-        rw [Matrix.trace_mul_cycle, Unitary.coe_star_mul_self, Matrix.one_mul,
+          rw [hcomm_f, Matrix.mul_assoc, hUA_r, Matrix.mul_one]
+        rw [Matrix.trace_mul_cycle, hUA_l, Matrix.one_mul,
             Matrix.trace_diagonal, Matrix.trace_diagonal] at htr
         have hre := congr_arg Complex.re htr
         simp only [Complex.re_sum, Complex.ofReal_re] at hre
         unfold vonNeumannEntropy
-        rw [hre, ← Finset.sum_neg_distrib, ← Finset.sum_div]
+        rw [hre, ← Finset.sum_neg_distrib, Finset.sum_div]
         apply Finset.sum_congr rfl; intro i _
         simp [Real.negMulLog, Real.logb]; ring
       have hLB : (B.eigUnitary : Matrix Bool Bool ℂ) *
             Matrix.diagonal (fun j ↦ if B.eigvals j = 0 then (0 : ℂ) else (Real.log (B.eigvals j) : ℂ)) *
             star (B.eigUnitary : Matrix Bool Bool ℂ) =
           Matrix.diagonal (fun i : Bool ↦ (Real.log (b i) : ℂ)) := by
-        have hspecB := density_spectral_eq B
         set UB := (B.eigUnitary : Matrix Bool Bool ℂ)
+        have hUB_l : star UB * UB = 1 := Unitary.coe_star_mul_self B.eigUnitary
+        have hUB_r : UB * star UB = 1 := Unitary.coe_mul_star_self B.eigUnitary
+        have hspecB : B.mat = UB * Matrix.diagonal (Complex.ofReal ∘ B.eigvals) * star UB :=
+          density_spectral_eq B
         have hcomm : UB * Matrix.diagonal (Complex.ofReal ∘ B.eigvals) =
             Matrix.diagonal (Complex.ofReal ∘ b) * UB := by
           calc UB * Matrix.diagonal (Complex.ofReal ∘ B.eigvals)
-              = (UB * Matrix.diagonal (Complex.ofReal ∘ B.eigvals) * star UB) * UB := by
-                  simp [Matrix.mul_assoc, Unitary.coe_star_mul_self]
-            _ = B.mat * UB := by rw [← hspecB]
+              = UB * Matrix.diagonal (Complex.ofReal ∘ B.eigvals) * (star UB * UB) := by
+                  rw [hUB_l, Matrix.mul_one]
+            _ = B.mat * UB := by rw [hspecB]; simp [Matrix.mul_assoc]
             _ = Matrix.diagonal (Complex.ofReal ∘ b) * UB := by rw [hB]
         have hcomm_log : UB * Matrix.diagonal (fun j ↦ if B.eigvals j = 0 then (0 : ℂ) else (Real.log (B.eigvals j) : ℂ)) =
             Matrix.diagonal (fun i : Bool ↦ (Real.log (b i) : ℂ)) * UB := by
@@ -947,7 +945,8 @@ theorem prop_3_3_qjjs_classical_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 
               · exact sub_eq_zero.mp (Complex.ofReal_eq_zero.mp h0)
               · exact absurd h0 hU0
             rw [heq, if_neg (ne_of_gt (hb i)), mul_comm]
-        rw [hcomm_log, Matrix.mul_assoc, Unitary.coe_mul_star_self, Matrix.mul_one]
+        change (UB * Matrix.diagonal (fun j ↦ if B.eigvals j = 0 then (0 : ℂ) else (Real.log (B.eigvals j) : ℂ))) * star UB = _
+        rw [hcomm_log, Matrix.mul_assoc, hUB_r, Matrix.mul_one]
       rw [hLB, hA, hSA]
       congr 1
       have htr : (Matrix.diagonal (Complex.ofReal ∘ a) *
@@ -998,7 +997,8 @@ theorem prop_3_3_qjjs_classical_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 
       apply mul_nonneg hx0
       exact Real.logb_nonneg (by norm_num) (by rw [one_le_div (by linarith)]; linarith)
     rw [phiExt, if_pos hq_lt1, hD1, hD2, ← ENNReal.ofReal_add hnn hnn]
-    have hquarter : (1 / 4 : ℝ≥0∞) = ENNReal.ofReal (1 / 4 : ℝ) := by norm_num
+    have hquarter : (1 / 4 : ℝ≥0∞) = ENNReal.ofReal (1 / 4 : ℝ) := by
+      rw [ENNReal.ofReal_div_of_pos (by norm_num)]; norm_num
     rw [hquarter, ← ENNReal.ofReal_mul (by norm_num)]
     congr 1
     have hphi_val : phi (qjs ρ σ) = phiParam x := by
@@ -1006,7 +1006,7 @@ theorem prop_3_3_qjjs_classical_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 
       unfold phi
       have hinv : h2Inv (1 - (1 - h2 p)) = p := by
         rw [sub_sub_cancel]
-        exact h2Inv_h2 hp0 hp1
+        exact h2Inv_h2 ⟨hp0, hp1⟩
       rw [hinv]
       have h1 : 1 - 2 * p = x := by simp [p]; ring
       rw [h1]
@@ -1022,6 +1022,24 @@ section RelEntropyTheorem13
 
 variable {d : Type*} [Fintype d] [DecidableEq d]
 
+private lemma pauliZTensorI_conj_apply (X : Matrix (Bool × d) (Bool × d) ℂ)
+    (b₁ : Bool) (i : d) (b₂ : Bool) (j : d) :
+    ((pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ) * X *
+      star (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ)) (b₁, i) (b₂, j) =
+      (if b₁ = b₂ then (1 : ℂ) else -1) * X (b₁, i) (b₂, j) := by
+  have hst : star (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ) =
+      (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ) := by
+    ext ⟨c₁, r₁⟩ ⟨c₂, r₂⟩
+    simp only [pauliZTensorI, Matrix.star_apply, Matrix.diagonal_apply]
+    by_cases h : (c₁, r₁) = (c₂, r₂)
+    · rcases Prod.mk.inj h with ⟨rfl, rfl⟩; cases c₁ <;> simp
+    · have h' : (c₂, r₂) ≠ (c₁, r₁) := Ne.symm h
+      simp [h, h']
+  rw [hst]
+  simp only [pauliZTensorI, Matrix.mul_apply, Matrix.diagonal_apply, ite_mul, zero_mul,
+    mul_ite, mul_zero, Finset.sum_ite_eq, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
+  cases b₁ <;> cases b₂ <;> simp
+
 /-- For every bipartite state `Ψ ∈ D(ℂ² ⊗ H_B)` and every `p ∈ [0, 1]`,
 `supp((Z_p ⊗ id)(Ψ)) ⊆ supp((Z_{1/2} ⊗ id)(Ψ))`. -/
 lemma suppSubset_dephaseState_half (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1)
@@ -1033,12 +1051,9 @@ lemma suppSubset_dephaseState_half (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1)
   set Z := pauliZTensorI d
   have hM_eq : M.mat = (1 / 2 : ℂ) • A.mat + (1 / 2 : ℂ) • (DensityOp.conjUnitary Z A).mat := by
     ext ⟨b₁, i⟩ ⟨b₂, j⟩
-    simp only [M, A, Z, dephaseState, DensityOp.mix, DensityOp.conjUnitary, pauliZTensorI,
-      Matrix.add_apply, Matrix.smul_apply, Matrix.mul_apply, Matrix.diagonal_apply,
-      Matrix.star_apply, smul_eq_mul, ite_mul, zero_mul, mul_ite, mul_zero,
-      map_ite, map_zero, map_neg, map_one,
-      Finset.sum_ite_eq, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
-    cases b₁ <;> cases b₂ <;> simp <;> push_cast <;> ring
+    simp only [M, A, Z, DensityOp.conjUnitary, Matrix.add_apply, Matrix.smul_apply, smul_eq_mul,
+      pauliZTensorI_conj_apply, dephaseState_apply]
+    cases b₁ <;> cases b₂ <;> simp <;> ring
   intro i j hi hj
   set v : Bool × d → ℂ := fun r ↦ (M.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) r j
   have hMv : M.mat *ᵥ v = 0 := by
@@ -1052,8 +1067,11 @@ lemma suppSubset_dephaseState_half (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1)
           Matrix.diagonal (Complex.ofReal ∘ M.eigvals) *
           star (M.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ)) *ᵥ v
         = (M.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *ᵥ
-          (Matrix.diagonal (Complex.ofReal ∘ M.eigvals) *ᵥ Pi.single j 1) := by
-            simp [Matrix.mulVec_mulVec, Matrix.mul_assoc, hvec]
+          (Matrix.diagonal (Complex.ofReal ∘ M.eigvals) *ᵥ
+            (star (M.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *ᵥ v)) := by
+            rw [← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec]
+      _ = (M.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *ᵥ
+          (Matrix.diagonal (Complex.ofReal ∘ M.eigvals) *ᵥ Pi.single j 1) := by rw [hvec]
       _ = 0 := by
             have h0 : Matrix.diagonal (Complex.ofReal ∘ M.eigvals) *ᵥ Pi.single j 1 = 0 := by
               ext k; simp only [Matrix.mulVec_diagonal, Pi.single_apply, Function.comp_apply, Pi.zero_apply]
@@ -1067,22 +1085,36 @@ lemma suppSubset_dephaseState_half (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1)
   have hre := congr_arg Complex.re hdot
   simp only [Complex.add_re, Complex.mul_re, Complex.zero_re] at hre
   have h1re : (star v ⬝ᵥ (A.mat *ᵥ v)).re = 0 := by
-    have h1 := (Complex.le_def.mp hnn1).1
-    have h2 := (Complex.le_def.mp hnn2).1
+    have h1 : 0 ≤ (star v ⬝ᵥ (A.mat *ᵥ v)).re := by simpa using (Complex.le_def.mp hnn1).1
+    have h2 : 0 ≤ (star v ⬝ᵥ ((DensityOp.conjUnitary Z A).mat *ᵥ v)).re := by
+      simpa using (Complex.le_def.mp hnn2).1
     norm_num at hre
     linarith
   have hAv0 : star v ⬝ᵥ (A.mat *ᵥ v) = 0 :=
     Complex.ext h1re (Complex.le_def.mp hnn1).2.symm
   have hAv : A.mat *ᵥ v = 0 := posSemidef_mulVec_eq_zero_of_dot A.posSemidef hAv0
-  have h0 := congr_fun (congr_arg (fun w ↦ star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *ᵥ w) hAv) i
-  rw [density_spectral_eq A] at h0
-  simp only [Matrix.mulVec_mulVec, Matrix.mulVec_zero, Pi.zero_apply] at h0
   have h2 : (Matrix.diagonal (Complex.ofReal ∘ A.eigvals) *ᵥ
       (star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *ᵥ v)) i = 0 := by
-    simpa [Matrix.mul_assoc, Unitary.coe_star_mul_self] using h0
+    have hmul : star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *ᵥ (A.mat *ᵥ v) = 0 := by
+      rw [hAv, Matrix.mulVec_zero]
+    have hrew : star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *ᵥ (A.mat *ᵥ v) =
+        Matrix.diagonal (Complex.ofReal ∘ A.eigvals) *ᵥ
+          (star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *ᵥ v) := by
+      rw [density_spectral_eq A]
+      calc star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *ᵥ
+            (((A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *
+              Matrix.diagonal (Complex.ofReal ∘ A.eigvals) *
+              star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ)) *ᵥ v)
+          = ((star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *
+              (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ)) *
+              Matrix.diagonal (Complex.ofReal ∘ A.eigvals)) *ᵥ
+            (star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *ᵥ v) := by
+              simp [Matrix.mulVec_mulVec, Matrix.mul_assoc]
+        _ = _ := by rw [Unitary.coe_star_mul_self, Matrix.one_mul]
+    rw [← hrew]; exact congr_fun hmul i
   simp only [Matrix.mulVec_diagonal, Function.comp_apply] at h2
-  rcases mul_eq_zero.mp h2 with hλ | hw
-  · exact absurd (Complex.ofReal_eq_zero.mp hλ) hi
+  rcases mul_eq_zero.mp h2 with hlam | hw
+  · exact absurd (Complex.ofReal_eq_zero.mp hlam) hi
   · have hst : (star (M.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *
         (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ)) j i =
         star ((star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *ᵥ v) i) := by
@@ -1101,33 +1133,31 @@ theorem relEntropy_dephaseState_eq (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1)
   set A := dephaseState p hp0 hp1 Ψ
   set M := dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ
   set Z : Matrix (Bool × d) (Bool × d) ℂ := (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ)
-  have hZZ : Z * Z = 1 := by
+  have hZstar : star Z = Z := by
     ext ⟨b₁, i⟩ ⟨b₂, j⟩
-    simp only [Z, pauliZTensorI, Matrix.mul_apply, Matrix.diagonal_apply, Matrix.one_apply,
-      ite_mul, zero_mul, Finset.sum_ite_eq, Finset.mem_univ, ↓reduceIte]
-    split_ifs with h
-    · cases b₁ <;> norm_num
-    · rfl
+    simp only [Z, pauliZTensorI, Matrix.star_apply, Matrix.diagonal_apply]
+    by_cases h : (b₁, i) = (b₂, j)
+    · rcases Prod.mk.inj h with ⟨rfl, rfl⟩; cases b₁ <;> simp
+    · simp [h, Ne.symm h]
+  have hZZ : Z * Z = 1 := by
+    rw [← hZstar]; exact Unitary.coe_star_mul_self (pauliZTensorI d)
   have hZMZ : Z * M.mat * Z = M.mat := by
     ext ⟨b₁, i⟩ ⟨b₂, j⟩
-    simp only [M, Z, dephaseState, DensityOp.mix, DensityOp.conjUnitary, pauliZTensorI,
-      Matrix.mul_apply, Matrix.diagonal_apply, Matrix.add_apply, Matrix.smul_apply,
-      Matrix.star_apply, smul_eq_mul, ite_mul, zero_mul, mul_ite, mul_zero,
-      map_ite, map_zero, map_neg, map_one,
-      Finset.sum_ite_eq, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
-    cases b₁ <;> cases b₂ <;> simp <;> push_cast <;> ring
+    have h1 : (Z * M.mat * Z) (b₁, i) (b₂, j) = (if b₁ = b₂ then (1 : ℂ) else -1) * M.mat (b₁, i) (b₂, j) := by
+      rw [← hZstar]; exact pauliZTensorI_conj_apply M.mat b₁ i b₂ j
+    rw [h1]
+    simp only [M, dephaseState_apply]
+    cases b₁ <;> cases b₂ <;> simp
   have hZM_comm : Z * M.mat = M.mat * Z := by
     calc Z * M.mat = Z * M.mat * (Z * Z) := by rw [hZZ, Matrix.mul_one]
       _ = (Z * M.mat * Z) * Z := by simp [Matrix.mul_assoc]
       _ = M.mat * Z := by rw [hZMZ]
   have hM_avg : M.mat = (1 / 2 : ℂ) • A.mat + (1 / 2 : ℂ) • (Z * A.mat * Z) := by
     ext ⟨b₁, i⟩ ⟨b₂, j⟩
-    simp only [M, A, Z, dephaseState, DensityOp.mix, DensityOp.conjUnitary, pauliZTensorI,
-      Matrix.add_apply, Matrix.smul_apply, Matrix.mul_apply, Matrix.diagonal_apply,
-      Matrix.star_apply, smul_eq_mul, ite_mul, zero_mul, mul_ite, mul_zero,
-      map_ite, map_zero, map_neg, map_one,
-      Finset.sum_ite_eq, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
-    cases b₁ <;> cases b₂ <;> simp <;> push_cast <;> ring
+    have h1 : (Z * A.mat * Z) (b₁, i) (b₂, j) = (if b₁ = b₂ then (1 : ℂ) else -1) * A.mat (b₁, i) (b₂, j) := by
+      rw [← hZstar]; exact pauliZTensorI_conj_apply A.mat b₁ i b₂ j
+    simp only [Matrix.add_apply, Matrix.smul_apply, smul_eq_mul, h1, M, A, dephaseState_apply]
+    cases b₁ <;> cases b₂ <;> simp <;> ring
   set L_M : Matrix (Bool × d) (Bool × d) ℂ :=
     (M.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *
     Matrix.diagonal (fun j ↦ if M.eigvals j = 0 then (0 : ℂ) else (Real.log (M.eigvals j) : ℂ)) *
@@ -1139,19 +1169,16 @@ theorem relEntropy_dephaseState_eq (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1)
     have hUM_r : UM * star UM = 1 := Unitary.coe_mul_star_self M.eigUnitary
     have hZ'_comm : Z' * Matrix.diagonal (Complex.ofReal ∘ M.eigvals) =
         Matrix.diagonal (Complex.ofReal ∘ M.eigvals) * Z' := by
-      have hspec := density_spectral_eq M
+      have hspec : M.mat = UM * Matrix.diagonal (Complex.ofReal ∘ M.eigvals) * star UM :=
+        density_spectral_eq M
       calc Z' * Matrix.diagonal (Complex.ofReal ∘ M.eigvals)
-          = star UM * (Z * M.mat) * UM := by
-              rw [hspec]; simp only [Z', UM, Matrix.mul_assoc]
-              rw [← Matrix.mul_assoc (star (M.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ))
-                (M.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ),
-                Unitary.coe_star_mul_self, Matrix.one_mul]
+          = star UM * Z * UM * Matrix.diagonal (Complex.ofReal ∘ M.eigvals) * (star UM * UM) := by
+              rw [hUM_l, Matrix.mul_one]
+        _ = star UM * (Z * M.mat) * UM := by rw [hspec]; simp [Matrix.mul_assoc]
         _ = star UM * (M.mat * Z) * UM := by rw [hZM_comm]
-        _ = Matrix.diagonal (Complex.ofReal ∘ M.eigvals) * Z' := by
-              rw [hspec]; simp only [Z', UM, Matrix.mul_assoc]
-              rw [← Matrix.mul_assoc (star (M.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ))
-                (M.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ),
-                Unitary.coe_star_mul_self, Matrix.one_mul]
+        _ = (star UM * UM) * Matrix.diagonal (Complex.ofReal ∘ M.eigvals) * (star UM * Z * UM) := by
+              rw [hspec]; simp [Matrix.mul_assoc]
+        _ = Matrix.diagonal (Complex.ofReal ∘ M.eigvals) * Z' := by rw [hUM_l, Matrix.one_mul]
     let f : ℝ → ℂ := fun t ↦ if t = 0 then 0 else (Real.log t : ℂ)
     have hZ'_f : Z' * Matrix.diagonal (fun j ↦ f (M.eigvals j)) =
         Matrix.diagonal (fun j ↦ f (M.eigvals j)) * Z' := by
@@ -1170,13 +1197,13 @@ theorem relEntropy_dephaseState_eq (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1)
         rw [heq, mul_comm]
     have hZL : Z * L_M = L_M * Z := by
       calc Z * L_M = (UM * star UM) * Z * (UM * Matrix.diagonal (fun j ↦ f (M.eigvals j)) * star UM) := by
-              rw [hUM_r, Matrix.one_mul]; rfl
+              rw [hUM_r, Matrix.one_mul]
         _ = UM * (Z' * Matrix.diagonal (fun j ↦ f (M.eigvals j))) * star UM := by
               simp [Z', Matrix.mul_assoc]
         _ = UM * (Matrix.diagonal (fun j ↦ f (M.eigvals j)) * Z') * star UM := by rw [hZ'_f]
         _ = (UM * Matrix.diagonal (fun j ↦ f (M.eigvals j)) * star UM) * Z * (UM * star UM) := by
               simp [Z', Matrix.mul_assoc]
-        _ = L_M * Z := by rw [hUM_r, Matrix.mul_one]; rfl
+        _ = L_M * Z := by rw [hUM_r, Matrix.mul_one]
     calc Z * L_M * Z = L_M * (Z * Z) := by rw [hZL, Matrix.mul_assoc]
       _ = L_M := by rw [hZZ, Matrix.mul_one]
   have htr_ZA : ((Z * A.mat * Z) * L_M).trace = (A.mat * L_M).trace := by
