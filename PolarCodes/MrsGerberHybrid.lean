@@ -584,7 +584,7 @@ theorem theorem_1_2a_bsc (W₁ : CQChannel d₁) {q : ℝ} (hq0 : 0 ≤ q) (hq1 
           Prod.mk.injEq, and_false, false_and, and_true, true_and,
           mul_one, one_mul, mul_zero, zero_mul, add_zero, zero_add, mul_neg, neg_mul, neg_neg,
           star_mul', star_neg, star_one, star_zero, Complex.star_def,
-          map_inv₀, map_zero, map_one, map_neg, Complex.conj_ofReal];
+          map_inv₀, map_zero, map_one, map_neg, Complex.conj_ofReal] <;>
          first | ring | (ring_nf; simp only [hs2]; ring))
     have hS_iso : ∀ (u : Bool),
         vonNeumannEntropy ((CQChannel.checkCombine W₁.dual W₂.dual).out u) =
