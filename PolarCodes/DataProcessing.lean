@@ -273,7 +273,7 @@ lemma qjs_eq_half_relEntropy_midpoint {ρ σ : DensityOp d} (hρ : ρ.mat.PosDef
   unfold qjs vonNeumannEntropy
   have hlog2 : Real.log 2 ≠ 0 := ne_of_gt (Real.log_pos (by norm_num))
   field_simp [hlog2]
-  change (2 * ∑ i : d, Real.negMulLog (m.eigvals i)) -
+  change (∑ i : d, Real.negMulLog (m.eigvals i)) * 2 -
       (∑ i : d, Real.negMulLog (ρ.eigvals i) + ∑ i : d, Real.negMulLog (σ.eigvals i)) = _
   linarith [hsum_add]
 
@@ -596,7 +596,7 @@ lemma qjs_pureState (ψ₀ ψ₁ : d → ℂ)
       rw [← map_add]; congr 1; push_cast; ring
     have h2 : Polynomial.C (((1 - f) / 2 : ℝ) : ℂ) = Polynomial.C (1 / 2 : ℂ) - Polynomial.C ((f / 2 : ℝ) : ℂ) := by
       rw [← map_sub]; congr 1; push_cast; ring
-    rw [h1, h2, hzz, neg_one_zsmul]
+    rw [h1, h2, hzz, one_smul]
     ring
   have hcp_all : (DensityOp.midpoint (pureState ψ₀ hψ₀) (pureState ψ₁ hψ₁)).mat.charpoly * Polynomial.X ^ (Fintype.card Bool) =
       (Matrix.diagonal (Complex.ofReal ∘ lam)).charpoly * Polynomial.X ^ (Fintype.card d) := by
