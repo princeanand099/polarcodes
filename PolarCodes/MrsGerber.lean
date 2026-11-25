@@ -118,11 +118,12 @@ lemma condEntropy_le_logb_one_add_fidelityParam (W : CQChannel d) :
                 (star (ρ.eigUnitary : Matrix d d ℂ) * (σ.eigUnitary : Matrix d d ℂ)) *
                 Matrix.diagonal (fun j ↦ (Real.sqrt (σ.eigvals j) : ℂ)) *
                 (star (σ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ))).trace := by
-                rw [Matrix.mul_assoc (ρ.eigUnitary : Matrix d d ℂ), Matrix.trace_mul_comm (ρ.eigUnitary : Matrix d d ℂ)]
+                simp only [Matrix.mul_assoc]
+                rw [Matrix.trace_mul_comm (ρ.eigUnitary : Matrix d d ℂ)]
                 simp only [Matrix.mul_assoc]
           _ = (Matrix.diagonal (fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ)) * star V *
                 Matrix.diagonal (fun j ↦ (Real.sqrt (σ.eigvals j) : ℂ)) * V).trace := by
-                rw [hV, star_mul, star_star]; simp only [Matrix.mul_assoc]
+                rw [hV, star_mul, star_star]
       rw [htr]
       simp only [Matrix.trace, Matrix.diag, Matrix.mul_apply, Matrix.diagonal_apply,
         Matrix.star_apply, ite_mul, zero_mul, mul_ite, mul_zero, Finset.sum_ite_eq,
@@ -340,7 +341,7 @@ lemma condEntropy_le_logb_one_add_fidelityParam (W : CQChannel d) :
     have hqjs_eq : qjs ρ₀ ρ₁ * Real.log 2 =
         ∑ j : d, Real.negMulLog (σ.eigvals j) -
           ((∑ i : d, Real.negMulLog (ρ₀.eigvals i)) + (∑ i : d, Real.negMulLog (ρ₁.eigvals i))) / 2 := by
-      unfold qjs vonNeumannEntropy; dsimp only [σ]; field_simp [hlog2]; ring
+      unfold qjs vonNeumannEntropy; dsimp only [σ]; field_simp [hlog2]
     linarith
   have hc_sq_le : c ^ 2 ≤ (1 + W.fidelityParam) / 2 := by
     let A : Matrix d d ℂ := ((1 / 2 : ℝ) : ℂ) • ρ₀.sqrtMat + ((1 / 2 : ℝ) : ℂ) • ρ₁.sqrtMat
