@@ -277,6 +277,7 @@ theorem helstrom_error_eq (ρ₀ ρ₁ : DensityOp α) :
   simp only [Complex.add_re, Complex.sub_re, Complex.one_re] at hre
   linarith
 
+set_option maxHeartbeats 400000 in
 /-- **Powers–Størmer Inequality** for density operators:
 `2 - 2 Re Tr(√ρ₀ √ρ₁) ≤ ‖ρ₀ - ρ₁‖₁`. -/
 theorem powers_stormer_traceNorm (ρ₀ ρ₁ : DensityOp α) :
@@ -292,7 +293,7 @@ theorem powers_stormer_traceNorm (ρ₀ ρ₁ : DensityOp α) :
   have hX_spec : X = U * Matrix.diagonal (Complex.ofReal ∘ hX.eigenvalues) * star U := by
     simpa [U, Matrix.star_eq_conjTranspose, Unitary.conjStarAlgAut_apply] using hX.spectral_theorem
   let sgn : α → ℂ := fun i ↦ if 0 ≤ hX.eigenvalues i then 1 else -1
-  let S : Matrix α α ℂ := U * Matrix.diagonal sgn * star U
+  set S : Matrix α α ℂ := U * Matrix.diagonal sgn * star U
   have hS_herm : Sᴴ = S := by
     have hd : (Matrix.diagonal sgn)ᴴ = Matrix.diagonal sgn := by
       ext i j; by_cases h : i = j
@@ -348,13 +349,15 @@ theorem powers_stormer_traceNorm (ρ₀ ρ₁ : DensityOp α) :
   have htr_eq : (Sᴴ * (ρ₀.mat - ρ₁.mat)).trace =
       ∑ i : α, ((|hX.eigenvalues i| : ℝ) : ℂ) * (star U * Y * U) i i := by
     rw [hS_herm, hdiff, Matrix.mul_smul, Matrix.trace_smul, Matrix.mul_add, Matrix.trace_add]
-    have h1 : (S * (X * Y)).trace = ((S * X) * Y).trace := by
-      congr 1; exact (Matrix.mul_assoc S X Y).symm
+    have h1 : (S * (X * Y)).trace = ((S * X) * Y).trace :=
+      congr_arg Matrix.trace (Matrix.mul_assoc S X Y).symm
     have h2 : (S * (Y * X)).trace = ((S * X) * Y).trace := by
-      calc (S * (Y * X)).trace = ((S * Y) * X).trace := by congr 1; exact (Matrix.mul_assoc S Y X).symm
-        _ = (X * (S * Y)).trace := Matrix.trace_mul_comm _ _
-        _ = ((X * S) * Y).trace := by congr 1; exact (Matrix.mul_assoc X S Y).symm
-        _ = ((S * X) * Y).trace := by rw [hXS]
+      have ha : (S * (Y * X)).trace = ((S * Y) * X).trace :=
+        congr_arg Matrix.trace (Matrix.mul_assoc S Y X).symm
+      have hb : ((S * Y) * X).trace = (X * (S * Y)).trace := Matrix.trace_mul_comm (S * Y) X
+      have hc : (X * (S * Y)).trace = ((X * S) * Y).trace :=
+        congr_arg Matrix.trace (Matrix.mul_assoc X S Y).symm
+      rw [ha, hb, hc, hXS]
     rw [h1, h2]
     have hhalf : (1 / 2 : ℂ) • (((S * X) * Y).trace + ((S * X) * Y).trace) = ((S * X) * Y).trace := by
       simp only [smul_eq_mul]; ring
@@ -679,10 +682,13 @@ theorem gao_union_bound_density (ρ : DensityOp α) (Ps : List (Matrix α α ℂ
         _ = ((M * U)ᴴ * (M * U) * Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals)).trace := by
               rw [Matrix.trace_mul_cycle]; simp only [Matrix.mul_assoc]
         _ = ∑ a : α, (ρ.eigvals a : ℂ) * vecInner (M.mulVec (col a)) (M.mulVec (col a)) := by
-              simp only [Matrix.trace, Matrix.diag, Matrix.mul_apply, Matrix.diagonal_apply,
-                Matrix.conjTranspose_apply, Function.comp_apply, mul_ite, mul_zero,
-                Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte, vecInner, Matrix.mulVec,
-                dotProduct, col, mul_comm]
+              rw [Matrix.trace]
+              apply Finset.sum_congr rfl; intro a _
+              simp only [Matrix.diag, Matrix.mul_diagonal, Function.comp_apply]
+              rw [mul_comm]
+              congr 1
+              simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, vecInner, Matrix.mulVec,
+                dotProduct, col]
     rw [h1, Complex.re_sum]
     apply Finset.sum_congr rfl; intro a _
     simp [vecInner_self_re]

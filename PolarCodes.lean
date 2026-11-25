@@ -31,6 +31,7 @@ import PolarCodes.ChannelEquiv
 import PolarCodes.ChannelDualityEquiv
 import PolarCodes.NoncommutativeUnion
 import PolarCodes.ArikanTransform
+import PolarCodes.PolarCoding
 
 /-!
 # Polynomial-Blocklength Quantum Polar Codes

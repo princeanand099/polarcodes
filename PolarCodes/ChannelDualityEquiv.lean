@@ -40,6 +40,7 @@ private lemma pauliZTensorI_conj_entry {d : Type*} [Fintype d] [DecidableEq d]
   simp only [pauliZTensorI, Matrix.mul_diagonal, Matrix.diagonal_mul]
   cases a₁ <;> cases a₂ <;> simp
 
+set_option maxHeartbeats 600000 in
 /-- **Proposition 2.2 (D2, Check-Node Channel-Level Duality)**:
 `(W₁ ⊠ W₂)⊥ ≃ W₁⊥ ⊛ W₂⊥` as reversible CPTP-equivalent c-q channels. -/
 theorem prop_2_2_D2_check_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [DecidableEq d₁]
@@ -100,8 +101,8 @@ theorem prop_2_2_D2_check_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Deci
     ext ⟨i₁, i₂⟩ ⟨j₁, j₂⟩
     simp only [A₀, CQChannel.checkCombine, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor,
       Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply, Fintype.sum_prod_type,
-      Fintype.sum_bool, ↓reduceIte, Bool.true_eq_false, Matrix.add_apply, Matrix.smul_apply,
-      Matrix.kroneckerMap_apply, Complex.real_smul, star_mul', hstar2]
+      Fintype.sum_bool, ↓reduceIte, Bool.true_eq_false, Bool.not_false, Matrix.add_apply,
+      Matrix.smul_apply, Matrix.kroneckerMap_apply, Complex.real_smul, star_mul', hstar2]
     have hl : ∀ (τ : DensityOp d₁) (η : DensityOp d₂),
         ∑ k₁ : d₁, ∑ k₂ : d₂,
           ((Real.sqrt 2 : ℂ)⁻¹ * (τ.sqrtMat i₁ k₁ * η.sqrtMat i₂ k₂)) *
@@ -116,13 +117,13 @@ theorem prop_2_2_D2_check_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Deci
           = (((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) *
             ((τ.sqrtMat i₁ k₁ * η.sqrtMat i₂ k₂) * (star (τ.sqrtMat j₁ k₁) * star (η.sqrtMat j₂ k₂))) := by ring
         _ = _ := by rw [hmul2]
-    rw [hl ρ₁ σ₁, hl ρ₀ σ₀]; push_cast; ring
+    rw [hl ρ₁ σ₁, hl ρ₀ σ₀]; dsimp only [ρ₀, ρ₁, σ₀, σ₁]; push_cast; ring
   have hA₁ : A₁ * A₁ᴴ = ((W₁.checkCombine W₂).out true).mat := by
     ext ⟨i₁, i₂⟩ ⟨j₁, j₂⟩
     simp only [A₁, CQChannel.checkCombine, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor,
       Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply, Fintype.sum_prod_type,
-      Fintype.sum_bool, ↓reduceIte, Bool.true_eq_false, Matrix.add_apply, Matrix.smul_apply,
-      Matrix.kroneckerMap_apply, Complex.real_smul, star_mul', hstar2]
+      Fintype.sum_bool, ↓reduceIte, Bool.true_eq_false, Bool.not_true, Matrix.add_apply,
+      Matrix.smul_apply, Matrix.kroneckerMap_apply, Complex.real_smul, star_mul', hstar2]
     have hl : ∀ (τ : DensityOp d₁) (η : DensityOp d₂),
         ∑ k₁ : d₁, ∑ k₂ : d₂,
           ((Real.sqrt 2 : ℂ)⁻¹ * (τ.sqrtMat i₁ k₁ * η.sqrtMat i₂ k₂)) *
@@ -137,7 +138,7 @@ theorem prop_2_2_D2_check_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Deci
           = (((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) *
             ((τ.sqrtMat i₁ k₁ * η.sqrtMat i₂ k₂) * (star (τ.sqrtMat j₁ k₁) * star (η.sqrtMat j₂ k₂))) := by ring
         _ = _ := by rw [hmul2]
-    rw [hl ρ₀ σ₁, hl ρ₁ σ₀]; push_cast; ring
+    rw [hl ρ₀ σ₁, hl ρ₁ σ₀]; dsimp only [ρ₀, ρ₁, σ₀, σ₁]; push_cast; ring
   have hstep1 := (dual_isoEquiv_of_purification (W₁.checkCombine W₂) A₀ A₁ hA₀ hA₁).toChannelEquiv
   let W_prod : CQChannel ((Bool × d₁) × (Bool × d₂)) :=
     { out := fun b ↦ DensityOp.tensor (W₁.dual.out b) (W₂.dual.out b) }
@@ -396,15 +397,17 @@ theorem prop_2_2_D2_check_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Deci
         have h2 : ¬ (w = w₂ ∧ (a, r) = (a₂, r₂) ∧ (c, s) = (c₂, s₂)) := by
           rintro ⟨hw, ha, hc⟩
           exact h (by rw [hw, ha, hc])
-        simp [h2]
-      · simp [h1]
+        simp only [h2, ↓reduceIte, mul_zero]
+      · simp only [h1, ↓reduceIte, star_zero, zero_mul]
   have hstep2b : (W_prod.tensorMaxMixed (ULift.{u} Bool)).IsoEquiv (W₁.dual.varCombine W₂.dual) := by
     refine ⟨Bool × ((Bool × d₁) × (Bool × d₂)), inferInstance, inferInstance, U_ctrl, 1, hU_iso, by simp, ?_⟩
     intro b
     rw [Matrix.one_mul, Matrix.conjTranspose_one, Matrix.mul_one]
     ext ⟨w₁, ⟨a₁, r₁⟩, ⟨c₁, s₁⟩⟩ ⟨w₂, ⟨a₂, r₂⟩, ⟨c₂, s₂⟩⟩
-    simp only [U_ctrl, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
-      Fintype.sum_prod_type]
+    conv_lhs =>
+      rw [Matrix.mul_apply]
+      simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, U_ctrl, Matrix.of_apply,
+        Fintype.sum_prod_type]
     rw [Finset.sum_eq_single (ULift.up w₂)]
     · rw [Finset.sum_eq_single a₂]
       · rw [Finset.sum_eq_single r₂]
@@ -416,21 +419,23 @@ theorem prop_2_2_D2_check_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Deci
                   · rw [Finset.sum_eq_single c₁]
                     · rw [Finset.sum_eq_single s₁]
                       · simp only [↓reduceIte, and_self, CQChannel.tensorMaxMixed, W_prod,
-                          CQChannel.varCombine, DensityOp.tensor, maxMixedState, CQChannel.dual,
-                          DensityOp.conjUnitary, pauliZTensorI, Matrix.kroneckerMap_apply,
-                          Matrix.smul_apply, Matrix.one_apply, Matrix.diagonal_apply, smul_eq_mul,
-                          Complex.real_smul, Complex.ofReal_inv, Complex.ofReal_natCast,
-                          Fintype.card_ulift, Fintype.card_bool, Nat.cast_ofNat]
+                          CQChannel.varCombine, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor,
+                          CQChannel.ketBraBool, maxMixedState, CQChannel.dual, DensityOp.conjUnitary,
+                          Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply,
+                          Matrix.one_apply, Matrix.of_apply, Complex.real_smul, Complex.ofReal_inv,
+                          Complex.ofReal_natCast, Fintype.card_ulift, Fintype.card_bool,
+                          Nat.cast_ofNat]
                         by_cases hw : w₁ = w₂
                         · subst hw
-                          have hG1 := pauliZTensorI_conj_entry (gramFactor ρ₀ ρ₁ * (gramFactor ρ₀ ρ₁)ᴴ) a₁ a₂ r₁ r₂
+                          have hG1 := pauliZTensorI_conj_entry (gramState (W₁.out false) (W₁.out true)).mat a₁ a₂ r₁ r₂
                           cases w₁ <;> cases b <;> cases a₁ <;> cases a₂ <;>
-                            simp [DensityOp.midpoint, DensityOp.mix, CQChannel.ketBraBool,
-                              Matrix.kroneckerMap_apply, Matrix.diagonal_apply, Complex.real_smul,
-                              hG1] <;> ring
-                        · cases w₁ <;> cases w₂ <;> simp_all [DensityOp.midpoint, DensityOp.mix,
-                            CQChannel.ketBraBool, DensityOp.tensor, Matrix.kroneckerMap_apply,
-                            Matrix.diagonal_apply]
+                            simp only [↓reduceIte, Bool.true_eq_false, Bool.false_eq_true,
+                              Bool.not_false, Bool.not_true, and_self, and_false, false_and,
+                              star_one, star_neg, hG1] <;> push_cast <;> ring
+                        · cases w₁ <;> cases w₂ <;>
+                            simp only [hw, ↓reduceIte, Bool.true_eq_false, Bool.false_eq_true,
+                              and_self, and_false, false_and, mul_zero, zero_mul, add_zero,
+                              ULift.up.injEq] at hw ⊢
                       · intro z _ hne; simp [Ne.symm hne]
                       · intro h; exact absurd (Finset.mem_univ s₁) h
                     · intro z _ hne; apply Finset.sum_eq_zero; intro _ _; simp [Ne.symm hne]
@@ -548,11 +553,12 @@ theorem prop_2_2_D2_var_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Decida
                 ((τ.sqrtMat i₁ k₁ * η.sqrtMat i₂ k₂) * (star (τ.sqrtMat j₁ k₁) * star (η.sqrtMat j₂ k₂))) := by ring
             _ = _ := by rw [hmul2]
         cases v₁ <;>
-          simp only [↓reduceIte, Bool.true_eq_false, star_mul', hstar2, hl,
-            Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply,
-            Matrix.diagonal_apply, Complex.real_smul] <;> push_cast <;> ring
+          simp only [↓reduceIte, Bool.true_eq_false, Bool.false_eq_true, Bool.not_false,
+            and_self, and_false, false_and, star_mul', hstar2, hl, Matrix.add_apply,
+            Matrix.smul_apply, Matrix.kroneckerMap_apply, Matrix.of_apply, Complex.real_smul] <;>
+          (dsimp only [ρ₀, ρ₁, σ₀, σ₁]; push_cast; ring)
       · simp only [hv, Ne.symm hv, ↓reduceIte, star_zero, mul_zero, Finset.sum_const_zero,
-          Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Matrix.diagonal_apply]
+          Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Matrix.of_apply]
         cases v₁ <;> cases v₂ <;> simp_all
     · intro v _ hne; apply Finset.sum_eq_zero; intro k₁ _; apply Finset.sum_eq_zero; intro k₂ _
       simp [Ne.symm hne]
@@ -580,11 +586,12 @@ theorem prop_2_2_D2_var_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Decida
                 ((τ.sqrtMat i₁ k₁ * η.sqrtMat i₂ k₂) * (star (τ.sqrtMat j₁ k₁) * star (η.sqrtMat j₂ k₂))) := by ring
             _ = _ := by rw [hmul2]
         cases v₁ <;>
-          simp only [↓reduceIte, Bool.true_eq_false, star_mul', hstar2, hl,
-            Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply,
-            Matrix.diagonal_apply, Complex.real_smul] <;> push_cast <;> ring
+          simp only [↓reduceIte, Bool.true_eq_false, Bool.false_eq_true, Bool.not_true,
+            and_self, and_false, false_and, star_mul', hstar2, hl, Matrix.add_apply,
+            Matrix.smul_apply, Matrix.kroneckerMap_apply, Matrix.of_apply, Complex.real_smul] <;>
+          (dsimp only [ρ₀, ρ₁, σ₀, σ₁]; push_cast; ring)
       · simp only [hv, Ne.symm hv, ↓reduceIte, star_zero, mul_zero, Finset.sum_const_zero,
-          Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Matrix.diagonal_apply]
+          Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Matrix.of_apply]
         cases v₁ <;> cases v₂ <;> simp_all
     · intro v _ hne; apply Finset.sum_eq_zero; intro k₁ _; apply Finset.sum_eq_zero; intro k₂ _
       simp [Ne.symm hne]
@@ -752,7 +759,8 @@ theorem prop_2_2_D2_var_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Decida
       rw [hPM b]
       ext ⟨⟨a₁, r₁⟩, ⟨c₁, s₁⟩⟩ ⟨⟨a₂, r₂⟩, ⟨c₂, s₂⟩⟩
       conv_lhs =>
-        simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply, Fintype.sum_prod_type]
+        rw [Matrix.mul_apply]
+        simp only [Matrix.conjTranspose_apply, Matrix.of_apply, Fintype.sum_prod_type]
       conv_rhs =>
         simp only [CQChannel.checkCombine, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor,
           CQChannel.dual, gramState, DensityOp.conjUnitary, Matrix.add_apply, Matrix.smul_apply,
@@ -772,16 +780,7 @@ theorem prop_2_2_D2_var_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Decida
             rw [Finset.mul_sum]; apply Finset.sum_congr rfl; intro i₂ _; ring
           cases b
           · simp only [↓reduceIte, Bool.not_false, hprod]
-            change _ = ((1 - 1 / 2 : ℝ) : ℂ) *
-                ((gramFactor ρ₀ ρ₁ * (gramFactor ρ₀ ρ₁)ᴴ) (a₁, r₁) (a₂, r₂) *
-                 (gramFactor σ₀ σ₁ * (gramFactor σ₀ σ₁)ᴴ) (c₁, s₁) (c₂, s₂)) +
-              ((1 / 2 : ℝ) : ℂ) *
-                (((pauliZTensorI d₁ : Matrix (Bool × d₁) (Bool × d₁) ℂ) *
-                  (gramFactor ρ₀ ρ₁ * (gramFactor ρ₀ ρ₁)ᴴ) *
-                  star (pauliZTensorI d₁ : Matrix (Bool × d₁) (Bool × d₁) ℂ)) (a₁, r₁) (a₂, r₂) *
-                 ((pauliZTensorI d₂ : Matrix (Bool × d₂) (Bool × d₂) ℂ) *
-                  (gramFactor σ₀ σ₁ * (gramFactor σ₀ σ₁)ᴴ) *
-                  star (pauliZTensorI d₂ : Matrix (Bool × d₂) (Bool × d₂) ℂ)) (c₁, s₁) (c₂, s₂))
+            dsimp only [ρ₀, ρ₁, σ₀, σ₁] at hG1 hG2 ⊢
             rw [hG1, hG2]
             cases a₁ <;> cases a₂ <;> cases c₁ <;> cases c₂ <;> simp_all <;> push_cast <;> ring
           · simp only [Bool.true_eq_false, ↓reduceIte, Bool.not_true]
@@ -803,45 +802,14 @@ theorem prop_2_2_D2_var_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Decida
               rw [Finset.mul_sum]; apply Finset.sum_congr rfl; intro i₂ _
               cases c₁ <;> cases c₂ <;> simp [star_mul'] <;> ring
             rw [hprod']
-            change _ = ((1 - 1 / 2 : ℝ) : ℂ) *
-                (((pauliZTensorI d₁ : Matrix (Bool × d₁) (Bool × d₁) ℂ) *
-                  (gramFactor ρ₀ ρ₁ * (gramFactor ρ₀ ρ₁)ᴴ) *
-                  star (pauliZTensorI d₁ : Matrix (Bool × d₁) (Bool × d₁) ℂ)) (a₁, r₁) (a₂, r₂) *
-                 (gramFactor σ₀ σ₁ * (gramFactor σ₀ σ₁)ᴴ) (c₁, s₁) (c₂, s₂)) +
-              ((1 / 2 : ℝ) : ℂ) *
-                ((gramFactor ρ₀ ρ₁ * (gramFactor ρ₀ ρ₁)ᴴ) (a₁, r₁) (a₂, r₂) *
-                 ((pauliZTensorI d₂ : Matrix (Bool × d₂) (Bool × d₂) ℂ) *
-                  (gramFactor σ₀ σ₁ * (gramFactor σ₀ σ₁)ᴴ) *
-                  star (pauliZTensorI d₂ : Matrix (Bool × d₂) (Bool × d₂) ℂ)) (c₁, s₁) (c₂, s₂))
+            dsimp only [ρ₀, ρ₁, σ₀, σ₁] at hG1 hG2 ⊢
             rw [hG1, hG2]
             cases a₁ <;> cases a₂ <;> cases c₁ <;> cases c₂ <;> simp_all <;> push_cast <;> ring
         · have hne' : ¬ (xor a₂ c₂ = xor a₁ c₁) := fun h ↦ hpar h.symm
           simp only [hne', ↓reduceIte, star_zero, mul_zero, Finset.sum_const_zero]
-          cases b
-          · simp only [Bool.not_false]
-            change (0 : ℂ) = ((1 - 1 / 2 : ℝ) : ℂ) *
-                ((gramFactor ρ₀ ρ₁ * (gramFactor ρ₀ ρ₁)ᴴ) (a₁, r₁) (a₂, r₂) *
-                 (gramFactor σ₀ σ₁ * (gramFactor σ₀ σ₁)ᴴ) (c₁, s₁) (c₂, s₂)) +
-              ((1 / 2 : ℝ) : ℂ) *
-                (((pauliZTensorI d₁ : Matrix (Bool × d₁) (Bool × d₁) ℂ) *
-                  (gramFactor ρ₀ ρ₁ * (gramFactor ρ₀ ρ₁)ᴴ) *
-                  star (pauliZTensorI d₁ : Matrix (Bool × d₁) (Bool × d₁) ℂ)) (a₁, r₁) (a₂, r₂) *
-                 ((pauliZTensorI d₂ : Matrix (Bool × d₂) (Bool × d₂) ℂ) *
-                  (gramFactor σ₀ σ₁ * (gramFactor σ₀ σ₁)ᴴ) *
-                  star (pauliZTensorI d₂ : Matrix (Bool × d₂) (Bool × d₂) ℂ)) (c₁, s₁) (c₂, s₂))
-            rw [hG1, hG2]
-            cases a₁ <;> cases a₂ <;> cases c₁ <;> cases c₂ <;> simp_all <;> push_cast <;> ring
-          · simp only [Bool.not_true]
-            change (0 : ℂ) = ((1 - 1 / 2 : ℝ) : ℂ) *
-                (((pauliZTensorI d₁ : Matrix (Bool × d₁) (Bool × d₁) ℂ) *
-                  (gramFactor ρ₀ ρ₁ * (gramFactor ρ₀ ρ₁)ᴴ) *
-                  star (pauliZTensorI d₁ : Matrix (Bool × d₁) (Bool × d₁) ℂ)) (a₁, r₁) (a₂, r₂) *
-                 (gramFactor σ₀ σ₁ * (gramFactor σ₀ σ₁)ᴴ) (c₁, s₁) (c₂, s₂)) +
-              ((1 / 2 : ℝ) : ℂ) *
-                ((gramFactor ρ₀ ρ₁ * (gramFactor ρ₀ ρ₁)ᴴ) (a₁, r₁) (a₂, r₂) *
-                 ((pauliZTensorI d₂ : Matrix (Bool × d₂) (Bool × d₂) ℂ) *
-                  (gramFactor σ₀ σ₁ * (gramFactor σ₀ σ₁)ᴴ) *
-                  star (pauliZTensorI d₂ : Matrix (Bool × d₂) (Bool × d₂) ℂ)) (c₁, s₁) (c₂, s₂))
+          dsimp only [ρ₀, ρ₁, σ₀, σ₁] at hG1 hG2 ⊢
+          cases b <;>
+          · simp only [Bool.not_false, Bool.not_true]
             rw [hG1, hG2]
             cases a₁ <;> cases a₂ <;> cases c₁ <;> cases c₂ <;> simp_all <;> push_cast <;> ring
       · intro v _ hne; apply Finset.sum_eq_zero; intro i₁ _; apply Finset.sum_eq_zero; intro i₂ _
