@@ -399,7 +399,7 @@ lemma relEntropy_mix_maxMixed_eq [Nonempty d] (ρ σ : DensityOp d) {δ : ℝ}
   have hsplit : ∀ (UA UB : Matrix.unitaryGroup d ℂ) (a b : d → ℝ),
       (∑ i : d, ∑ j : d, ‖(star (UB : Matrix d d ℂ) * (UA : Matrix d d ℂ)) j i‖ ^ 2 *
         (a i * (Real.log (a i) - Real.log (b j)))) =
-      (∑ i : d, ∑ j : d, ‖(star (UA : Matrix d d ℂ) * (UA : Matrix d d ℂ)) j i‖ ^ 2 * (a i * Real.log (a i))) -
+      (∑ i : d, ∑ j : d, ‖(star (UA : Matrix d d ℂ) * (UA : Matrix d d ℂ)) j i‖ ^ 2 * (a i * Real.log (a j))) -
       (∑ i : d, ∑ j : d, ‖(star (UB : Matrix d d ℂ) * (UA : Matrix d d ℂ)) j i‖ ^ 2 * (a i * Real.log (b j))) := by
     intro UA UB a b
     have hlhs : ∀ i : d, ∑ j : d, ‖(star (UB : Matrix d d ℂ) * (UA : Matrix d d ℂ)) j i‖ ^ 2 *
@@ -414,8 +414,13 @@ lemma relEntropy_mix_maxMixed_eq [Nonempty d] (ρ σ : DensityOp d) {δ : ℝ}
         intro j; ring
       simp_rw [h1, Finset.sum_sub_distrib, ← Finset.sum_mul, hcol_sum UA UB i, one_mul]
     have hrhs : ∀ i : d, ∑ j : d, ‖(star (UA : Matrix d d ℂ) * (UA : Matrix d d ℂ)) j i‖ ^ 2 *
-        (a i * Real.log (a i)) = a i * Real.log (a i) := by
-      intro i; rw [← Finset.sum_mul, hcol_sum UA UA i, one_mul]
+        (a i * Real.log (a j)) = a i * Real.log (a i) := by
+      intro i
+      rw [Unitary.coe_star_mul_self UA]
+      rw [Finset.sum_eq_single i]
+      · simp [Matrix.one_apply]
+      · intro j _ hji; simp [Matrix.one_apply, hji]
+      · intro h; exact absurd (Finset.mem_univ _) h
     simp_rw [hlhs, hrhs, Finset.sum_sub_distrib]
   have hspec_ρδ : ρδ.mat = (ρδ.eigUnitary : Matrix d d ℂ) *
       Matrix.diagonal (Complex.ofReal ∘ ρδ.eigvals) * star (ρδ.eigUnitary : Matrix d d ℂ) := by
@@ -423,11 +428,11 @@ lemma relEntropy_mix_maxMixed_eq [Nonempty d] (ρ σ : DensityOp d) {δ : ℝ}
       Unitary.conjStarAlgAut_apply] using ρδ.isHermitian.spectral_theorem
   rw [hsplit ρδ.eigUnitary σδ.eigUnitary ρδ.eigvals σδ.eigvals,
     hsplit ρ.eigUnitary σ.eigUnitary lamρ lamσ,
-    htr_eq ρδ.eigUnitary ρδ.eigUnitary ρδ.eigvals ρδ.eigvals (Real.log ∘ ρδ.eigvals) hspec_ρδ,
-    htr_eq ρδ.eigUnitary σδ.eigUnitary ρδ.eigvals σδ.eigvals (Real.log ∘ σδ.eigvals) hspec_ρδ,
-    htr_eq ρ.eigUnitary ρ.eigUnitary lamρ lamρ (Real.log ∘ lamρ) (hmix_spec ρ),
-    htr_eq ρ.eigUnitary σ.eigUnitary lamρ lamσ (Real.log ∘ lamσ) (hmix_spec ρ)]
-  simp only [Function.comp_apply, hlog_ρ, hlog_σ]
+    htr_eq ρδ.eigUnitary ρδ.eigUnitary ρδ.eigvals ρδ.eigvals (fun j ↦ Real.log (ρδ.eigvals j)) hspec_ρδ,
+    htr_eq ρδ.eigUnitary σδ.eigUnitary ρδ.eigvals σδ.eigvals (fun j ↦ Real.log (σδ.eigvals j)) hspec_ρδ,
+    htr_eq ρ.eigUnitary ρ.eigUnitary lamρ lamρ (fun j ↦ Real.log (lamρ j)) (hmix_spec ρ),
+    htr_eq ρ.eigUnitary σ.eigUnitary lamρ lamσ (fun j ↦ Real.log (lamσ j)) (hmix_spec ρ)]
+  rw [hlog_ρ, hlog_σ]
 
 /-- Continuity of `δ ↦ relEntropy (mix δ ρ (I/d)) (mix δ σ (I/d))` as `δ → 0+`, both when
 `suppSubset ρ σ` (finite limit) and when `¬ suppSubset ρ σ` (diverges to `⊤`). -/
@@ -461,7 +466,8 @@ lemma tendsto_relEntropy_mix_maxMixed [Nonempty d] (ρ σ : DensityOp d) :
     apply tendsto_finset_sum; intro i _
     apply tendsto_finset_sum; intro j _
     by_cases hW0 : W j i = 0
-    · simp only [hW0, norm_zero, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true, zero_pow,
+    · have hW0' : (star (σ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ)) j i = 0 := hW0
+      simp only [hW0, hW0', norm_zero, ne_eq, OfNat.ofNat_ne_zero, not_false_eq_true, zero_pow,
         zero_mul, tendsto_const_nhds]
     · apply Tendsto.const_mul
       by_cases hρ0 : ρ.eigvals i = 0
@@ -499,7 +505,7 @@ lemma tendsto_relEntropy_mix_maxMixed [Nonempty d] (ρ σ : DensityOp d) :
   · unfold relEntropy
     rw [if_neg hsupp]
     unfold suppSubset at hsupp
-    push_neg at hsupp
+    push Not at hsupp
     obtain ⟨i₀, j₀, hρ_ne, hσ_eq, hW_ne⟩ := hsupp
     have hρ_pos : 0 < ρ.eigvals i₀ := lt_of_le_of_ne (ρ.eigvals_nonneg i₀) (Ne.symm hρ_ne)
     have hW_pos : 0 < ‖W j₀ i₀‖ ^ 2 := sq_pos_of_pos (norm_pos_iff.mpr hW_ne)
@@ -569,7 +575,7 @@ lemma tendsto_relEntropy_mix_maxMixed [Nonempty d] (ρ σ : DensityOp d) :
       rw [hsum_eq]
       have hrest : -M ≤ ∑ p ∈ Finset.univ.erase (i₀, j₀), F p := by
         have hM_eq : M = ∑ p : d × d, ‖W p.2 p.1‖ ^ 2 * (σ.eigvals p.2 + invd) := by
-          simp only [M, Fintype.sum_prod_type']
+          exact (Fintype.sum_prod_type' (fun p : d × d ↦ ‖W p.2 p.1‖ ^ 2 * (σ.eigvals p.2 + invd))).symm
         calc -M = ∑ p : d × d, -(‖W p.2 p.1‖ ^ 2 * (σ.eigvals p.2 + invd)) := by
               rw [hM_eq, Finset.sum_neg_distrib]
           _ ≤ ∑ p ∈ Finset.univ.erase (i₀, j₀), -(‖W p.2 p.1‖ ^ 2 * (σ.eigvals p.2 + invd)) := by
@@ -581,15 +587,16 @@ lemma tendsto_relEntropy_mix_maxMixed [Nonempty d] (ρ σ : DensityOp d) :
               apply Finset.sum_le_sum; intro p _
               have h1 := hterm_lb δ hδ.1 hδ1 p.1 p.2
               have h2 : (1 - δ) * σ.eigvals p.2 + δ * invd ≤ σ.eigvals p.2 + invd := by
-                nlinarith [σ.eigvals_nonneg p.2]
+                nlinarith [σ.eigvals_nonneg p.2, hδ.1, hδ1, hinvd_pos]
               have h3 : -(σ.eigvals p.2 + invd) ≤ -((1 - δ) * σ.eigvals p.2 + δ * invd) := by linarith
               have h4 := mul_le_mul_of_nonneg_left (le_trans h3 h1) (sq_nonneg ‖W p.2 p.1‖)
-              simpa [F] using h4
+              dsimp only [F]
+              linarith
       have hmain : ‖W j₀ i₀‖ ^ 2 * (a₀ * (Real.log a₀ - Real.log (δ * invd))) ≤ F (i₀, j₀) := by
         simp only [F, hσ_eq, mul_zero, zero_add]
         apply mul_le_mul_of_nonneg_left _ (sq_nonneg _)
         set a := (1 - δ) * ρ.eigvals i₀ + δ * invd
-        have ha_ge : a₀ ≤ a := by nlinarith [hδ.1, hδ_half]
+        have ha_ge : a₀ ≤ a := by nlinarith [hδ.1, hδ_half, hρ_pos, hinvd_pos]
         have hlog_ge : Real.log (δ * invd) ≤ Real.log a₀ :=
           Real.log_le_log (mul_pos hδ.1 hinvd_pos) (le_of_lt hδ_a0)
         have hlog_a : Real.log a₀ ≤ Real.log a := Real.log_le_log ha₀ ha_ge
@@ -623,7 +630,7 @@ lemma negPartTrace_sub_le {A B : Matrix d d ℂ} (hA : A.IsHermitian) (hB : B.Is
         simp only [Complex.star_def, Complex.conj_im] at h
         linarith
       rw [Complex.le_def]
-      refine ⟨?_, by simp [him]⟩
+      refine ⟨?_, by exact him.symm⟩
       simp only [Complex.zero_re]
       have hsplit : star x ⬝ᵥ (((C : ℂ) • (1 : Matrix d d ℂ) - (B - A)).mulVec x) =
           (C : ℂ) * (star x ⬝ᵥ x) - star x ⬝ᵥ ((B - A).mulVec x) := by
@@ -655,11 +662,11 @@ lemma negPartTrace_sub_le {A B : Matrix d d ℂ} (hA : A.IsHermitian) (hB : B.Is
               have hab : ‖x i‖ * ‖x j‖ ≤ (‖x i‖ ^ 2 + ‖x j‖ ^ 2) / 2 := by
                 nlinarith [sq_nonneg (‖x i‖ - ‖x j‖)]
               have hi : ‖x i‖ ^ 2 ≤ ∑ k : d, ‖x k‖ ^ 2 :=
-                Finset.single_le_sum (fun k _ ↦ sq_nonneg _) (Finset.mem_univ i)
+                Finset.single_le_sum (f := fun k : d ↦ ‖x k‖ ^ 2) (fun k _ ↦ sq_nonneg _) (Finset.mem_univ i)
               have hj : ‖x j‖ ^ 2 ≤ ∑ k : d, ‖x k‖ ^ 2 :=
-                Finset.single_le_sum (fun k _ ↦ sq_nonneg _) (Finset.mem_univ j)
+                Finset.single_le_sum (f := fun k : d ↦ ‖x k‖ ^ 2) (fun k _ ↦ sq_nonneg _) (Finset.mem_univ j)
               linarith
-          _ = C * ∑ k : d, ‖x k‖ ^ 2 := by simp_rw [← Finset.sum_mul]
+          _ = C * ∑ k : d, ‖x k‖ ^ 2 := by simp_rw [← Finset.sum_mul]; rfl
       linarith
   rw [negPartTrace_eq_posPartTrace_neg hA]
   have hB_psd : (negPartMat hB + (C : ℂ) • (1 : Matrix d d ℂ)).PosSemidef := by
@@ -766,7 +773,9 @@ theorem relEntropy_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
       set A' := DensityOp.mix δ (le_of_lt hδ0) (le_of_lt hδ1) (𝒩.apply ρ') (maxMixedState d₂)
       set B' := DensityOp.mix δ (le_of_lt hδ0) (le_of_lt hδ1) (𝒩.apply σ') (maxMixedState d₂)
       have hlog2_pos : 0 < ENNReal.ofReal (Real.log 2) := ENNReal.ofReal_pos.mpr (Real.log_pos (by norm_num))
-      refine (ENNReal.mul_le_mul_iff_right (ne_of_gt hlog2_pos) ENNReal.ofReal_ne_top).mp ?_
+      refine (ENNReal.mul_le_mul_iff_left (ne_of_gt hlog2_pos) ENNReal.ofReal_ne_top).mp ?_
+      rw [mul_comm (ENNReal.ofReal (Real.log 2)) (relEntropy A' B'),
+          mul_comm (ENNReal.ofReal (Real.log 2)) (relEntropy ρ' σ')]
       rw [relEntropy_frenkel_integral (mix_maxMixed_posDef (𝒩.apply ρ') hδ0 hδ1) (mix_maxMixed_posDef (𝒩.apply σ') hδ0 hδ1),
           relEntropy_frenkel_integral (mix_maxMixed_posDef ρ hε0 hε1) (mix_maxMixed_posDef σ hε0 hε1)]
       apply MeasureTheory.lintegral_mono; intro t
@@ -816,7 +825,9 @@ theorem relEntropy_cptp_le (𝒩 : CPTPMap d₁ d₂) (ρ σ : DensityOp d₁) :
         (𝒩.apply (DensityOp.mix (ε k) (le_of_lt (hε_pos k)) (le_of_lt (hε_lt1 k)) σ (maxMixedState d₁)))
         (maxMixedState d₂)
     have hlog2_pos : 0 < ENNReal.ofReal (Real.log 2) := ENNReal.ofReal_pos.mpr (Real.log_pos (by norm_num))
-    refine (ENNReal.mul_le_mul_iff_right (ne_of_gt hlog2_pos) ENNReal.ofReal_ne_top).mp ?_
+    refine (ENNReal.mul_le_mul_iff_left (ne_of_gt hlog2_pos) ENNReal.ofReal_ne_top).mp ?_
+    rw [mul_comm (ENNReal.ofReal (Real.log 2)) (relEntropy A0 B0),
+        mul_comm (ENNReal.ofReal (Real.log 2)) (relEntropy ρ σ)]
     rw [relEntropy_frenkel_integral (mix_maxMixed_posDef (𝒩.apply ρ) hδ0 hδ1) (mix_maxMixed_posDef (𝒩.apply σ) hδ0 hδ1)]
     let fk : ℕ → ℝ → ℝ≥0∞ := fun k t ↦
       ENNReal.ofReal (negPartTrace (show (((1 - t : ℝ) : ℂ) • (Ak k).mat + (t : ℂ) • (Bk k).mat).IsHermitian by
