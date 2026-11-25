@@ -94,11 +94,16 @@ lemma fidelityParam_mem_Icc {d : Type*} [Fintype d] [DecidableEq d] (W : CQChann
   · unfold CQChannel.fidelityParam rootFidelity
     exact Finset.sum_nonneg fun i _ ↦ Real.sqrt_nonneg _
   · -- By Uhlmann purification, `F(W) = |⟨φ₀|φ₁⟩| ≤ 1`
-    obtain ⟨φ₀, φ₁, hφ₀, hφ₁, _, _, hov⟩ := uhlmann_purification (W.out false) (W.out true)
+    obtain ⟨φ₀, φ₁, hφ₀, hφ₁, _, _, hov⟩ := exists_uhlmann_purification (W.out false) (W.out true)
     unfold CQChannel.fidelityParam
     rw [← hov]
-    have h := (lemma_4_1_gram_dephasing (W.out false) (W.out true) φ₀ φ₁ hφ₀ hφ₁).1
-    linarith
+    calc ‖∑ p : d × d, star (φ₀ p) * φ₁ p‖
+        ≤ ∑ p : d × d, ‖star (φ₀ p) * φ₁ p‖ := norm_sum_le _ _
+      _ = ∑ p : d × d, ‖φ₀ p‖ * ‖φ₁ p‖ := by
+          apply Finset.sum_congr rfl; intro p _; rw [norm_mul, norm_star]
+      _ ≤ ∑ p : d × d, (‖φ₀ p‖ ^ 2 + ‖φ₁ p‖ ^ 2) / 2 := by
+          apply Finset.sum_le_sum; intro p _; nlinarith [sq_nonneg (‖φ₀ p‖ - ‖φ₁ p‖)]
+      _ = 1 := by rw [← Finset.sum_div, Finset.sum_add_distrib, hφ₀, hφ₁]; norm_num
 
 /-- Instantiation of `PolarProcess` for any finite-dimensional binary-input c-q channel `W`. -/
 noncomputable def cqPolarProcess {d : Type u} [Fintype d] [DecidableEq d]
