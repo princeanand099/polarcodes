@@ -16,6 +16,8 @@ import PolarCodes.HockeyStick
 import PolarCodes.HockeyStickMeasure
 import PolarCodes.MainTheorem
 import PolarCodes.MrsGerber
+import PolarCodes.MrsGerberClassical
+import PolarCodes.MrsGerberHybrid
 import PolarCodes.Polarization
 import PolarCodes.PolarizationFine
 import PolarCodes.QJJS
