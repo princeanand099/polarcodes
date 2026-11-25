@@ -494,14 +494,21 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
       ((synthChannel W 0 i).out b).mat (p₁, r₁) (p₁, r₂)
     simp only [synthChannel, synthState, synthBlockMat, Matrix.of_apply,
       ↓reduceIte, pow_zero, Nat.sub_self, inv_one, one_mul]
-    have hfilt : Finset.univ.filter (fun u : Fin 1 → Bool ↦ prefixOf i u = p₁ ∧ u i = b) =
+    have hfilt : Finset.univ.filter (fun u : Fin (2 ^ 0) → Bool ↦ prefixOf i u = p₁ ∧ u i = b) =
         {fun _ ↦ b} := by
       ext u; simp only [Finset.mem_filter, Finset.mem_univ, true_and, Finset.mem_singleton]
       constructor
       · intro ⟨_, hu⟩; funext k; have hk : k = i := Fin.ext (by have := k.isLt; omega); rw [hk, hu]
       · intro hu; subst hu; refine ⟨funext fun j ↦ False.elim (by have := j.isLt; omega), rfl⟩
     rw [hfilt, Finset.sum_singleton]
-    simp [productState, productStateMat, arikanTransform]
+    simp only [productState, productStateMat, arikanTransform, Matrix.of_apply]
+    have hprod : (∏ k : Fin (2 ^ 0), (W.out b).mat (r₁ k) (r₂ k)) =
+        (W.out b).mat (r₁ ⟨0, by norm_num⟩) (r₂ ⟨0, by norm_num⟩) := by
+      have huniv : (Finset.univ : Finset (Fin (2 ^ 0))) = {⟨0, by norm_num⟩} := by
+        ext k; simp only [Finset.mem_univ, Finset.mem_singleton, true_iff]
+        exact Fin.ext (by have := k.isLt; omega)
+      rw [huniv, Finset.prod_singleton]
+    exact hprod.symm
   | n + 1, i => by
     set j : Fin (2 ^ n) := ⟨i.val / 2, by omega⟩
     have hj : j.val = i.val / 2 := rfl
