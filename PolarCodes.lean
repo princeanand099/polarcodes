@@ -25,3 +25,4 @@ import PolarCodes.SanityChecks
 import PolarCodes.QuantumChannels
 import PolarCodes.Refinements
 import PolarCodes.ChannelEquiv
+import PolarCodes.ChannelDualityEquiv
