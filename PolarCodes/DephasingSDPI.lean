@@ -537,8 +537,8 @@ private lemma dephaseState_semigroup_sub (Ψ : DensityOp (Bool × d)) {t h : ℝ
     have hZeq : (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ) = (Z : Matrix (Bool × d) (Bool × d) ℂ) := rfl
     simp only [DensityOp.conjUnitary, dephaseState, DensityOp.mix, hZeq, Matrix.mul_add, Matrix.add_mul,
       Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_assoc, hZ_star]
-    rw [← Matrix.mul_assoc (Z : Matrix _ _ ℂ) (Z : Matrix _ _ ℂ), hZ_self, Matrix.one_mul,
-      hZ_self, Matrix.mul_one, add_comm]
+    rw [← Matrix.mul_assoc (Z : Matrix (Bool × d) (Bool × d) ℂ) (Z : Matrix (Bool × d) (Bool × d) ℂ),
+      hZ_self, Matrix.one_mul, hZ_self, Matrix.mul_one, add_comm]
     ext i j; simp [Complex.real_smul]
   have hdiff_u : ∀ (u : ℝ) (hu0 : 0 ≤ u),
       (dephaseState (dephaseP u) (dephaseP_nonneg hu0) (dephaseP_le_one u) Ψ).mat -
@@ -658,10 +658,9 @@ private lemma ode_log_contraction (C : ℝ → ℝ) (T L : ℝ) (hT_nn : 0 ≤ T
         have hs_mem : 1 - C s ∈ Icc (0 : ℝ) 1 := ⟨by linarith [(hC_bounds s hs).2], by linarith [(hC_bounds s hs).1]⟩
         have ht_mem : 1 - C t ∈ Icc (0 : ℝ) 1 := ⟨by linarith [(hC_bounds t (by linarith)).2], by linarith [(hC_bounds t (by linarith)).1]⟩
         by_contra hlt; push Not at hlt
-        have h1 := h2_mono_Icc (h2Inv_mem_Icc ht_mem).1 (h2Inv_mem_Icc hs_mem).2 (le_of_lt hlt)
+        have h1 := strictMonoOn_h2 (h2Inv_mem_Icc ht_mem) (h2Inv_mem_Icc hs_mem) hlt
         rw [h2_h2Inv ht_mem, h2_h2Inv hs_mem] at h1
-        have heq : 1 - C t = 1 - C s := le_antisymm (by linarith) h1
-        rw [heq] at hlt; exact lt_irrefl _ hlt
+        linarith
       simp only [x]; linarith
     have hxT_pos : 0 < x T := by
       by_contra hle; push Not at hle
@@ -682,8 +681,11 @@ private lemma ode_log_contraction (C : ℝ → ℝ) (T L : ℝ) (hT_nn : 0 ≤ T
           (hasDerivAt_const u (1 : ℝ)).sub (hasDerivAt_id u)
         simpa using h1.div_const (2 : ℝ)
       have hcomp : HasDerivAt (fun v : ℝ ↦ 1 - h2 ((1 - v) / 2))
-          (0 - Real.logb 2 ((1 - (1 - u) / 2) / ((1 - u) / 2)) * (-1 / 2)) u :=
-        (hasDerivAt_const u (1 : ℝ)).sub (hd_h2.comp u hd_lin)
+          (0 - Real.logb 2 ((1 - (1 - u) / 2) / ((1 - u) / 2)) * (-1 / 2)) u := by
+        have h1 : HasDerivAt (fun v : ℝ ↦ h2 ((1 - v) / 2))
+            (Real.logb 2 ((1 - (1 - u) / 2) / ((1 - u) / 2)) * (-1 / 2)) u :=
+          hd_h2.comp u hd_lin
+        exact (hasDerivAt_const u (1 : ℝ)).sub h1
       have hderiv_eq : 0 - Real.logb 2 ((1 - (1 - u) / 2) / ((1 - u) / 2)) * (-1 / 2) = cDeriv u := by
         unfold cDeriv
         have harg : (1 - (1 - u) / 2) / ((1 - u) / 2) = (1 + u) / (1 - u) := by
@@ -765,7 +767,8 @@ private lemma ode_log_contraction (C : ℝ → ℝ) (T L : ℝ) (hT_nn : 0 ≤ T
           nlinarith
         have hup : C (k * h) - C (((k + 1 : ℕ) : ℝ) * h) ≤ cDeriv b * (b - a) := by
           rw [(hx_eq (k * h) htk_nn).2.1, (hx_eq (((k + 1 : ℕ) : ℝ) * h) (by positivity)).2.1]
-          change cParam b - cParam a ≤ cDeriv b * (b - a)
+          have ha_eq : x (((k + 1 : ℕ) : ℝ) * h) = a := by simp only [a, Nat.cast_add, Nat.cast_one]
+          rw [ha_eq]
           rcases eq_or_lt_of_le hab with heq | hlt
           · rw [heq, sub_self, sub_self, mul_zero]
           · obtain ⟨ξ, hξ, hslope⟩ := exists_hasDerivAt_eq_slope cParam cDeriv hlt
@@ -807,7 +810,7 @@ private lemma ode_log_contraction (C : ℝ → ℝ) (T L : ℝ) (hT_nn : 0 ≤ T
             · rw [heq]
             · exact le_of_lt (hcDeriv_mono ⟨hxT_pos, lt_of_le_of_lt (hx_anti 0 T le_rfl hT_nn) hx0_lt1⟩
                 ⟨ha_pos, lt_of_le_of_lt hab hb_lt1⟩ hlt)
-          linarith [(abs_lt.mp h1).2]
+          nlinarith [(abs_lt.mp h1).2]
         have hlog_step : (b - a) / b ≤ Real.log b - Real.log a := by
           have hb_pos : 0 < b := lt_of_lt_of_le ha_pos hab
           have h := Real.log_le_sub_one_of_pos (div_pos ha_pos hb_pos)
@@ -942,7 +945,7 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
           (((Ψt (t + h) hth).mat - (DensityOp.conjUnitary (pauliZTensorI d) (Ψt (t + h) hth)).mat) *
             natLogMat (Ψt (t + h) hth)).trace.re := by
       dsimp only [Ψt]
-      rw [hsemi, Matrix.smul_mul, Matrix.trace_smul, Complex.real_smul, Complex.mul_re,
+      rw [hsemi, Matrix.smul_mul, Matrix.trace_smul, smul_eq_mul, Complex.mul_re,
         Complex.ofReal_re, Complex.ofReal_im]; ring
     rw [htr_eq, hsym, ← hdiff_C] at hklein
     have hqjjs := prop_3_3_qjjs_posDef hpd_th hpd_th'
@@ -950,7 +953,11 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
     rw [← dephaseCoherence_eq_qjs (dephaseP (t + h)) (dephaseP_nonneg hth) (dephaseP_le_one (t + h)) Ψ,
       ← hC_eq (t + h) hth] at hqjjs
     have hexp_nn : 0 ≤ Real.exp h - 1 := by linarith [Real.add_one_le_exp h]
-    nlinarith
+    have hmul1 : (Real.exp h - 1) * phi (C (t + h)) * Real.log 2 ≤ (C t - C (t + h)) * Real.log 2 := by
+      have h1 := mul_le_mul_of_nonneg_left hqjjs hexp_nn
+      have h2 := mul_le_mul_of_nonneg_right h1 (le_of_lt hlog2)
+      linarith
+    exact le_of_mul_le_mul_right hmul1 hlog2
   -- Key finite-step upper bound (Lipschitz): `C(t) - C(t+h) ≤ L * h`
   obtain ⟨L, hL_nn, hstep_upper⟩ : ∃ L : ℝ, 0 ≤ L ∧
       ∀ t h, 0 ≤ t → 0 ≤ h → C t - C (t + h) ≤ L * h := by
@@ -1233,6 +1240,7 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
             ((relEntropy (Ψt t ht) (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht))).toReal * Real.log 2 +
              (relEntropy (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht)) (Ψt t ht)).toReal * Real.log 2) := by
         dsimp only [Ψt] at hdiff_C ⊢
+        rw [hdiff_C, ← add_mul]
         linarith
       have hB : ((relEntropy (Ψt t ht) (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht))).toReal * Real.log 2 +
              (relEntropy (DensityOp.conjUnitary (pauliZTensorI d) (Ψt t ht)) (Ψt t ht)).toReal * Real.log 2) ≤
@@ -1257,10 +1265,10 @@ private theorem theorem_1_3_dephasing_sdpi_posDef {Ψ : DensityOp (Bool × d)} (
   have hconv_mem : binConv (h2Inv (1 - dephaseCoherence 0 le_rfl (by norm_num) Ψ)) p ∈ Icc (0 : ℝ) (1 / 2) := by
     have h0m : h2Inv (1 - dephaseCoherence 0 le_rfl (by norm_num) Ψ) ∈ Icc (0 : ℝ) (1 / 2) :=
       h2Inv_mem_Icc ⟨by linarith [(hC_bounds 0 le_rfl).2, hC0], by linarith [(hC_bounds 0 le_rfl).1, hC0]⟩
-    unfold binConv; constructor <;> nlinarith
+    unfold binConv; constructor <;> nlinarith [h0m.1, h0m.2]
   have hinvT_mem : h2Inv (1 - dephaseCoherence p hp0 (le_trans hp1 (by norm_num)) Ψ) ∈ Icc (0 : ℝ) (1 / 2) :=
     h2Inv_mem_Icc ⟨by linarith [(hC_bounds T hT_nn).2, hCT], by linarith [(hC_bounds T hT_nn).1, hCT]⟩
-  have hh2_le := h2_mono_Icc hconv_mem.1 hinvT_mem.2 hinv_ge
+  have hh2_le := strictMonoOn_h2.monotoneOn hconv_mem hinvT_mem hinv_ge
   rw [h2_h2Inv ⟨by linarith [(hC_bounds T hT_nn).2, hCT], by linarith [(hC_bounds T hT_nn).1, hCT]⟩] at hh2_le
   linarith
 
