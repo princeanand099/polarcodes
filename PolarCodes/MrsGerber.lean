@@ -107,18 +107,18 @@ lemma condEntropy_checkCombine_comm (W₁ : CQChannel d₁) (W₂ : CQChannel d�
     intro i₁ i₂ j₁ j₂
     simp only [CQChannel.checkCombine, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor,
       Bool.not_false, Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Complex.real_smul]
-    ring)
+    push_cast; ring)
   have h1 := hS_swap ((CQChannel.checkCombine W₁ W₂).out true) ((CQChannel.checkCombine W₂ W₁).out true) (by
     intro i₁ i₂ j₁ j₂
     simp only [CQChannel.checkCombine, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor,
       Bool.not_true, Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Complex.real_smul]
-    ring)
+    push_cast; ring)
   have hm := hS_swap (DensityOp.midpoint ((CQChannel.checkCombine W₁ W₂).out false) ((CQChannel.checkCombine W₁ W₂).out true))
     (DensityOp.midpoint ((CQChannel.checkCombine W₂ W₁).out false) ((CQChannel.checkCombine W₂ W₁).out true)) (by
     intro i₁ i₂ j₁ j₂
     simp only [CQChannel.checkCombine, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor,
       Bool.not_false, Bool.not_true, Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Complex.real_smul]
-    ring)
+    push_cast; ring)
   rw [h0, h1, hm]
 
 /-- Swapping `false` and `true` inputs of `W₁` preserves `H(W₁ ⊠ W₂)` and `H(W₁)`. -/
@@ -132,14 +132,12 @@ private lemma condEntropy_checkCombine_flip (W₁ : CQChannel d₁) (W₂ : CQCh
     simp only [CQChannel.checkCombine, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor,
       Bool.not_false, Bool.not_true, Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply,
       Complex.real_smul]
-    ring
   have h1 : ((CQChannel.checkCombine ⟨fun b ↦ W₁.out (!b)⟩ W₂).out true).mat =
       ((CQChannel.checkCombine W₁ W₂).out false).mat := by
     ext ⟨i₁, i₂⟩ ⟨j₁, j₂⟩
     simp only [CQChannel.checkCombine, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor,
       Bool.not_false, Bool.not_true, Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply,
       Complex.real_smul]
-    ring
   have hq : qjs ((CQChannel.checkCombine ⟨fun b ↦ W₁.out (!b)⟩ W₂).out false)
       ((CQChannel.checkCombine ⟨fun b ↦ W₁.out (!b)⟩ W₂).out true) =
       qjs ((CQChannel.checkCombine W₁ W₂).out false) ((CQChannel.checkCombine W₁ W₂).out true) := by
@@ -150,9 +148,21 @@ private lemma condEntropy_checkCombine_flip (W₁ : CQChannel d₁) (W₂ : CQCh
         (DensityOp.midpoint ((CQChannel.checkCombine W₁ W₂).out true)
           ((CQChannel.checkCombine W₁ W₂).out false)).mat := by
       simp only [DensityOp.midpoint, DensityOp.mix, h0, h1]
-    rw [vonNeumannEntropy_eq_of_mat_eq h0, vonNeumannEntropy_eq_of_mat_eq h1,
-      vonNeumannEntropy_eq_of_mat_eq hm]
+    rw [vonNeumannEntropy_eq_of_mat_eq hm, vonNeumannEntropy_eq_of_mat_eq h0,
+      vonNeumannEntropy_eq_of_mat_eq h1]
   rw [hq]
+
+/-- Cauchy–Schwarz upper bound `‖∑ i, star (φ₀ i) * φ₁ i‖ ≤ 1` for unit vectors `φ₀, φ₁`. -/
+private lemma norm_inner_le_one {ι : Type*} [Fintype ι] {φ₀ φ₁ : ι → ℂ}
+    (hφ₀ : ∑ i, ‖φ₀ i‖ ^ 2 = 1) (hφ₁ : ∑ i, ‖φ₁ i‖ ^ 2 = 1) :
+    ‖∑ i, star (φ₀ i) * φ₁ i‖ ≤ 1 := by
+  calc ‖∑ i, star (φ₀ i) * φ₁ i‖
+      ≤ ∑ i, ‖star (φ₀ i) * φ₁ i‖ := norm_sum_le _ _
+    _ = ∑ i, ‖φ₀ i‖ * ‖φ₁ i‖ := by
+        apply Finset.sum_congr rfl; intro i _; rw [norm_mul, norm_star]
+    _ ≤ ∑ i, (‖φ₀ i‖ ^ 2 + ‖φ₁ i‖ ^ 2) / 2 := by
+        apply Finset.sum_le_sum; intro i _; nlinarith [sq_nonneg (‖φ₀ i‖ - ‖φ₁ i‖)]
+    _ = 1 := by rw [← Finset.sum_div, Finset.sum_add_distrib, hφ₀, hφ₁]; norm_num
 
 /-- Conditional entropy of a general channel `W` lies in `[0, 1]`. -/
 lemma condEntropy_mem_Icc (W : CQChannel d) : W.condEntropy ∈ Set.Icc (0 : ℝ) 1 := by
@@ -206,12 +216,15 @@ lemma condEntropy_mem_Icc (W : CQChannel d) : W.condEntropy ∈ Set.Icc (0 : ℝ
       dsimp only [f]; rw [dif_pos hc]
       have hmid_le : qjs (DensityOp.mix ε hc.1 hc.2 ρ (maxMixedState d))
           (DensityOp.mix ε hc.1 hc.2 σ (maxMixedState d)) ≤ 1 := by
-        have hW' : (CQChannel.mk fun b ↦ if b = false then DensityOp.mix ε hc.1 hc.2 ρ (maxMixedState d)
-            else DensityOp.mix ε hc.1 hc.2 σ (maxMixedState d)).condEntropy ≥ 0 := by
-          have h5 := condEntropy_ge_one_sub_h2 (CQChannel.mk fun b ↦ if b = false then DensityOp.mix ε hc.1 hc.2 ρ (maxMixedState d)
-            else DensityOp.mix ε hc.1 hc.2 σ (maxMixedState d))
-          have hh2 : h2 ((1 - (CQChannel.mk fun b ↦ if b = false then DensityOp.mix ε hc.1 hc.2 ρ (maxMixedState d)
-            else DensityOp.mix ε hc.1 hc.2 σ (maxMixedState d)).fidelityParam) / 2) ≤ 1 := h2_le_one _
+        let W' : CQChannel d := CQChannel.mk fun b ↦ if b = false then DensityOp.mix ε hc.1 hc.2 ρ (maxMixedState d)
+            else DensityOp.mix ε hc.1 hc.2 σ (maxMixedState d)
+        have hW' : W'.condEntropy ≥ 0 := by
+          have h5 := condEntropy_ge_one_sub_h2 W'
+          have hfid_nn : 0 ≤ W'.fidelityParam := Finset.sum_nonneg fun _ _ ↦ Real.sqrt_nonneg _
+          have hfid_le1 : W'.fidelityParam ≤ 1 := by
+            obtain ⟨ψ₀, ψ₁, hψ₀, hψ₁, _, _, hov⟩ := exists_uhlmann_purification (W'.out false) (W'.out true)
+            unfold CQChannel.fidelityParam; rw [← hov]; exact norm_inner_le_one hψ₀ hψ₁
+          have hh2 : h2 ((1 - W'.fidelityParam) / 2) ≤ 1 := h2_le_one ⟨by linarith, by linarith⟩
           linarith
         simpa [CQChannel.condEntropy] using hW'
       exact hmid_le
@@ -237,12 +250,10 @@ theorem theorem_1_2a_pure (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (hW₂
   set σ₁ := pureState φ₁ hφ₁
   set f₂ := ‖∑ i : d₂, star (φ₀ i) * φ₁ i‖
   have hf₂_nn : 0 ≤ f₂ := norm_nonneg _
-  have hf₂_le1 : f₂ ≤ 1 := by
-    have h := (lemma_4_1_gram_dephasing ρ₀ ρ₁ φ₀ φ₁ hφ₀ hφ₁).1
-    linarith
+  have hf₂_le1 : f₂ ≤ 1 := norm_inner_le_one hφ₀ hφ₁
   set p := (1 - f₂) / 2
-  have hp0 : 0 ≤ p := by linarith
-  have hp1 : p ≤ 1 / 2 := by linarith
+  have hp0 : 0 ≤ p := by dsimp only [p]; linarith
+  have hp1 : p ≤ 1 / 2 := by dsimp only [p]; linarith
   -- Step 1: `W₂.condEntropy = 1 - h2 p` and `h2Inv (1 - W₂.condEntropy) = p`
   have hH₂ : W₂.condEntropy = 1 - h2 p := by
     unfold CQChannel.condEntropy
@@ -250,8 +261,8 @@ theorem theorem_1_2a_pure (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (hW₂
       unfold qjs
       have hm : (DensityOp.midpoint (W₂.out false) (W₂.out true)).mat = (DensityOp.midpoint σ₀ σ₁).mat := by
         simp only [DensityOp.midpoint, DensityOp.mix, σ₀, σ₁, pureState, hmat₀, hmat₁]
-      rw [vonNeumannEntropy_eq_of_mat_eq hmat₀, vonNeumannEntropy_eq_of_mat_eq hmat₁,
-        vonNeumannEntropy_eq_of_mat_eq hm]
+      rw [vonNeumannEntropy_eq_of_mat_eq hm, vonNeumannEntropy_eq_of_mat_eq hmat₀,
+        vonNeumannEntropy_eq_of_mat_eq hmat₁]
     rw [hq_eq, qjs_pureState φ₀ φ₁ hφ₀ hφ₁]
   have hinv₂ : h2Inv (1 - W₂.condEntropy) = p := by
     rw [hH₂, sub_sub_cancel, h2Inv_h2 ⟨hp0, hp1⟩]
@@ -269,8 +280,8 @@ theorem theorem_1_2a_pure (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (hW₂
       have hm : (DensityOp.midpoint (DensityOp.tensor ρ₀ (W₂.out false)) (DensityOp.tensor ρ₁ (W₂.out true))).mat =
           (DensityOp.midpoint (DensityOp.tensor ρ₀ σ₀) (DensityOp.tensor ρ₁ σ₁)).mat := by
         simp [DensityOp.midpoint, DensityOp.mix, h0, h1]
-      rw [vonNeumannEntropy_eq_of_mat_eq h0, vonNeumannEntropy_eq_of_mat_eq h1,
-        vonNeumannEntropy_eq_of_mat_eq hm]
+      rw [vonNeumannEntropy_eq_of_mat_eq hm, vonNeumannEntropy_eq_of_mat_eq h0,
+        vonNeumannEntropy_eq_of_mat_eq h1]
     rw [hq_eq]
     unfold qjs dephaseCoherence
     have hSσ₀ : vonNeumannEntropy σ₀ = 0 := by
@@ -316,7 +327,7 @@ theorem theorem_1_2a_pure (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (hW₂
         · exact spectral_sum_diagonal (fun _ ↦ 1) hD (by simp [Real.negMulLog])
       rw [hsum]; simp [Real.negMulLog]
     rw [vonNeumannEntropy_tensor, vonNeumannEntropy_tensor, hSσ₀, hSσ₁, add_zero, add_zero,
-      hL.2.1, hL.2.2.1]
+      hL.1, hL.2.2.1]
     ring
   have hbranch1 : 1 - qjs (DensityOp.tensor ρ₁ (W₂.out false)) (DensityOp.tensor ρ₀ (W₂.out true)) =
       dephaseCoherence p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₀ ρ₁) := by
@@ -359,7 +370,7 @@ theorem theorem_1_2a_pure (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (hW₂
         simp only [XI, pauliZTensorI, Matrix.mul_apply, Matrix.diagonal_apply, Matrix.of_apply, Matrix.neg_apply]
         rw [Finset.sum_eq_single (b, j)]
         · rw [Finset.sum_eq_single (a, i)]
-          · cases a <;> cases b <;> simp
+          · cases a <;> cases b <;> by_cases hij : i = j <;> simp [hij]
           · intro r _ hr; simp [Ne.symm hr]
           · intro h; exact absurd (Finset.mem_univ _) h
         · intro r _ hr; simp [hr]
@@ -368,6 +379,7 @@ theorem theorem_1_2a_pure (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (hW₂
           (DensityOp.conjUnitary (pauliZTensorI d₁) (gramState ρ₀ ρ₁)).mat *
           star (XI : Matrix (Bool × d₁) (Bool × d₁) ℂ) =
           (DensityOp.conjUnitary (pauliZTensorI d₁) (gramState ρ₁ ρ₀)).mat := by
+        simp only [DensityOp.conjUnitary]
         rw [← hX_gram]
         simp only [DensityOp.conjUnitary, Matrix.mul_assoc]
         have h1 : (XI : Matrix (Bool × d₁) (Bool × d₁) ℂ) * (pauliZTensorI d₁ : Matrix (Bool × d₁) (Bool × d₁) ℂ) *
@@ -384,6 +396,7 @@ theorem theorem_1_2a_pure (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (hW₂
             simpa [Matrix.star_mul] using this
           rw [hXZ, hst, Matrix.mul_neg, Matrix.neg_mul, neg_neg]
         simpa only [Matrix.mul_assoc] using h1
+      simp only [DensityOp.conjUnitary] at hXZ_conj
       simp only [DensityOp.conjUnitary, dephaseState, DensityOp.mix, Matrix.mul_add, Matrix.add_mul,
         Matrix.mul_smul, Matrix.smul_mul]
       rw [show (XI : Matrix (Bool × d₁) (Bool × d₁) ℂ) * (gramState ρ₀ ρ₁).mat *
@@ -402,8 +415,8 @@ theorem theorem_1_2a_pure (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (hW₂
       have hm : (DensityOp.midpoint (DensityOp.tensor ρ₁ (W₂.out false)) (DensityOp.tensor ρ₀ (W₂.out true))).mat =
           (DensityOp.midpoint (DensityOp.tensor ρ₁ σ₀) (DensityOp.tensor ρ₀ σ₁)).mat := by
         simp [DensityOp.midpoint, DensityOp.mix, h0, h1]
-      rw [vonNeumannEntropy_eq_of_mat_eq h0, vonNeumannEntropy_eq_of_mat_eq h1,
-        vonNeumannEntropy_eq_of_mat_eq hm]
+      rw [vonNeumannEntropy_eq_of_mat_eq hm, vonNeumannEntropy_eq_of_mat_eq h0,
+        vonNeumannEntropy_eq_of_mat_eq h1]
     rw [hq_eq]
     unfold qjs dephaseCoherence
     have hSσ₀ : vonNeumannEntropy σ₀ = 0 := by
@@ -448,18 +461,18 @@ theorem theorem_1_2a_pure (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (hW₂
       rw [hsum]; simp [Real.negMulLog]
     have hL0 := (lemma_4_1_gram_dephasing ρ₀ ρ₁ φ₀ φ₁ hφ₀ hφ₁).2.2.1
     rw [vonNeumannEntropy_tensor, vonNeumannEntropy_tensor, hSσ₀, hSσ₁, add_zero, add_zero,
-      hL.2.1, hS_deph, hL0]
+      hL.1, hS_deph, hL0]
     ring
   -- Step 3: Apply Eq. (2.7) and Theorem 1.3
   have hvar_eq : (CQChannel.varCombine W₁ W₂).condEntropy = dephaseCoherence p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₀ ρ₁) := by
-    have h27 := varCombine_condEntropy W₁ W₂
+    have h27 := condEntropy_varCombine_eq W₁ W₂
     linarith
   have hC0 : dephaseCoherence 0 le_rfl (by norm_num) (gramState ρ₀ ρ₁) = W₁.condEntropy := by
     have h4 := (lemma_4_1_gram_dephasing ρ₀ ρ₁ φ₀ φ₁ hφ₀ hφ₁).2.2.2
     have h0 : (dephaseState 0 le_rfl (by norm_num) (gramState ρ₀ ρ₁)).mat = (gramState ρ₀ ρ₁).mat :=
       dephaseState_zero (gramState ρ₀ ρ₁)
     unfold dephaseCoherence CQChannel.condEntropy at *
-    rw [vonNeumannEntropy_eq_of_mat_eq h0]
+    rw [← vonNeumannEntropy_eq_of_mat_eq h0]
     exact h4
   have hsdpi := theorem_1_3_dephasing_sdpi (gramState ρ₀ ρ₁) hp0 hp1
   rw [hC0] at hsdpi
@@ -474,7 +487,7 @@ theorem theorem_1_2a_pure (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (hW₂
       (CQChannel.checkCombine W₁ W₂).condEntropy := by linarith
   have hgq_le : gq W₁.condEntropy W₂.condEntropy ≤ (CQChannel.checkCombine W₁ W₂).condEntropy := by
     unfold gq
-    exact le_trans (le_max_right _ _) hchk_ge
+    exact le_trans (min_le_right _ _) hchk_ge
   exact ⟨hvar_le, hchk_ge, hgq_le⟩
 
 /-! ### Part 2: Theorem 1.2(a) — Classical Hybrid Bound -/
@@ -519,12 +532,10 @@ theorem theorem_1_2a_bsc (W₁ : CQChannel d₁) {q : ℝ} (hq0 : 0 ≤ q) (hq1 
       set D : Matrix Bool Bool ℂ := Matrix.diagonal (fun k ↦ ((Real.sqrt (if k = b then 1 - q else q) : ℝ) : ℂ))
       have hDD : D * D = (W₂.out b).mat := by
         ext x y
-        simp only [D, W₂, bscChannel, Matrix.diagonal_mul_diagonal, Matrix.diagonal_apply]
-        split_ifs with hxy
-        · subst hxy
-          rw [← Complex.ofReal_mul, Real.mul_self_sqrt (by split_ifs <;> linarith)]
-          cases b <;> cases x <;> simp
-        · rfl
+        cases b <;> cases x <;> cases y <;>
+          simp only [D, W₂, bscChannel, Matrix.diagonal_mul_diagonal, Matrix.diagonal_apply,
+            ↓reduceIte, Bool.true_eq_false, Bool.false_eq_true]
+        all_goals (rw [← Complex.ofReal_mul, Real.mul_self_sqrt (by linarith)])
       have hD_psd : D.PosSemidef := by
         rw [Matrix.posSemidef_diagonal_iff]; intro k; exact_mod_cast Real.sqrt_nonneg _
       have huniq : (W₂.out b).sqrtMat = D := by
@@ -582,32 +593,30 @@ theorem theorem_1_2a_bsc (W₁ : CQChannel d₁) {q : ℝ} (hq0 : 0 ≤ q) (hq1 
         have h := congr_fun (hcol j) i
         simpa [Matrix.mulVec, dotProduct, Pi.single_apply] using h
       rw [huniq]; simp [D, Matrix.diagonal_apply]
-    -- Show `W₂.dual` has block-diagonal outputs in `Bool` (the 2nd coordinate of `Bool × Bool`):
-    -- block `c = false` is `½ Wp.out b`, block `c = true` is `½ (X * Wp.out b * X)`!
-    let X : Matrix.unitaryGroup Bool ℂ :=
-      ⟨Matrix.of fun a b ↦ if a = !b then 1 else 0, by
-        rw [Matrix.mem_unitaryGroup_iff']; ext a b
-        simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.of_apply, Matrix.one_apply, Fintype.sum_bool]
-        cases a <;> cases b <;> simp⟩
-    let U_swap : Matrix.unitaryGroup ((Bool × d₁) × (Bool × Bool)) ℂ :=
-      ⟨Matrix.of fun p q ↦
-          if p.1 = q.1 ∧ p.2.2 = q.2.2 ∧ (if p.2.2 = false then p.2.1 = q.2.1 else p.2.1 = !q.2.1) then 1 else 0, by
-        rw [Matrix.mem_unitaryGroup_iff']
-        ext ⟨p₁, a₁, c₁⟩ ⟨p₂, a₂, c₂⟩
-        simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.of_apply, Matrix.one_apply, Fintype.sum_prod_type]
-        by_cases h1 : p₁ = p₂
-        · subst h1
-          simp only [Prod.mk.injEq, true_and]
-          rw [Finset.sum_eq_single p₁]
-          · simp only [true_and, Fintype.sum_bool]
-            cases c₁ <;> cases c₂ <;> cases a₁ <;> cases a₂ <;> simp
-          · intro x _ hx; simp [hx, Ne.symm hx]
-          · intro h; exact absurd (Finset.mem_univ _) h
-        · simp only [Prod.mk.injEq, h1, false_and, ↓reduceIte]
-          apply Finset.sum_eq_zero; intro x _
-          by_cases hx : x = p₁
-          · subst hx; simp [h1, Ne.symm h1]
-          · simp [hx]⟩
+    -- Block-diagonal structure of `W₂.dual`: block `c = false` is `½ Wp`, block `c = true` is `½ (X Wp X)`
+    have hW2dual : ∀ (b a₁ c₁ a₂ c₂ : Bool),
+        (W₂.dual.out b).mat (a₁, c₁) (a₂, c₂) =
+          if c₁ = c₂ then
+            (1 / 2 : ℂ) * (Wp.out b).mat (if c₁ = false then a₁ else !a₁) (if c₂ = false then a₂ else !a₂)
+          else 0 := by
+      intro b a₁ c₁ a₂ c₂
+      have h1q : (1 + (1 - 2 * q)) / 2 = 1 - q := by ring
+      have hq' : (1 - (1 - 2 * q)) / 2 = q := by ring
+      have hs : (Real.sqrt 2 : ℂ)⁻¹ * (Real.sqrt 2 : ℂ)⁻¹ = (1 / 2 : ℂ) := by
+        rw [← Complex.ofReal_inv, ← Complex.ofReal_mul, ← mul_inv,
+          Real.mul_self_sqrt (by norm_num : (0 : ℝ) ≤ 2)]
+        push_cast; ring
+      have hs2 : ((Real.sqrt 2 : ℂ)⁻¹) ^ 2 = (1 / 2 : ℂ) := by rw [sq, hs]
+      simp only [CQChannel.dual, Wp, pureChannel, pureState, gramState, gramFactor,
+        DensityOp.conjUnitary, pauliZTensorI, Matrix.mul_apply, Matrix.conjTranspose_apply,
+        Matrix.diagonal_apply, Matrix.star_apply, Matrix.of_apply, Fintype.sum_prod_type,
+        Fintype.sum_bool, h1q, hq']
+      simp_rw [hsqrt_bsc]
+      cases b <;> cases c₁ <;> cases c₂ <;> cases a₁ <;> cases a₂ <;>
+        (simp only [↓reduceIte, Bool.true_eq_false, Bool.false_eq_true, Bool.not_false, Bool.not_true,
+          mul_one, one_mul, mul_zero, zero_mul, add_zero, zero_add, mul_neg, neg_mul, neg_neg,
+          star_mul', star_neg, star_one, star_zero, Complex.star_def, Complex.conj_ofReal];
+         first | ring | (ring_nf; simp only [hs2]; ring))
     -- Conjugate `W₁.dual ⊠ W₂.dual` by `U_swap` and reindex to `Bool × ((Bool × d₁) × Bool)` to get
     -- `DensityOp.midpoint (ketBraBool false ⊗ (W₁.dual ⊠ Wp).out u) (ketBraBool true ⊗ (W₁.dual ⊠ Wp).out u)`!
     have hS_iso : ∀ (u : Bool),
@@ -645,29 +654,11 @@ theorem theorem_1_2a_bsc (W₁ : CQChannel d₁) {q : ℝ} (hq0 : 0 ≤ q) (hq1 
         rw [Finset.sum_eq_single (e (q₁, a₂, c₂))]
         · rw [Finset.sum_eq_single (e (p₁, a₁, c₁))]
           · simp only [↓reduceIte, one_mul, star_one, mul_one, e, Equiv.coe_fn_mk]
-            have hsq2 : ((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹) = (1 / 2 : ℂ) := by
-              rw [← Complex.ofReal_inv, Complex.star_def, Complex.conj_ofReal, ← Complex.ofReal_mul,
-                ← mul_inv, Real.mul_self_sqrt (by norm_num : (0 : ℝ) ≤ 2)]
-              push_cast; ring
-            have h1q : (1 + (1 - 2 * q)) / 2 = 1 - q := by ring
-            have hq' : (1 - (1 - 2 * q)) / 2 = q := by ring
-            simp only [B_tgt, CQChannel.checkCombine, CQChannel.dual, CQChannel.ketBraBool, Wp, pureChannel,
-              pureState, gramState, gramFactor, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor,
-              DensityOp.conjUnitary, pauliZTensorI, Matrix.add_apply, Matrix.smul_apply, Matrix.mul_apply,
-              Matrix.conjTranspose_apply, Matrix.diagonal_apply, Matrix.star_apply, Matrix.kroneckerMap_apply,
-              Matrix.of_apply, Complex.real_smul, Fintype.sum_prod_type, Fintype.sum_bool, h1q, hq']
-            simp_rw [hsqrt_bsc]
-            cases u <;> cases c₁ <;> cases c₂ <;> cases a₁ <;> cases a₂ <;>
-              (simp only [↓reduceIte, Bool.true_eq_false, Bool.false_eq_true, Bool.not_false, Bool.not_true,
-                and_self, and_true, and_false, true_and, false_and, mul_one, one_mul, mul_zero, zero_mul,
-                add_zero, zero_add, mul_neg, neg_mul, neg_neg, star_mul', star_neg, star_one, star_zero,
-                Complex.star_def, Complex.conj_ofReal];
-               try ring;
-               have hs : (Real.sqrt 2 : ℂ)⁻¹ * (Real.sqrt 2 : ℂ)⁻¹ = (1 / 2 : ℂ) := by
-                 rw [← Complex.ofReal_inv, ← Complex.ofReal_mul, ← mul_inv,
-                   Real.mul_self_sqrt (by norm_num : (0 : ℝ) ≤ 2)]; push_cast; ring
-               ring_nf; try simp only [show ((Real.sqrt 2 : ℂ)⁻¹) ^ 2 = (1 / 2 : ℂ) by rw [sq, hs]];
-               push_cast; ring)
+            simp only [B_tgt, CQChannel.checkCombine, CQChannel.ketBraBool, DensityOp.midpoint,
+              DensityOp.mix, DensityOp.tensor, Matrix.add_apply, Matrix.smul_apply,
+              Matrix.kroneckerMap_apply, Matrix.of_apply, Complex.real_smul]
+            rw [hW2dual, hW2dual]
+            cases c₁ <;> cases c₂ <;> simp <;> push_cast <;> ring
           · intro r _ hr; simp [Ne.symm hr]
           · intro h; exact absurd (Finset.mem_univ _) h
         · intro r _ hr; simp [Ne.symm hr]
@@ -734,25 +725,11 @@ theorem theorem_1_2a_bsc (W₁ : CQChannel d₁) {q : ℝ} (hq0 : 0 ≤ q) (hq1 
         rw [Finset.sum_eq_single (e (q₁, a₂, c₂))]
         · rw [Finset.sum_eq_single (e (p₁, a₁, c₁))]
           · simp only [↓reduceIte, one_mul, star_one, mul_one, e, Equiv.coe_fn_mk]
-            have h1q : (1 + (1 - 2 * q)) / 2 = 1 - q := by ring
-            have hq' : (1 - (1 - 2 * q)) / 2 = q := by ring
-            simp only [B_tgt, CQChannel.checkCombine, CQChannel.dual, CQChannel.ketBraBool, Wp, pureChannel,
-              pureState, gramState, gramFactor, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor,
-              DensityOp.conjUnitary, pauliZTensorI, Matrix.add_apply, Matrix.smul_apply, Matrix.mul_apply,
-              Matrix.conjTranspose_apply, Matrix.diagonal_apply, Matrix.star_apply, Matrix.kroneckerMap_apply,
-              Matrix.of_apply, Complex.real_smul, Fintype.sum_prod_type, Fintype.sum_bool, h1q, hq']
-            simp_rw [hsqrt_bsc]
-            cases c₁ <;> cases c₂ <;> cases a₁ <;> cases a₂ <;>
-              (simp only [↓reduceIte, Bool.true_eq_false, Bool.false_eq_true, Bool.not_false, Bool.not_true,
-                and_self, and_true, and_false, true_and, false_and, mul_one, one_mul, mul_zero, zero_mul,
-                add_zero, zero_add, mul_neg, neg_mul, neg_neg, star_mul', star_neg, star_one, star_zero,
-                Complex.star_def, Complex.conj_ofReal];
-               try ring;
-               have hs : (Real.sqrt 2 : ℂ)⁻¹ * (Real.sqrt 2 : ℂ)⁻¹ = (1 / 2 : ℂ) := by
-                 rw [← Complex.ofReal_inv, ← Complex.ofReal_mul, ← mul_inv,
-                   Real.mul_self_sqrt (by norm_num : (0 : ℝ) ≤ 2)]; push_cast; ring
-               ring_nf; try simp only [show ((Real.sqrt 2 : ℂ)⁻¹) ^ 2 = (1 / 2 : ℂ) by rw [sq, hs]];
-               push_cast; ring)
+            simp only [B_tgt, CQChannel.checkCombine, CQChannel.ketBraBool, DensityOp.midpoint,
+              DensityOp.mix, DensityOp.tensor, Matrix.add_apply, Matrix.smul_apply,
+              Matrix.kroneckerMap_apply, Matrix.of_apply, Complex.real_smul]
+            rw [hW2dual, hW2dual, hW2dual, hW2dual]
+            cases c₁ <;> cases c₂ <;> simp <;> push_cast <;> ring
           · intro r _ hr; simp [Ne.symm hr]
           · intro h; exact absurd (Finset.mem_univ _) h
         · intro r _ hr; simp [Ne.symm hr]
@@ -807,10 +784,12 @@ lemma simultaneous_diagonalization {A B : Matrix d d ℂ}
     conv_lhs => rw [hspec]
     simp only [Matrix.mul_assoc]
     rw [← Matrix.mul_assoc (star (U₀ : Matrix d d ℂ)) (U₀ : Matrix d d ℂ), hU₀_star,
-      Matrix.one_mul, hU₀_star, Matrix.mul_one]
+      Matrix.one_mul, Matrix.mul_one]
   have hB'_herm : B'.IsHermitian := by
-    simp only [B', Matrix.IsHermitian, Matrix.conjTranspose_mul, ← Matrix.star_eq_conjTranspose,
-      star_star, hB.eq, Matrix.mul_assoc]
+    rw [Matrix.IsHermitian, ← Matrix.star_eq_conjTranspose]
+    simp only [B', star_mul, star_star, Matrix.mul_assoc]
+    have hBs : star B = B := by rw [Matrix.star_eq_conjTranspose]; exact hB.eq
+    rw [hBs]
   have hB'_block : ∀ i j : d, α i ≠ α j → B' i j = 0 := by
     intro i j hij
     have hcomm' : Matrix.diagonal (Complex.ofReal ∘ α) * B' = B' * Matrix.diagonal (Complex.ofReal ∘ α) := by
@@ -836,7 +815,8 @@ lemma simultaneous_diagonalization {A B : Matrix d d ℂ}
     simpa [Bblk, Matrix.conjTranspose_apply] using hh
   let V : Matrix d d ℂ := Matrix.of fun i j ↦
     if h : α i = α j then
-      ((hBblk_herm (α i)).eigenvectorUnitary : Matrix _ _ ℂ) ⟨i, rfl⟩ ⟨j, h.symm⟩
+      ((hBblk_herm (α i)).eigenvectorUnitary :
+        Matrix {k : d // α k = α i} {k : d // α k = α i} ℂ) ⟨i, rfl⟩ ⟨j, h.symm⟩
     else 0
   have hV_unit : V ∈ Matrix.unitaryGroup d ℂ := by
     rw [Matrix.mem_unitaryGroup_iff']
@@ -958,7 +938,7 @@ lemma simultaneous_diagonalization {A B : Matrix d d ℂ}
               ((hBblk_herm (α i)).eigenvectorUnitary : Matrix _ _ ℂ) = 1 :=
             Unitary.coe_star_mul_self (hBblk_herm (α i)).eigenvectorUnitary
           rw [← Matrix.mul_assoc (star ((hBblk_herm (α i)).eigenvectorUnitary : Matrix _ _ ℂ)),
-            hVstar, Matrix.one_mul, hVstar, Matrix.mul_one]
+            hVstar, Matrix.one_mul, Matrix.mul_one]
         have hentry := congr_fun (congr_fun hdiag_blk ⟨i, rfl⟩) ⟨j, hij.symm⟩
         simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.diagonal_apply, Function.comp_apply] at hentry
         rw [hentry]
@@ -1000,7 +980,7 @@ private lemma vonNeumannEntropy_block_diag {w : d₂ → ℝ} (hw_nn : ∀ y, 0 
   have hU_star : star U * U = 1 := by
     ext ⟨i₁, y₁⟩ ⟨j₁, y₂⟩
     simp only [U, Matrix.mul_apply, Matrix.star_apply, Matrix.of_apply, Matrix.one_apply,
-      Fintype.sum_prod_type]
+      Fintype.sum_prod_type_right]
     by_cases hy : y₁ = y₂
     · subst hy
       rw [Finset.sum_eq_single y₁]
@@ -1010,8 +990,8 @@ private lemma vonNeumannEntropy_block_diag {w : d₂ → ℝ} (hw_nn : ∀ y, 0 
       · intro y _ hne; simp [hne]
       · intro h; exact absurd (Finset.mem_univ _) h
     · simp only [Prod.mk.injEq, hy, and_false, ↓reduceIte]
-      apply Finset.sum_eq_zero; intro i _
       apply Finset.sum_eq_zero; intro y _
+      apply Finset.sum_eq_zero; intro i _
       by_cases h1 : y = y₁
       · subst h1; simp [hy]
       · simp [h1]
@@ -1019,7 +999,7 @@ private lemma vonNeumannEntropy_block_diag {w : d₂ → ℝ} (hw_nn : ∀ y, 0 
     ext ⟨i₁, y₁⟩ ⟨j₁, y₂⟩
     rw [hρ i₁ j₁ y₁ y₂]
     simp only [U, Matrix.mul_apply, Matrix.star_apply, Matrix.of_apply, Matrix.diagonal_apply,
-      Function.comp_apply, Fintype.sum_prod_type, lam]
+      Function.comp_apply, Fintype.sum_prod_type_right, lam]
     by_cases hy : y₁ = y₂
     · subst hy
       simp only [↓reduceIte]
@@ -1032,30 +1012,28 @@ private lemma vonNeumannEntropy_block_diag {w : d₂ → ℝ} (hw_nn : ∀ y, 0 
         rw [hspec]
         simp only [DensityOp.eigUnitary, DensityOp.eigvals, Finset.mul_sum]
         apply Finset.sum_congr rfl; intro k _
-        rw [Finset.sum_eq_single k]
-        · rw [Finset.sum_eq_single y₁]
-          · rw [Finset.sum_eq_single k]
-            · simp only [↓reduceIte, Complex.ofReal_mul]; ring
-            · intro l _ hl; simp [Ne.symm hl]
-            · intro h; exact absurd (Finset.mem_univ _) h
-          · intro y _ hy; simp [Ne.symm hy]
+        rw [Finset.sum_eq_single y₁]
+        · rw [Finset.sum_eq_single k]
+          · simp only [↓reduceIte, Complex.ofReal_mul]; ring
+          · intro l _ hl; simp [hl]
           · intro h; exact absurd (Finset.mem_univ _) h
-        · intro l _ hl; simp [Ne.symm hl]
+        · intro z _ hz; simp [Ne.symm hz]
         · intro h; exact absurd (Finset.mem_univ _) h
       · intro y _ hne
         apply Finset.sum_eq_zero; intro k _
         simp [Ne.symm hne]
       · intro h; exact absurd (Finset.mem_univ _) h
     · simp only [hy, ↓reduceIte]
-      apply Finset.sum_eq_zero; intro k _
+      symm
       apply Finset.sum_eq_zero; intro y _
+      apply Finset.sum_eq_zero; intro k _
       by_cases h2 : y₂ = y
       · subst h2
-        have hsum0 : ∑ l : d₁, ∑ z : d₂,
+        have hsum0 : ∑ z : d₂, ∑ l : d₁,
             (if y₁ = z then ((τ y₁).eigUnitary : Matrix d₁ d₁ ℂ) i₁ l else 0) *
               (if (l, z) = (k, y₂) then ((w y₂ * (τ y₂).eigvals k : ℝ) : ℂ) else 0) = 0 := by
-          apply Finset.sum_eq_zero; intro l _
           apply Finset.sum_eq_zero; intro z _
+          apply Finset.sum_eq_zero; intro l _
           by_cases hz : y₁ = z
           · subst hz; simp [hy]
           · simp [hz]
@@ -1076,10 +1054,10 @@ private lemma vonNeumannEntropy_block_diag {w : d₂ → ℝ} (hw_nn : ∀ y, 0 
     intro y
     simp_rw [Real.negMulLog_mul, Finset.sum_add_distrib, ← Finset.sum_mul, ← Finset.mul_sum,
       (τ y).sum_eigvals, one_mul]
-    ring
   simp_rw [lam, hinner, Finset.sum_add_distrib, add_div, Finset.sum_div]
   congr 1
   apply Finset.sum_congr rfl; intro y _
+  simp only [DensityOp.eigvals, ← Finset.mul_sum]
   ring
 
 /-- **Theorem 1.2(a) (Classical Hybrid Q-MGL)**:
@@ -1097,13 +1075,13 @@ theorem theorem_1_2a_classical (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (
     have hpsd : (Matrix.diagonal (Complex.ofReal ∘ p₀)).PosSemidef := by
       rw [← hdiag₀]
       simpa [Matrix.star_eq_conjTranspose] using (W₂.out false).posSemidef.conjTranspose_mul_mul_same (U : Matrix d₂ d₂ ℂ)
-    exact_mod_cast (Matrix.posSemidef_diagonal_iff.mp hpsd) y
+    exact Complex.ofReal_nonneg.mp ((Matrix.posSemidef_diagonal_iff.mp hpsd) y)
   have hp₁_nn : ∀ y : d₂, 0 ≤ p₁ y := by
     intro y
     have hpsd : (Matrix.diagonal (Complex.ofReal ∘ p₁)).PosSemidef := by
       rw [← hdiag₁]
       simpa [Matrix.star_eq_conjTranspose] using (W₂.out true).posSemidef.conjTranspose_mul_mul_same (U : Matrix d₂ d₂ ℂ)
-    exact_mod_cast (Matrix.posSemidef_diagonal_iff.mp hpsd) y
+    exact Complex.ofReal_nonneg.mp ((Matrix.posSemidef_diagonal_iff.mp hpsd) y)
   have hp₀_sum : ∑ y : d₂, p₀ y = 1 := by
     have htr : (Matrix.diagonal (Complex.ofReal ∘ p₀)).trace = 1 := by
       rw [← hdiag₀, Matrix.trace_mul_cycle, hU_mul, Matrix.one_mul, (W₂.out false).trace_one]
@@ -1129,34 +1107,49 @@ theorem theorem_1_2a_classical (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (
       rw [Matrix.mem_unitaryGroup_iff']
       ext ⟨i₁, y₁⟩ ⟨j₁, y₂⟩
       simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.kroneckerMap_apply, Matrix.one_apply,
-        Fintype.sum_prod_type, star_mul', star_ite, star_one, star_zero, ite_mul, zero_mul,
-        mul_ite, mul_zero, one_mul, mul_one, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
-      by_cases hi : i₁ = j₁
-      · subst hi
-        simp only [↓reduceIte, Prod.mk.injEq, true_and]
-        have hu := congr_fun (congr_fun hU_mul y₁) y₂
-        simpa [Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply] using hu
-      · simp [hi]⟩
+        Fintype.sum_prod_type]
+      rw [Finset.sum_eq_single i₁]
+      · simp only [↓reduceIte, one_mul, star_one]
+        by_cases hi : i₁ = j₁
+        · subst hi
+          simp only [↓reduceIte, one_mul, Prod.mk.injEq, true_and, star_star]
+          have hu := congr_fun (congr_fun hU_mul y₁) y₂
+          simpa [Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply] using hu
+        · simp [hi]
+      · intro k _ hk; simp [Ne.symm hk]
+      · intro h; exact absurd (Finset.mem_univ _) h⟩
+  have hIU_kron : ∀ (A : Matrix d₁ d₁ ℂ) (B : Matrix d₂ d₂ ℂ),
+      (IU : Matrix (d₁ × d₂) (d₁ × d₂) ℂ) * Matrix.kroneckerMap (· * ·) A B *
+        star (IU : Matrix (d₁ × d₂) (d₁ × d₂) ℂ) =
+      Matrix.kroneckerMap (· * ·) A (star (U : Matrix d₂ d₂ ℂ) * B * (U : Matrix d₂ d₂ ℂ)) := by
+    intro A B
+    ext ⟨i₁, y₁⟩ ⟨j₁, y₂⟩
+    simp only [IU, Matrix.mul_apply, Matrix.star_apply, Matrix.kroneckerMap_apply, Matrix.one_apply,
+      Fintype.sum_prod_type]
+    rw [Finset.sum_eq_single j₁]
+    · simp only [↓reduceIte, one_mul, star_one, star_star]
+      have hinner : ∀ z : d₂,
+          (∑ k : d₁, ∑ w : d₂,
+            (if i₁ = k then 1 else 0) * star ((U : Matrix d₂ d₂ ℂ) w y₁) * (A k j₁ * B w z)) =
+          A i₁ j₁ * (∑ w : d₂, star ((U : Matrix d₂ d₂ ℂ) w y₁) * B w z) := by
+        intro z
+        rw [Finset.sum_eq_single i₁]
+        · simp only [↓reduceIte, one_mul, Finset.mul_sum]
+          apply Finset.sum_congr rfl; intro w _; ring
+        · intro k _ hk; simp [Ne.symm hk]
+        · intro h; exact absurd (Finset.mem_univ _) h
+      simp_rw [hinner, Finset.mul_sum]
+      apply Finset.sum_congr rfl; intro z _; ring
+    · intro k _ hk; simp [Ne.symm hk]
+    · intro h; exact absurd (Finset.mem_univ _) h
   have hchk_eq : (CQChannel.checkCombine W₁ W₂d).condEntropy = (CQChannel.checkCombine W₁ W₂).condEntropy := by
     apply condEntropy_eq_of_conjUnitary IU
-    · ext ⟨i₁, y₁⟩ ⟨j₁, y₂⟩
-      simp only [CQChannel.checkCombine, W₂d, DensityOp.conjUnitary, DensityOp.midpoint, DensityOp.mix,
-        DensityOp.tensor, IU, Bool.not_false, Matrix.add_apply, Matrix.smul_apply, Matrix.mul_apply,
-        Matrix.star_apply, Matrix.kroneckerMap_apply, Matrix.one_apply, Complex.real_smul,
-        Fintype.sum_prod_type, star_mul', star_ite, star_one, star_zero, ite_mul, zero_mul,
-        mul_ite, mul_zero, one_mul, mul_one, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte,
-        star_star, Finset.mul_sum, Finset.sum_mul]
-      simp_rw [Finset.sum_add_distrib]
-      congr 1 <;> (apply Finset.sum_congr rfl; intro z _; apply Finset.sum_congr rfl; intro w _; ring)
-    · ext ⟨i₁, y₁⟩ ⟨j₁, y₂⟩
-      simp only [CQChannel.checkCombine, W₂d, DensityOp.conjUnitary, DensityOp.midpoint, DensityOp.mix,
-        DensityOp.tensor, IU, Bool.not_true, Matrix.add_apply, Matrix.smul_apply, Matrix.mul_apply,
-        Matrix.star_apply, Matrix.kroneckerMap_apply, Matrix.one_apply, Complex.real_smul,
-        Fintype.sum_prod_type, star_mul', star_ite, star_one, star_zero, ite_mul, zero_mul,
-        mul_ite, mul_zero, one_mul, mul_one, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte,
-        star_star, Finset.mul_sum, Finset.sum_mul]
-      simp_rw [Finset.sum_add_distrib]
-      congr 1 <;> (apply Finset.sum_congr rfl; intro z _; apply Finset.sum_congr rfl; intro w _; ring)
+    · simp only [CQChannel.checkCombine, W₂d, DensityOp.conjUnitary, DensityOp.midpoint, DensityOp.mix,
+        DensityOp.tensor, Bool.not_false, Matrix.mul_add, Matrix.add_mul, Matrix.mul_smul,
+        Matrix.smul_mul, star_star, hIU_kron]
+    · simp only [CQChannel.checkCombine, W₂d, DensityOp.conjUnitary, DensityOp.midpoint, DensityOp.mix,
+        DensityOp.tensor, Bool.not_true, Matrix.mul_add, Matrix.add_mul, Matrix.mul_smul,
+        Matrix.smul_mul, star_star, hIU_kron]
   -- Posterior weights `w y = (p₀ y + p₁ y) / 2` and crossover probabilities `q y ∈ [0, 1/2]`
   let w : d₂ → ℝ := fun y ↦ (p₀ y + p₁ y) / 2
   have hw_nn : ∀ y : d₂, 0 ≤ w y := fun y ↦ by dsimp [w]; linarith [hp₀_nn y, hp₁_nn y]
@@ -1222,12 +1215,11 @@ theorem theorem_1_2a_classical (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (
         have hp0_eq : p₀ y = (2 * w y) * (1 - q_raw y) := by
           have : p₀ y + p₁ y = 2 * w y := by dsimp [w]; ring
           linarith
-        rw [hp0_eq, hp1_eq, Real.negMulLog_mul, Real.negMulLog_mul, Real.negMulLog_mul]
         have h2w : Real.negMulLog (2 * w y) = -2 * w y * Real.log 2 + 2 * Real.negMulLog (w y) := by
           rw [Real.negMulLog_mul]; unfold Real.negMulLog; ring
-        have hsum_q : (1 - q_raw y) + q_raw y = 1 := by ring
+        rw [hp0_eq, hp1_eq, Real.negMulLog_mul, Real.negMulLog_mul, h2w]
         field_simp [hlog2]
-        nlinarith [h2w]
+        ring
     calc 1 - ((∑ y : d₂, Real.negMulLog (w y)) / Real.log 2 -
             ((∑ y : d₂, Real.negMulLog (p₀ y)) / Real.log 2 + (∑ y : d₂, Real.negMulLog (p₁ y)) / Real.log 2) / 2)
         = ∑ y : d₂, (w y - (Real.negMulLog (w y) - (Real.negMulLog (p₀ y) + Real.negMulLog (p₁ y)) / 2) / Real.log 2) := by
@@ -1235,7 +1227,7 @@ theorem theorem_1_2a_classical (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (
             congr 1
             simp_rw [sub_div, Finset.sum_sub_distrib, ← Finset.sum_div, div_div, ← add_div,
               Finset.sum_add_distrib]
-            field_simp [hlog2]; ring
+            field_simp [hlog2]
       _ = ∑ y : d₂, w y * h2 (q y) := by
             apply Finset.sum_congr rfl; intro y _; exact (hterm y).symm
   -- Express `(W₁ ⊠ W₂d).condEntropy = ∑ y, w y * (W₁ ⊠ BSC(q y)).condEntropy`
@@ -1353,7 +1345,7 @@ theorem theorem_1_2a_classical (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (
               Complex.real_smul, hq_eq]; push_cast; ring
           have hm : (τm y).mat = (DensityOp.midpoint σ₀' σ₁').mat := by
             ext i j; simp only [τm, DensityOp.midpoint, DensityOp.mix, h0, h1, Matrix.add_apply,
-              Matrix.smul_apply, Complex.real_smul]; ring
+              Matrix.smul_apply, Complex.real_smul]; push_cast; ring
           exact ⟨by rw [vonNeumannEntropy_eq_of_mat_eq h0, vonNeumannEntropy_eq_of_mat_eq h1, add_comm],
                  vonNeumannEntropy_eq_of_mat_eq hm⟩
       unfold CQChannel.condEntropy qjs
@@ -1368,14 +1360,14 @@ theorem theorem_1_2a_classical (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (
         = ∑ y : d₂, w y * (1 - (vonNeumannEntropy (τm y) - (vonNeumannEntropy (τ₀ y) + vonNeumannEntropy (τ₁ y)) / 2)) := by
             have h1 : (1 : ℝ) = ∑ y : d₂, w y := hw_sum.symm
             conv_lhs => rw [h1]
-            simp only [mul_sub, mul_one, Finset.sum_sub_distrib, mul_div_assoc, ← Finset.sum_div,
-              mul_add, Finset.sum_add_distrib]
+            simp only [mul_sub, mul_one, mul_div_assoc, mul_add, Finset.sum_sub_distrib,
+              Finset.sum_add_distrib, ← Finset.sum_div]
             ring
       _ = ∑ y : d₂, w y * (CQChannel.checkCombine W₁ (bscChannel (q y) (hq0 y) (by linarith [hq1 y]))).condEntropy := by
             apply Finset.sum_congr rfl; intro y _; rw [hblk_bsc y]
   -- Apply `theorem_1_2a_bsc` term-by-term and Jensen's inequality via `convexOn_gc`!
   have hH₁_mem := condEntropy_mem_Icc W₁
-  have hconv := convexOn_gc hH₁_mem.1 hH₁_mem.2
+  have hconv := convexOn_gc hH₁_mem
   have hgc_le : gc W₁.condEntropy W₂.condEntropy ≤ (CQChannel.checkCombine W₁ W₂).condEntropy := by
     rw [← hH₂_eq, ← hchk_eq, hH₂_decomp, hchk_decomp]
     have hjensen : gc W₁.condEntropy (∑ y : d₂, w y * h2 (q y)) ≤
@@ -1397,7 +1389,7 @@ private lemma prop_4_2_branch1 (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
     W₁.condEntropy + deltaGap (1 - W₁.condEntropy) (1 - (2 : ℝ) ^ (W₂.condEntropy - 1)) ≤
       (CQChannel.checkCombine W₁ W₂).condEntropy := by
   -- Step 1: Uhlmann purification of `W₂.out false, W₂.out true` with overlap `F₂ = W₂.fidelityParam`
-  obtain ⟨φ₀, φ₁, hφ₀, hφ₁, htr₀, htr₁, hov⟩ := uhlmann_purification (W₂.out false) (W₂.out true)
+  obtain ⟨φ₀, φ₁, hφ₀, hφ₁, htr₀, htr₁, hov⟩ := exists_uhlmann_purification (W₂.out false) (W₂.out true)
   let W₂p : CQChannel (d₂ × d₂) :=
     { out := fun b ↦ match b with | false => pureState φ₀ hφ₀ | true => pureState φ₁ hφ₁ }
   have hW₂p_pure : W₂p.IsPureState := ⟨φ₀, φ₁, hφ₀, hφ₁, rfl, rfl⟩
@@ -1498,8 +1490,8 @@ private lemma prop_4_2_branch1 (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
           (partialTrace₂ (reidx ((CQChannel.checkCombine W₁ W₂p).out true)))).mat =
           (DensityOp.midpoint ((CQChannel.checkCombine W₁ W₂).out false) ((CQChannel.checkCombine W₁ W₂).out true)).mat := by
         simp [DensityOp.midpoint, DensityOp.mix, hpt0, hpt1]
-      rw [vonNeumannEntropy_eq_of_mat_eq hpt0, vonNeumannEntropy_eq_of_mat_eq hpt1,
-        vonNeumannEntropy_eq_of_mat_eq hm]
+      rw [vonNeumannEntropy_eq_of_mat_eq hm, vonNeumannEntropy_eq_of_mat_eq hpt0,
+        vonNeumannEntropy_eq_of_mat_eq hpt1]
     have hq_eq2 : qjs (reidx ((CQChannel.checkCombine W₁ W₂p).out false))
         (reidx ((CQChannel.checkCombine W₁ W₂p).out true)) =
         qjs ((CQChannel.checkCombine W₁ W₂p).out false) ((CQChannel.checkCombine W₁ W₂p).out true) := by
@@ -1518,8 +1510,7 @@ private lemma prop_4_2_branch1 (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
     unfold CQChannel.fidelityParam; exact hov.symm
   have hF2_nn : 0 ≤ W₂.fidelityParam := by rw [hF2]; exact norm_nonneg _
   have hF2_le1 : W₂.fidelityParam ≤ 1 := by
-    have := (lemma_4_1_gram_dephasing (W₁.out false) (W₁.out true) φ₀ φ₁ hφ₀ hφ₁).1
-    rw [hF2]; linarith
+    rw [hF2]; exact norm_inner_le_one hφ₀ hφ₁
   have hH₂p : W₂p.condEntropy = 1 - h2 ((1 - W₂.fidelityParam) / 2) := by
     unfold CQChannel.condEntropy W₂p
     dsimp only
@@ -1614,12 +1605,16 @@ theorem theorem_1_2b_linear_splitting (W : CQChannel d) :
   have hb3 : W.condEntropy + deltaGap W.condEntropy (1 - (2 : ℝ) ^ (-W.condEntropy)) ≤
       W.minusChannel.condEntropy :=
     le_trans (le_trans (le_max_left _ _) (le_max_right _ _)) hfb
-  have hsc := prop_4_3_scalar hH_mem.1 hH_mem.2
-  have hmax : max (deltaGap (1 - W.condEntropy) (1 - (2 : ℝ) ^ (W.condEntropy - 1)))
-      (deltaGap W.condEntropy (1 - (2 : ℝ) ^ (-W.condEntropy))) ≤
-      W.minusChannel.condEntropy - W.condEntropy :=
-    max_le (by linarith) (by linarith)
-  exact le_trans hsc hmax
+  rcases eq_or_lt_of_le hH_mem.1 with h0 | h0_pos
+  · rw [← h0]; have hHm := condEntropy_mem_Icc W.minusChannel; linarith [hHm.1]
+  · rcases eq_or_lt_of_le hH_mem.2 with h1 | h1_lt
+    · rw [h1]; have hHp := condEntropy_mem_Icc W.plusChannel; linarith [hHp.2]
+    · have hsc := prop_4_3_scalar h0_pos h1_lt
+      have hmax : max (deltaGap (1 - W.condEntropy) (1 - (2 : ℝ) ^ (W.condEntropy - 1)))
+          (deltaGap W.condEntropy (1 - (2 : ℝ) ^ (-W.condEntropy))) ≤
+          W.minusChannel.condEntropy - W.condEntropy :=
+        max_le (by linarith) (by linarith)
+      exact le_trans hsc hmax
 
 /-- **Theorem 1.2(b), Eq. (1.9) (Uniform Potential Contraction)**:
 For every binary-input c-q channel `W`,
@@ -1631,7 +1626,7 @@ theorem theorem_1_2b_potential_contraction (W : CQChannel d) :
   have hHp := condEntropy_mem_Icc W.plusChannel
   have hsplit := theorem_1_2b_linear_splitting W
   unfold CQChannel.potential
-  exact prop_4_4_potential_contraction_general hH.1 hH.2 hHm.1 hHm.2 hHp.1 hHp.2
+  exact prop_4_4_potential_contraction_general hH hHm hHp
     (by linarith [hsplit.1]) hsplit.2
 
 end PolarCodes
