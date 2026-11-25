@@ -49,8 +49,10 @@ lemma CQChannel.ChannelEquiv.refl {d : Type u} [Fintype d] [DecidableEq d] (W : 
     W.ChannelEquiv W := by
   refine ⟨CPTPMap.id d, CPTPMap.id d, fun b ↦ ?_, fun b ↦ ?_⟩ <;>
   · ext i j
-    simp [CPTPMap.apply, CPTPMap.toLinearMap, CPTPMap.id, partialTrace₂Mat,
-      LinearMap.coe_mk, AddHom.coe_mk, Matrix.mul_apply, Matrix.conjTranspose_apply]
+    change ∑ k : PUnit.{u + 1},
+      ((CPTPMap.id d).isom * (W.out b).mat * (CPTPMap.id d).isomᴴ) (i, k) (j, k) =
+      (W.out b).mat i j
+    simp [CPTPMap.id, Matrix.mul_apply, Matrix.conjTranspose_apply]
 
 lemma CQChannel.ChannelEquiv.symm {d₁ d₂ : Type u} [Fintype d₁] [DecidableEq d₁]
     [Fintype d₂] [DecidableEq d₂] {W₁ : CQChannel d₁} {W₂ : CQChannel d₂}
@@ -1047,6 +1049,7 @@ theorem prop_2_2_D3_bsc_channelEquiv {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 
     ((pureChannel f hf0 hf1).channelEquiv_tensorMaxMixed Bool).symm
 
 /-- Channel-level duality `BEC(ε)⊥ ≃ BEC(1 - ε)`. -/
+set_option maxHeartbeats 800000 in
 theorem prop_2_2_D3_bec_channelEquiv {ε : ℝ} (hε0 : 0 ≤ ε) (hε1 : ε ≤ 1) :
     (becChannel ε hε0 hε1).dual.ChannelEquiv
       (becChannel (1 - ε) (by linarith) (by linarith)) := by
