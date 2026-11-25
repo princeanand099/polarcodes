@@ -446,8 +446,10 @@ private lemma bitPathFwd_inv : ∀ (n : ℕ) (b : Fin n → Bool), bitPathFwd n 
       simp only [bitPathInv]
       cases b (Fin.last n) <;> simp <;> omega
     have hmod : decide ((bitPathInv (n + 1) b).val % 2 = 1) = b (Fin.last n) := by
-      simp only [bitPathInv]
-      cases hb : b (Fin.last n) <;> simp <;> omega
+      have hval : (bitPathInv (n + 1) b).val =
+          2 * (bitPathInv n (Fin.init b)).val + if b (Fin.last n) then 1 else 0 := rfl
+      rw [hval]
+      by_cases hb : b (Fin.last n) = true <;> simp [hb] <;> omega
     have hfin : (⟨(bitPathInv (n + 1) b).val / 2, by omega⟩ : Fin (2 ^ n)) = bitPathInv n (Fin.init b) :=
       Fin.ext hdiv
     change Fin.snoc (α := fun _ ↦ Bool) (bitPathFwd n ⟨(bitPathInv (n + 1) b).val / 2, _⟩)
@@ -483,7 +485,7 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
         left_inv := fun ⟨p, r⟩ ↦ by
           ext j
           · exact False.elim (by have := j.isLt; omega)
-          · congr 1; exact Fin.ext (by have := j.isLt; omega)
+          · exact congr_arg r (Fin.ext (by have := j.isLt; omega))
         right_inv := fun _ ↦ rfl }
     refine ⟨e, fun b ⟨p₁, r₁⟩ ⟨p₂, r₂⟩ ↦ ?_⟩
     have hp : p₁ = p₂ := funext fun j ↦ False.elim (by have := j.isLt; omega)
@@ -534,7 +536,7 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
               have h4 : (2 * k.val + 1) / 2 = k.val := by omega
               simp only [h2, ↓reduceIte, h4] }
       let eRaw : ((Fin i.val → Bool) × (Fin (2 ^ (n + 1)) → d)) ≃
-          (polarChannelTree W n (bitPath n j)).minus.dim :=
+          (polarChannelTree W n (bitPath n j)).dim × (polarChannelTree W n (bitPath n j)).dim :=
         { toFun := fun ⟨p, r⟩ ↦
             (e_j ((ePref p).1, (splitRegEquiv d n r).1),
              e_j ((ePref p).2, (splitRegEquiv d n r).2))
@@ -694,7 +696,7 @@ theorem synthChannel_reindex_polarChannelTree (W : CQChannel d) :
               have h4 : (2 * k.val + 1) / 2 = k.val := by omega
               simp only [h0', h2, ↓reduceDIte, ↓reduceIte, h4] }
       let eRaw : ((Fin i.val → Bool) × (Fin (2 ^ (n + 1)) → d)) ≃
-          (polarChannelTree W n (bitPath n j)).plus.dim :=
+          Bool × (polarChannelTree W n (bitPath n j)).dim × (polarChannelTree W n (bitPath n j)).dim :=
         { toFun := fun ⟨p, r⟩ ↦
             ((ePref p).1,
              (e_j ((ePref p).2.1, (splitRegEquiv d n r).1),

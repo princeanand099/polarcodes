@@ -788,9 +788,9 @@ theorem prop_2_2_D2_var_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Decida
             dsimp only [ρ₀, ρ₁, σ₀, σ₁] at hG1 hG2 ⊢
             rw [hG1, hG2]
             cases a₁ <;> cases a₂ <;> cases c₁ <;> cases c₂ <;>
-              (simp only [Bool.xor_false, Bool.xor_true, ↓reduceIte, Bool.true_eq_false,
-                Bool.false_eq_true] at hpar ⊢;
-               first | contradiction | exact absurd rfl hpar | exact absurd trivial hpar | (push_cast; done) | (push_cast; ring))
+              simp only [Bool.xor_false, Bool.xor_true, ↓reduceIte, Bool.true_eq_false,
+                Bool.false_eq_true] at hpar ⊢ <;>
+              (first | contradiction | exact absurd rfl hpar | exact absurd trivial hpar | (push_cast; ring))
           · simp only [Bool.true_eq_false, ↓reduceIte, Bool.not_true]
             have hprod' : ∑ i₁ : d₁, ∑ i₂ : d₂,
                 gramFactor ρ₀ ρ₁ (a₁, r₁) i₁ *
@@ -813,9 +813,9 @@ theorem prop_2_2_D2_var_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Decida
             dsimp only [ρ₀, ρ₁, σ₀, σ₁] at hG1 hG2 ⊢
             rw [hG1, hG2]
             cases a₁ <;> cases a₂ <;> cases c₁ <;> cases c₂ <;>
-              (simp only [Bool.xor_false, Bool.xor_true, ↓reduceIte, Bool.true_eq_false,
-                Bool.false_eq_true] at hpar ⊢;
-               first | contradiction | exact absurd rfl hpar | exact absurd trivial hpar | (push_cast; done) | (push_cast; ring))
+              simp only [Bool.xor_false, Bool.xor_true, ↓reduceIte, Bool.true_eq_false,
+                Bool.false_eq_true] at hpar ⊢ <;>
+              (first | contradiction | exact absurd rfl hpar | exact absurd trivial hpar | (push_cast; ring))
         · have hne' : ¬ (xor a₂ c₂ = xor a₁ c₁) := fun h ↦ hpar h.symm
           simp only [hne', ↓reduceIte, star_zero, mul_zero, Finset.sum_const_zero]
           dsimp only [ρ₀, ρ₁, σ₀, σ₁] at hG1 hG2 ⊢
@@ -823,9 +823,9 @@ theorem prop_2_2_D2_var_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Decida
           · simp only [Bool.not_false, Bool.not_true]
             rw [hG1, hG2]
             cases a₁ <;> cases a₂ <;> cases c₁ <;> cases c₂ <;>
-              (simp only [Bool.xor_false, Bool.xor_true, ↓reduceIte, Bool.true_eq_false,
-                Bool.false_eq_true] at hpar ⊢;
-               first | contradiction | exact absurd rfl hpar | exact absurd trivial hpar | (push_cast; done) | (push_cast; ring))
+              simp only [Bool.xor_false, Bool.xor_true, ↓reduceIte, Bool.true_eq_false,
+                Bool.false_eq_true] at hpar ⊢ <;>
+              (first | contradiction | exact absurd rfl hpar | exact absurd trivial hpar | (push_cast; ring))
       · intro v _ hne; apply Finset.sum_eq_zero; intro i₁ _; apply Finset.sum_eq_zero; intro i₂ _
         simp [Ne.symm hne]
       · intro h; exact absurd (Finset.mem_univ (xor a₁ c₁)) h
