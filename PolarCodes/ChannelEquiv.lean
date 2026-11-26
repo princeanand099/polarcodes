@@ -17,11 +17,6 @@ lemma posSemidef_mul_conjTranspose {m n : Type*} [Fintype m] [Fintype n]
     [DecidableEq m] [DecidableEq n] (A : Matrix m n ℂ) : (A * Aᴴ).PosSemidef := by
   simpa [Matrix.conjTranspose_conjTranspose] using Matrix.posSemidef_conjTranspose_mul_self Aᴴ
 
-private lemma density_spectral_eq {d : Type*} [Fintype d] [DecidableEq d] (ρ : DensityOp d) :
-    ρ.mat = (ρ.eigUnitary : Matrix d d ℂ) * Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) *
-      star (ρ.eigUnitary : Matrix d d ℂ) := by
-  simpa [DensityOp.eigUnitary, DensityOp.eigvals, Matrix.star_eq_conjTranspose,
-    Unitary.conjStarAlgAut_apply] using ρ.isHermitian.spectral_theorem
 
 section ChannelEquivalence
 
@@ -49,17 +44,13 @@ lemma CQChannel.ChannelEquiv.refl {d : Type u} [Fintype d] [DecidableEq d] (W : 
     W.ChannelEquiv W := by
   refine ⟨CPTPMap.id d, CPTPMap.id d, fun b ↦ ?_, fun b ↦ ?_⟩ <;>
   · ext i j
-    let V : Matrix (d × PUnit.{u + 1}) d ℂ := Matrix.of fun p k ↦ if p.1 = k then 1 else 0
-    change ∑ k : PUnit.{u + 1}, (V * (W.out b).mat * Vᴴ) (i, k) (j, k) = (W.out b).mat i j
+    change ∑ k : PUnit.{u + 1},
+      ((CPTPMap.id d).isom * (W.out b).mat * (CPTPMap.id d).isomᴴ) (i, k) (j, k) =
+      (W.out b).mat i j
     rw [Fintype.sum_unique]
-    simp only [V, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply]
-    rw [Finset.sum_eq_single j]
-    · rw [Finset.sum_eq_single i]
-      · simp
-      · intro x _ hne; simp [Ne.symm hne]
-      · intro h; exact absurd (Finset.mem_univ i) h
-    · intro y _ hne; simp [Ne.symm hne]
-    · intro h; exact absurd (Finset.mem_univ j) h
+    simp [CPTPMap.id, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+      ite_mul, zero_mul, one_mul, mul_ite, mul_zero, mul_one, star_ite, star_one, star_zero,
+      Finset.sum_ite_eq, Finset.sum_ite_eq']
 
 lemma CQChannel.ChannelEquiv.symm {d₁ d₂ : Type u} [Fintype d₁] [DecidableEq d₁]
     [Fintype d₂] [DecidableEq d₂] {W₁ : CQChannel d₁} {W₂ : CQChannel d₂}
@@ -567,6 +558,7 @@ lemma dual_isoEquiv_of_purification {d E : Type u} [Fintype d] [DecidableEq d]
                 simp [smul_eq_mul]; ring } }
     W.dual.IsoEquiv W_E := by
   intro M₀ M₁ W_E
+  -- Factor lemma: if `A * Aᴴ = τ.mat`, there is an isometry `V : d → E ⊕ d` with `V * τ.sqrtMat = [Aᴴ; 0]`.
   have hfactor : ∀ (τ : DensityOp d) (A : Matrix d E ℂ), A * Aᴴ = τ.mat →
       ∃ V : Matrix (E ⊕ d) d ℂ, Vᴴ * V = 1 ∧
         ∀ (y : E ⊕ d) (x : d), (V * τ.sqrtMat) y x =
@@ -892,6 +884,7 @@ theorem prop_2_2_D3_isoEquiv_pure {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) 
         Matrix.of_apply, Fintype.sum_unique, h1pf, h1mf]
   obtain ⟨γ, _, _, V₁, V₂, h1, h2, heq⟩ :=
     dual_isoEquiv_of_purification (pureChannel f hf0 hf1) A₀ A₁ hA₀ hA₁
+  -- Conjugate `W_E` by the Hadamard unitary `H : Bool → Bool × PUnit` to get `BSC(p)`!
   let H : Matrix (Bool × PUnit.{1}) Bool ℂ :=
     Matrix.of fun r c ↦ ((Real.sqrt 2 : ℂ)⁻¹) * (if r.1 = true ∧ c = true then -1 else 1)
   have hsq2 : star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) = (1 / 2 : ℂ) := by
@@ -1198,21 +1191,21 @@ theorem prop_2_2_D3_bec_channelEquiv {ε : ℝ} (hε0 : 0 ≤ ε) (hε1 : ε ≤
           (simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
             Fintype.sum_bool, Fin.sum_univ_three, hstar2, hmul2];
            try (ring_nf; simp only [sq, hmul2]; push_cast; ring))
-      · cases b <;> simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+      · simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
           Fintype.sum_bool, Fin.sum_univ_three]
-      · cases b <;> simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+      · simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
           Fintype.sum_bool, Fin.sum_univ_three]
-      · cases b <;> simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+      · simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
           Fintype.sum_bool, Fin.sum_univ_three]
       · cases b <;> cases r₁ <;> cases r₂ <;>
           (simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
             Fintype.sum_bool, Fin.sum_univ_three, hstar2, hmul2];
            try (ring_nf; simp only [sq, hmul2]; push_cast; ring))
-      · cases b <;> simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+      · simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
           Fintype.sum_bool, Fin.sum_univ_three]
-      · cases b <;> simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+      · simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
           Fintype.sum_bool, Fin.sum_univ_three]
-      · cases b <;> simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+      · simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
           Fintype.sum_bool, Fin.sum_univ_three]
       · cases b <;> cases r₁ <;> cases r₂ <;>
           (simp [D, becChannel, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,

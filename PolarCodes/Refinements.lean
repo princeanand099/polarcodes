@@ -24,6 +24,11 @@ This module closes the intermediate formalization refinements matching the manus
    Establishes `supp(Ψ_p) ⊆ supp(Ψ_{1/2})` and `D(Ψ_p ‖ Ψ_{1/2}) = S(Ψ_{1/2}) - S(Ψ_p)`
    directly via Umegaki relative entropy, stating Theorem 1.3 and equatorial equality in terms
    of `(relEntropy (dephaseState p ...) (dephaseState (1/2) ...)).toReal`.
+4. **Channel-Level Equivalence for Proposition 2.2 (D2)–(D3)** (`CQChannel.IsoEquiv`,
+   `CQChannel.ChannelEquiv`, `prop_2_2_D3_isoEquiv_pure`, `prop_2_2_D3_channelEquiv`,
+   `prop_2_2_D2_channelEquiv`): Formalizes output-isometry equivalence and reversible CPTP
+   channel equivalence, proving all five canonical and polarization dualities of
+   Proposition 2.2 at the channel level with entropic equalities as immediate corollaries.
 -/
 
 open Matrix BigOperators Real MeasureTheory Set Filter
@@ -39,11 +44,6 @@ section Helpers
 
 variable {d : Type*} [Fintype d] [DecidableEq d]
 
-lemma density_spectral_eq (ρ : DensityOp d) :
-    ρ.mat = (ρ.eigUnitary : Matrix d d ℂ) * Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) *
-      star (ρ.eigUnitary : Matrix d d ℂ) := by
-  simpa [DensityOp.eigUnitary, DensityOp.eigvals, Matrix.star_eq_conjTranspose,
-    Unitary.conjStarAlgAut_apply] using ρ.isHermitian.spectral_theorem
 
 private lemma posSemidef_mulVec_eq_zero_of_dot {A : Matrix d d ℂ} (hA : A.PosSemidef)
     {v : d → ℂ} (hv : star v ⬝ᵥ (A *ᵥ v) = 0) : A *ᵥ v = 0 := by
@@ -242,8 +242,8 @@ private lemma relEntropy_eq_trace_log {α : Type*} [Fintype α] [DecidableEq α]
         simp only [L_B, W, dB, star_mul, star_star, Matrix.mul_assoc]
       rw [h2]
     rw [htr, Matrix.trace]
-    simp only [Complex.re_sum, Matrix.diag_apply, Matrix.mul_apply, Matrix.diagonal_apply,
-      ite_mul, zero_mul, Finset.sum_ite_eq, Finset.mem_univ, ↓reduceIte, Function.comp_apply]
+    simp only [Complex.re_sum, Matrix.mul_apply, Matrix.diagonal_apply, ite_mul, zero_mul,
+      Finset.sum_ite_eq, Finset.mem_univ, ↓reduceIte, Function.comp_apply]
     apply Finset.sum_congr rfl; intro i _
     simp only [Matrix.mul_apply, Matrix.diagonal_apply, mul_ite, mul_zero, Finset.sum_ite_eq',
       Finset.mem_univ, ↓reduceIte, Finset.mul_sum, Complex.re_sum]
@@ -260,6 +260,7 @@ private lemma relEntropy_eq_trace_log {α : Type*} [Fintype α] [DecidableEq α]
           _ = _ := by rw [hsq]; push_cast; ring
       rw [hcalc, Complex.ofReal_re]
   rw [hsplit, sub_div, hS, hcross]
+
 
 private lemma isom_func_eq {d d' : Type*} [Fintype d] [DecidableEq d]
     [Fintype d'] [DecidableEq d']
@@ -472,7 +473,8 @@ theorem lemma_3_2_hockeyStick_measure_equalSupport {d : Type*} [Fintype d] [Deci
       ((relEntropy ρ σ).toReal = ∫ t, (t * Real.logb 2 t - (t - 1) / Real.log 2) ∂μ) ∧
       ((relEntropy σ ρ).toReal = ∫ t, (-Real.logb 2 t + (t - 1) / Real.log 2) ∂μ) ∧
       (qjs ρ σ = ∫ t, (t / 2 * Real.logb 2 (2 * t / (1 + t)) +
-        1 / 2 * Real.logb 2 (2 / (1 + t))) ∂μ) := by
+        1 / 2 * Real.logb 2 (2 / (1 + t))) ∂μ) ∧
+      relEntropy ρ σ ≠ ⊤ ∧ relEntropy σ ρ ≠ ⊤ := by
   set S_pos : Finset d := Finset.univ.filter fun i : d ↦ 0 < ρ.eigvals i
   let d' := {i : d // i ∈ S_pos}
   set U : Matrix d d ℂ := (ρ.eigUnitary : Matrix d d ℂ)
@@ -523,7 +525,7 @@ theorem lemma_3_2_hockeyStick_measure_equalSupport {d : Type*} [Fintype d] [Deci
         simp only [Matrix.mul_apply, Matrix.diagonal_apply, mul_ite, mul_one, mul_zero,
           Finset.sum_ite_eq, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte, Matrix.star_apply,
           ite_mul, zero_mul]
-      rw [hL, hR, ← Finset.sum_filter, Finset.filter_mem_eq_inter, Finset.univ_inter]
+      rw [hL, hR, ← Finset.sum_filter]
       exact Finset.sum_coe_sort S_pos (fun i ↦ U r i * star (U s i))
     have hPτ : (V * Vᴴ) * τ.mat = τ.mat := by
       rw [hVV]
@@ -603,14 +605,7 @@ theorem lemma_3_2_hockeyStick_measure_equalSupport {d : Type*} [Fintype d] [Deci
         _ = Matrix.diagonal (fun k : d' ↦ (ρ.eigvals k.1 : ℂ)) := by
               rw [hVU, hUV]
               ext j k
-              simp only [Matrix.mul_apply, Matrix.diagonal_apply, Matrix.of_apply,
-                ite_mul, one_mul, zero_mul, mul_ite, mul_one, mul_zero,
-                Finset.sum_ite_eq, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte,
-                Function.comp_apply]
-              by_cases hjk : j = k
-              · subst hjk; simp
-              · have hne : j.1 ≠ k.1 := fun h ↦ hjk (Subtype.ext h)
-                simp [hjk, hne]
+              simp [Matrix.mul_apply, Matrix.diagonal_apply, Subtype.ext_iff]
     rw [hρ'_diag]
     have hsum : star x ⬝ᵥ (Matrix.diagonal (fun k : d' ↦ (ρ.eigvals k.1 : ℂ)) *ᵥ x) =
         ((∑ k : d', ρ.eigvals k.1 * ‖x k‖ ^ 2 : ℝ) : ℂ) := by
@@ -663,8 +658,9 @@ theorem lemma_3_2_hockeyStick_measure_equalSupport {d : Type*} [Fintype d] [Deci
     have hpos := (Matrix.posDef_iff_dotProduct_mulVec.mp hρ'_pd).2 hx
     rw [hρ'_zero, dotProduct_zero] at hpos
     exact lt_irrefl 0 hpos
-  obtain ⟨a, b, μ, ha, hab, hprob, hsuppμ, hhs, hint, hD1, hD2, hqjs⟩ :=
+  obtain ⟨a, b, μ, ha, hab, hprob, hsuppμ, hhs, hint, hD1, hD2, hqjs, hne1', hne2'⟩ :=
     lemma_3_2_hockeyStick_measure hρ'_pd hσ'_pd
+  -- Transport `hockeyStick`, `relEntropy`, and `qjs` from `(ρ', σ')` to `(ρ, σ)` via `V`
   have hhs_eq : ∀ s : ℝ, hockeyStick s ρ σ = hockeyStick s ρ' σ' := fun s ↦ by
     rw [hockeyStick_eq_posPartTrace, hockeyStick_eq_posPartTrace]
     apply posPartTrace_eq_of_isom (hockeyStick_isHermitian s ρ σ) (hockeyStick_isHermitian s ρ' σ') V hVHV
@@ -690,21 +686,16 @@ theorem lemma_3_2_hockeyStick_measure_equalSupport {d : Type*} [Fintype d] [Deci
       simp only [Complex.re_sum, f] at hre
       unfold vonNeumannEntropy
       rw [div_left_inj' (ne_of_gt (Real.log_pos (by norm_num : (1 : ℝ) < 2)))]
-      have hconvA : ∑ i : d, (if A.eigvals i = 0 then (0 : ℂ) else ↑(A.eigvals i * Real.logb 2 (A.eigvals i))).re =
-          (-∑ i : d, Real.negMulLog (A.eigvals i)) / Real.log 2 := by
-        rw [← Finset.sum_neg_distrib, Finset.sum_div]
+      have hconv : ∀ {β : Type*} [Fintype β] (X : DensityOp β),
+          ∑ i : β, (if X.eigvals i = 0 then (0 : ℂ) else ↑(X.eigvals i * Real.logb 2 (X.eigvals i))).re =
+            -(∑ i : β, Real.negMulLog (X.eigvals i)) / Real.log 2 := by
+        intro β _ X
+        rw [← neg_div, ← Finset.sum_neg_distrib, Finset.sum_div]
         apply Finset.sum_congr rfl; intro i _
         split_ifs with hi
         · simp [hi, Real.negMulLog]
-        · rw [Complex.ofReal_re]; simp only [Real.negMulLog, Real.logb]; ring
-      have hconvA' : ∑ i : d', (if A'.eigvals i = 0 then (0 : ℂ) else ↑(A'.eigvals i * Real.logb 2 (A'.eigvals i))).re =
-          (-∑ i : d', Real.negMulLog (A'.eigvals i)) / Real.log 2 := by
-        rw [← Finset.sum_neg_distrib, Finset.sum_div]
-        apply Finset.sum_congr rfl; intro i _
-        split_ifs with hi
-        · simp [hi, Real.negMulLog]
-        · rw [Complex.ofReal_re]; simp only [Real.negMulLog, Real.logb]; ring
-      rw [hconvA, hconvA'] at hre
+        · simp [Real.negMulLog, Real.logb]; ring
+      rw [hconv A, hconv A'] at hre
       have hlog : Real.log 2 ≠ 0 := ne_of_gt (Real.log_pos (by norm_num))
       have := (div_left_inj' hlog).mp hre
       linarith
@@ -753,7 +744,7 @@ theorem lemma_3_2_hockeyStick_measure_equalSupport {d : Type*} [Fintype d] [Deci
             rw [hAi, Matrix.mulVec_zero]
           have hrew : star (A.eigUnitary : Matrix d d ℂ) *ᵥ (A.mat *ᵥ v) =
               Matrix.diagonal (Complex.ofReal ∘ A.eigvals) *ᵥ (star (A.eigUnitary : Matrix d d ℂ) *ᵥ v) := by
-            rw [density_spectral_eq A, Matrix.mulVec_mulVec, Matrix.mulVec_mulVec]
+            rw [density_spectral_eq A, Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec]
             congr 1
             rw [← Matrix.mul_assoc (star (A.eigUnitary : Matrix d d ℂ)),
               ← Matrix.mul_assoc (star (A.eigUnitary : Matrix d d ℂ)),
@@ -815,7 +806,8 @@ theorem lemma_3_2_hockeyStick_measure_equalSupport {d : Type*} [Fintype d] [Deci
     unfold qjs
     rw [h3.2, h1.2, h2.2]
   refine ⟨a, b, μ, ha, hab, hprob, hsuppμ, fun s ↦ by rw [hhs_eq s]; exact hhs s, hint,
-    by rw [h1.1]; exact hD1, by rw [h2.1]; exact hD2, by rw [hqjs_eq]; exact hqjs⟩
+    by rw [h1.1]; exact hD1, by rw [h2.1]; exact hD2, by rw [hqjs_eq]; exact hqjs,
+    by rw [h1.1]; exact hne1', by rw [h2.1]; exact hne2'⟩
 
 end EqualSupportLemma32
 
@@ -873,7 +865,8 @@ theorem prop_3_3_qjjs_classical_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 
     unfold CQChannel.condEntropy at hcond
     linarith
   by_cases hx_eq1 : x = 1
-  · have hp_zero : p = 0 := by simp [p, hx_eq1]
+  · -- At `x = 1`, `qjs = 1` so `phiExt 1 = ⊤`, and `¬ suppSubset ρ σ` so `relEntropy ρ σ = ⊤`.
+    have hp_zero : p = 0 := by simp [p, hx_eq1]
     have hqjs1 : qjs ρ σ = 1 := by rw [hqjs_val, hp_zero, h2_zero]; ring
     have hnsupp : ¬ suppSubset ρ σ := by
       intro hsupp
@@ -885,7 +878,8 @@ theorem prop_3_3_qjjs_classical_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 
     have hDtop : relEntropy ρ σ = ⊤ := by unfold relEntropy; rw [if_neg hnsupp]
     rw [hqjs1, hDtop]
     simp [phiExt]
-  · have hx_lt1 : x < 1 := lt_of_le_of_ne hx1 hx_eq1
+  · -- For `x ∈ [0, 1)`, both `ρ` and `σ` are diagonal `PosDef` states.
+    have hx_lt1 : x < 1 := lt_of_le_of_ne hx1 hx_eq1
     have hp_pos : 0 < p := by simp only [p]; linarith
     have h1mp_pos : 0 < 1 - p := by simp only [p]; linarith
     have hq_lt1 : qjs ρ σ < 1 := by
@@ -912,6 +906,7 @@ theorem prop_3_3_qjjs_classical_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 
       have hsupp : suppSubset A B := fun _ j _ hj ↦
         absurd hj (ne_of_gt (hB_pd.eigenvalues_pos j))
       rw [relEntropy_eq_trace_log A B hsupp]
+      -- Since `A` and `B` are diagonal, `S(A) = -∑ a i logb 2 (a i)` and `L_B = diag(log (b i))`
       have hSA : vonNeumannEntropy A = -∑ i : Bool, a i * Real.logb 2 (a i) := by
         set UA := (A.eigUnitary : Matrix Bool Bool ℂ)
         have hUA_l : star UA * UA = 1 := Unitary.coe_star_mul_self A.eigUnitary
@@ -1038,6 +1033,7 @@ theorem prop_3_3_qjjs_classical_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 
       rw [ENNReal.ofReal_div_of_pos (by norm_num)]; norm_num
     rw [hquarter, ← ENNReal.ofReal_mul (by norm_num)]
     congr 1
+    -- `phi (1 - h2 p) = phiParam (1 - 2 * p) = phiParam x = (1/2) * x * logb 2 ((1+x)/(1-x))`
     have hphi_val : phi (qjs ρ σ) = phiParam x := by
       rw [hqjs_val]
       unfold phi
@@ -1140,7 +1136,7 @@ lemma suppSubset_dephaseState_half (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1)
     have hrew : star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *ᵥ (A.mat *ᵥ v) =
         Matrix.diagonal (Complex.ofReal ∘ A.eigvals) *ᵥ
           (star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *ᵥ v) := by
-      rw [density_spectral_eq A, Matrix.mulVec_mulVec, Matrix.mulVec_mulVec]
+      rw [density_spectral_eq A, Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec]
       congr 1
       rw [← Matrix.mul_assoc (star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ)),
         ← Matrix.mul_assoc (star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ)),
@@ -1249,9 +1245,9 @@ theorem relEntropy_dephaseState_eq (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1)
       _ = L_M := by rw [hZZ, Matrix.mul_one]
   have htr_ZA : ((Z * A.mat * Z) * L_M).trace = (A.mat * L_M).trace := by
     calc ((Z * A.mat * Z) * L_M).trace
-        = (Z * (A.mat * Z * L_M)).trace := by simp [Matrix.mul_assoc]
-      _ = ((A.mat * Z * L_M) * Z).trace := Matrix.trace_mul_comm _ _
-      _ = (A.mat * (Z * L_M * Z)).trace := by simp [Matrix.mul_assoc]
+        = (A.mat * (Z * L_M * Z)).trace := by
+            rw [Matrix.trace_mul_cycle Z (A.mat * Z) L_M]
+            simp [Matrix.mul_assoc]
       _ = (A.mat * L_M).trace := by rw [hZLZ]
   have htr_eq : (A.mat * L_M).trace = (M.mat * L_M).trace := by
     have h1 : (M.mat * L_M).trace =
@@ -1319,13 +1315,26 @@ theorem relEntropy_dephaseState_toReal_eq (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤
 With `C(p) := D((Z_p ⊗ id)(Ψ) ‖ (Z_{1/2} ⊗ id)(Ψ))`, for every bipartite density operator
 `Ψ ∈ D(ℂ² ⊗ H_B)` and every `p ∈ [0, 1/2]`,
 `C(p) ≤ 1 - h₂(h₂⁻¹(1 - C(0)) * p)`. -/
+theorem relEntropy_dephaseState_ne_top (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1)
+    (Ψ : DensityOp (Bool × d)) :
+    relEntropy (dephaseState p hp0 hp1 Ψ)
+      (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ) ≠ ⊤ := by
+  rw [relEntropy_dephaseState_eq p hp0 hp1 Ψ]
+  exact ENNReal.ofReal_ne_top
+
 theorem theorem_1_3_dephasing_sdpi_relEntropy (Ψ : DensityOp (Bool × d))
     {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) :
+    relEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) Ψ)
+      (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ) ≠ ⊤ ∧
+    relEntropy (dephaseState 0 le_rfl (by norm_num) Ψ)
+      (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ) ≠ ⊤ ∧
     (relEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) Ψ)
       (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ)).toReal ≤
       1 - h2 (binConv (h2Inv (1 -
         (relEntropy (dephaseState 0 le_rfl (by norm_num) Ψ)
           (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ)).toReal)) p) := by
+  refine ⟨relEntropy_dephaseState_ne_top p hp0 (le_trans hp1 (by norm_num)) Ψ,
+    relEntropy_dephaseState_ne_top 0 le_rfl (by norm_num) Ψ, ?_⟩
   rw [relEntropy_dephaseState_toReal_eq, relEntropy_dephaseState_toReal_eq]
   exact theorem_1_3_dephasing_sdpi Ψ hp0 hp1
 
@@ -1334,14 +1343,21 @@ Every equatorial single-qubit state `½ (I + x X)` (`x ∈ [0, 1]`) attains equa
 Theorem 1.3 (stated via Umegaki relative entropy) for every `p ∈ [0, 1/2]`. -/
 theorem theorem_1_3_equatorial_equality_relEntropy {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 1)
     {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) :
+    relEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) (equatorialState x hx0 hx1))
+      (dephaseState (1 / 2) (by norm_num) (by norm_num) (equatorialState x hx0 hx1)) ≠ ⊤ ∧
+    relEntropy (dephaseState 0 le_rfl (by norm_num) (equatorialState x hx0 hx1))
+      (dephaseState (1 / 2) (by norm_num) (by norm_num) (equatorialState x hx0 hx1)) ≠ ⊤ ∧
     (relEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) (equatorialState x hx0 hx1))
       (dephaseState (1 / 2) (by norm_num) (by norm_num) (equatorialState x hx0 hx1))).toReal =
       1 - h2 (binConv (h2Inv (1 -
         (relEntropy (dephaseState 0 le_rfl (by norm_num) (equatorialState x hx0 hx1))
           (dephaseState (1 / 2) (by norm_num) (by norm_num) (equatorialState x hx0 hx1))).toReal)) p) := by
+  refine ⟨relEntropy_dephaseState_ne_top p hp0 (le_trans hp1 (by norm_num)) (equatorialState x hx0 hx1),
+    relEntropy_dephaseState_ne_top 0 le_rfl (by norm_num) (equatorialState x hx0 hx1), ?_⟩
   rw [relEntropy_dephaseState_toReal_eq, relEntropy_dephaseState_toReal_eq]
   exact theorem_1_3_equatorial_equality hx0 hx1 hp0 hp1
 
 end RelEntropyTheorem13
+
 
 end PolarCodes
