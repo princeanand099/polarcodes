@@ -44,7 +44,10 @@ noncomputable def CPTPMap.tensorPow {d : Type} [Fintype d] [DecidableEq d]
     ext x₁ x₂
     simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply, Matrix.one_apply]
     let e : ((Fin (2 ^ n) → d) × (Fin (2 ^ n) → 𝒩.env)) ≃ (Fin (2 ^ n) → d × 𝒩.env) :=
-      (Equiv.arrowProdEquivProdArrow d 𝒩.env (Fin (2 ^ n))).symm
+      { toFun := fun p i ↦ (p.1 i, p.2 i)
+        invFun := fun q ↦ (fun i ↦ (q i).1, fun i ↦ (q i).2)
+        left_inv := fun ⟨_, _⟩ ↦ rfl
+        right_inv := fun _ ↦ rfl }
     have hsum : ∑ p : (Fin (2 ^ n) → d) × (Fin (2 ^ n) → 𝒩.env),
         star (∏ i : Fin (2 ^ n), 𝒩.isom (p.1 i, p.2 i) (x₁ i)) *
           ∏ i : Fin (2 ^ n), 𝒩.isom (p.1 i, p.2 i) (x₂ i) =
@@ -54,8 +57,8 @@ noncomputable def CPTPMap.tensorPow {d : Type} [Fintype d] [DecidableEq d]
       apply Finset.sum_congr rfl; intro q _
       rw [star_prod, ← Finset.prod_mul_distrib]
       apply Finset.prod_congr rfl; intro i _
-      simp [e]
-    rw [hsum, ← Fintype.prod_sum]
+      rfl
+    rw [hsum, ← Fintype.prod_sum (fun i (p : d × 𝒩.env) ↦ star (𝒩.isom p (x₁ i)) * 𝒩.isom p (x₂ i))]
     have hfac : ∀ i : Fin (2 ^ n),
         ∑ p : d × 𝒩.env, star (𝒩.isom p (x₁ i)) * 𝒩.isom p (x₂ i) =
           if x₁ i = x₂ i then (1 : ℂ) else 0 := by
@@ -89,7 +92,8 @@ noncomputable def CPTPMap.tensorIdLeft (α : Type) [Fintype α] [DecidableEq α]
         if a = a₁ ∧ a = a₂ then (if b₁ = b₂ then (1 : ℂ) else 0) else 0 := by
       intro a
       by_cases h12 : a = a₁ ∧ a = a₂
-      · simp only [h12, h12.1, h12.2, ↓reduceIte]
+      · rcases h12 with ⟨rfl, rfl⟩
+        simp only [↓reduceIte, and_self]
         have h := congr_fun (congr_fun 𝒩.isom_eq b₁) b₂
         simpa [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
           Matrix.one_apply] using h
@@ -293,10 +297,9 @@ lemma traceDist_pureState_eq {α : Type*} [Fintype α] [DecidableEq α]
             = ∑ k : α, ∑ l : α, u i * star (u l) * (v l * star (v k)) * (u k * star (u j)) := by
                 apply Finset.sum_congr rfl; intro k _; rw [Finset.sum_mul]
           _ = ((∑ l : α, star (u l) * v l) * ∑ k : α, u k * star (v k)) * (u i * star (u j)) := by
-                rw [Finset.sum_mul, Finset.sum_mul]
+                conv_rhs => simp_rw [Finset.sum_mul, Finset.mul_sum]
                 conv_rhs => rw [Finset.sum_comm]
                 apply Finset.sum_congr rfl; intro k _
-                rw [Finset.mul_sum, Finset.sum_mul]
                 apply Finset.sum_congr rfl; intro l _; ring
       -- Eigenvalues of `‖c‖² • P₀.mat`: trace of `√(‖c‖² • P₀)` = `‖c‖ * Tr(√P₀) = ‖c‖ * Tr(P₀) = ‖c‖`
       unfold rootFidelity
@@ -608,7 +611,10 @@ lemma phaseSign_mul_right {α : Type*} [Fintype α] (v r₁ r₂ : α → Bool) 
     phaseSign v r₁ * phaseSign v r₂ = phaseSign v (fun i ↦ xor (r₁ i) (r₂ i)) := by
   simp only [phaseSign, ← Finset.prod_mul_distrib]
   apply Finset.prod_congr rfl; intro i _
-  cases v i <;> cases r₁ i <;> cases r₂ i <;> simp
+  rcases Bool.eq_false_or_eq_true (v i) with hv | hv <;>
+    rcases Bool.eq_false_or_eq_true (r₁ i) with h1 | h1 <;>
+    rcases Bool.eq_false_or_eq_true (r₂ i) with h2 | h2 <;>
+    simp [hv, h1, h2]
 
 lemma sum_phaseSign_mul {α : Type*} [Fintype α] [DecidableEq α] (r₁ r₂ : α → Bool) :
     ∑ v : α → Bool, phaseSign v r₁ * phaseSign v r₂ =
@@ -692,9 +698,8 @@ lemma cssPolarEncoderIsom_isometry (n : ℕ)
         rw [Finset.mul_sum]
         conv_rhs => arg 2; ext r₁; rw [Finset.mul_sum]
         conv_rhs => arg 2; ext r₁; arg 2; ext r₂; rw [Finset.mul_sum]
-        rw [Finset.sum_comm]
-        conv_rhs => arg 2; ext r₂; rw [Finset.sum_comm]
-        rw [Finset.sum_comm]
+        conv_rhs => arg 2; ext r₁; rw [Finset.sum_comm]
+        conv_rhs => rw [Finset.sum_comm]
         apply Finset.sum_congr rfl; intro x _
         have hst : ∀ r₁ : randSet → Bool,
             star (if x = arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r₁ a₁) then phaseSign v r₁ else 0) =
@@ -861,9 +866,9 @@ private lemma productState_amp_eq_tensorPow_partialTrace (𝒩 : CPTPMap.{0} Boo
   have hamp : ((ampChannel 𝒩).out (x i)).mat (y₁ i) (y₂ i) =
       ∑ e : 𝒩.env, 𝒩.isom (y₁ i, e) (x i) * star (𝒩.isom (y₂ i, e) (x i)) := by
     simp only [ampChannel, CPTPMap.apply, CPTPMap.toLinearMap, partialTrace₂Mat,
-      CQChannel.ketBraBool, LinearMap.coe_mk, AddHom.coe_mk, Matrix.of_apply,
-      Matrix.mul_apply, Matrix.conjTranspose_apply]
+      CQChannel.ketBraBool, LinearMap.coe_mk, AddHom.coe_mk, Matrix.of_apply]
     apply Finset.sum_congr rfl; intro e _
+    simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply]
     cases x i <;> simp [Fintype.sum_bool]
   exact hamp
 
@@ -880,9 +885,9 @@ private lemma productState_comp_eq_tensorPow_partialTrace (𝒩 : CPTPMap.{0} Bo
   have hcomp : ((ampChannel 𝒩.complementary).out (x i)).mat (e₁ i) (e₂ i) =
       ∑ y : d, 𝒩.isom (y, e₁ i) (x i) * star (𝒩.isom (y, e₂ i) (x i)) := by
     simp only [ampChannel, CPTPMap.complementary, CPTPMap.apply, CPTPMap.toLinearMap,
-      partialTrace₂Mat, CQChannel.ketBraBool, LinearMap.coe_mk, AddHom.coe_mk,
-      Matrix.of_apply, Matrix.mul_apply, Matrix.conjTranspose_apply]
+      partialTrace₂Mat, CQChannel.ketBraBool, LinearMap.coe_mk, AddHom.coe_mk, Matrix.of_apply]
     apply Finset.sum_congr rfl; intro y _
+    simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply]
     cases x i <;> simp [Fintype.sum_bool]
   exact hcomp
 
@@ -1007,7 +1012,8 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
       rw [← Fintype.sum_prod_type (f := fun mr : M × R ↦ (C_qsc a₁).povm (eMR mr) y₁ y₂)]
       rw [Equiv.sum_comp eMR (fun w ↦ (C_qsc a₁).povm w y₁ y₂)]
       have h1 := congr_fun (congr_fun (C_qsc a₁).povm_sum_one y₁) y₂
-      simpa [Matrix.sum_apply, Matrix.one_apply] using h1
+      simp only [Matrix.sum_apply, Matrix.one_apply] at h1
+      convert h1
     · rw [if_neg (fun h ↦ ha (congr_arg Prod.snd h))]
       apply Finset.sum_eq_zero; intro m _
       apply Finset.sum_eq_zero; intro y _
@@ -1211,51 +1217,35 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
       simp only [Complex.ofReal_sum]
       have h1 : ∀ z : ℂ, ((‖z‖ ^ 2 : ℝ) : ℂ) = star z * z := fun z ↦ by
         rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
-      simp only [h1, B_tot, Anc, Fintype.sum_prod_type]
-      apply Finset.sum_congr rfl; intro m _
-      apply Finset.sum_congr rfl; intro e _
-      simp only [ψ_Z, star_sum, star_mul]
-      simp_rw [Finset.sum_mul, Finset.mul_sum]
-      calc ∑ m' : M, ∑ y : Y, ∑ a' : A, ∑ r : R, ∑ e' : E,
-            ∑ y₁ : Y, ∑ a₁ : A, ∑ y₂ : Y, ∑ a₂ : A,
-              star (ψ_ch v ((m, e), (y₁, a₁))) * star (W_Z (m', (y, a', r, e')) (y₁, a₁)) *
-              (W_Z (m', (y, a', r, e')) (y₂, a₂) * ψ_ch v ((m, e), (y₂, a₂)))
-          = ∑ ya₁ : Y × A, ∑ ya₂ : Y × A,
-              (W_Zᴴ * W_Z) ya₁ ya₂ * (star (ψ_ch v ((m, e), ya₁)) * ψ_ch v ((m, e), ya₂)) := by
-            simp only [B_tot, Anc, Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type, Finset.sum_mul]
-            let g : B_tot → (Y × A) → (Y × A) → ℂ := fun b ya₁ ya₂ ↦
-              star (W_Z b ya₁) * W_Z b ya₂ * (star (ψ_ch v ((m, e), ya₁)) * ψ_ch v ((m, e), ya₂))
-            have hL : (∑ m' : M, ∑ y : Y, ∑ a' : A, ∑ r : R, ∑ e' : E,
-                ∑ y₁ : Y, ∑ a₁ : A, ∑ y₂ : Y, ∑ a₂ : A,
-                  star (ψ_ch v ((m, e), (y₁, a₁))) * star (W_Z (m', (y, a', r, e')) (y₁, a₁)) *
-                  (W_Z (m', (y, a', r, e')) (y₂, a₂) * ψ_ch v ((m, e), (y₂, a₂)))) =
-                ∑ b : B_tot, ∑ ya₁ : Y × A, ∑ ya₂ : Y × A, g b ya₁ ya₂ := by
-              simp only [g, B_tot, Anc, Fintype.sum_prod_type]
-              apply Finset.sum_congr rfl; intro m' _
-              apply Finset.sum_congr rfl; intro y _
-              apply Finset.sum_congr rfl; intro a' _
-              apply Finset.sum_congr rfl; intro r _
-              apply Finset.sum_congr rfl; intro e' _
-              apply Finset.sum_congr rfl; intro y₁ _
-              apply Finset.sum_congr rfl; intro a₁ _
-              apply Finset.sum_congr rfl; intro y₂ _
-              apply Finset.sum_congr rfl; intro a₂ _; ring
-            have hR : (∑ y₁ : Y, ∑ a₁ : A, ∑ y₂ : Y, ∑ a₂ : A,
-                ∑ m' : M, ∑ y : Y, ∑ a' : A, ∑ r : R, ∑ e' : E,
-                  star (W_Z (m', (y, a', r, e')) (y₁, a₁)) * W_Z (m', (y, a', r, e')) (y₂, a₂) *
-                  (star (ψ_ch v ((m, e), (y₁, a₁))) * ψ_ch v ((m, e), (y₂, a₂)))) =
-                ∑ ya₁ : Y × A, ∑ ya₂ : Y × A, ∑ b : B_tot, g b ya₁ ya₂ := by
-              simp only [g, B_tot, Anc, Fintype.sum_prod_type]
-            rw [hL, hR, Finset.sum_comm]
-            apply Finset.sum_congr rfl; intro ya₁ _
-            rw [Finset.sum_comm]
-        _ = ∑ y₁ : Y, ∑ a₁ : A, star (ψ_ch v ((m, e), (y₁, a₁))) * ψ_ch v ((m, e), (y₁, a₁)) := by
-            rw [hWZ_isom, ← Fintype.sum_prod_type (f := fun ya : Y × A ↦ star (ψ_ch v ((m, e), ya)) * ψ_ch v ((m, e), ya))]
-            apply Finset.sum_congr rfl; intro ya₁ _
-            rw [Finset.sum_eq_single ya₁]
-            · simp
-            · intro ya₂ _ hne; simp [Matrix.one_apply, Ne.symm hne]
-            · intro h; exact absurd (Finset.mem_univ ya₁) h
+      simp_rw [h1]
+      rw [Fintype.sum_prod_type, Fintype.sum_prod_type]
+      apply Finset.sum_congr rfl; intro me _
+      have hinner : ∀ b : B_tot,
+          star (ψ_Z v (me, b)) * ψ_Z v (me, b) =
+            ∑ ya₁ : Y × A, ∑ ya₂ : Y × A,
+              (star (W_Z b ya₁) * W_Z b ya₂) * (star (ψ_ch v (me, ya₁)) * ψ_ch v (me, ya₂)) := by
+        intro b
+        simp only [ψ_Z, star_sum, star_mul]
+        simp_rw [Finset.sum_mul, Finset.mul_sum]
+        apply Finset.sum_congr rfl; intro ya₁ _
+        apply Finset.sum_congr rfl; intro ya₂ _; ring
+      simp_rw [hinner]
+      rw [Finset.sum_comm]
+      have hsw : ∑ ya₁ : Y × A, ∑ b : B_tot, ∑ ya₂ : Y × A,
+            (star (W_Z b ya₁) * W_Z b ya₂) * (star (ψ_ch v (me, ya₁)) * ψ_ch v (me, ya₂)) =
+          ∑ ya₁ : Y × A, ∑ ya₂ : Y × A,
+            (W_Zᴴ * W_Z) ya₁ ya₂ * (star (ψ_ch v (me, ya₁)) * ψ_ch v (me, ya₂)) := by
+        apply Finset.sum_congr rfl; intro ya₁ _
+        rw [Finset.sum_comm]
+        apply Finset.sum_congr rfl; intro ya₂ _
+        rw [Matrix.mul_apply, Finset.sum_mul]
+        apply Finset.sum_congr rfl; intro b _; simp [Matrix.conjTranspose_apply]
+      rw [hsw, hWZ_isom]
+      apply Finset.sum_congr rfl; intro ya₁ _
+      rw [Finset.sum_eq_single ya₁]
+      · simp
+      · intro ya₂ _ hne; simp [Matrix.one_apply, Ne.symm hne]
+      · intro h; exact absurd (Finset.mem_univ ya₁) h
     rw [← hψ_ch_norm v]; exact Complex.ofReal_injective hC
   have hov_exists : ∃ v : R,
       1 - wiretapBobError 𝒩 n infoSet randSet assistSet uF ≤
