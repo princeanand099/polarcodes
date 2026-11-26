@@ -24,6 +24,10 @@ private lemma rootFidelity_nonneg {α : Type*} [Fintype α] [DecidableEq α] (ρ
     0 ≤ rootFidelity ρ σ :=
   Finset.sum_nonneg fun _ _ ↦ Real.sqrt_nonneg _
 
+private lemma densityOp_ext {α : Type*} [Fintype α] [DecidableEq α] {ρ σ : DensityOp α}
+    (h : ρ.mat = σ.mat) : ρ = σ := by
+  cases ρ; cases σ; congr
+
 universe u
 
 section QuantumPolarCoding
@@ -37,18 +41,15 @@ noncomputable def CPTPMap.tensor {α₁ β₁ α₂ β₂ : Type u}
     [Fintype α₁] [DecidableEq α₁] [Fintype β₁] [DecidableEq β₁]
     [Fintype α₂] [DecidableEq α₂] [Fintype β₂] [DecidableEq β₂]
     (𝒟₁ : CPTPMap.{u} α₁ β₁) (𝒟₂ : CPTPMap.{u} α₂ β₂) :
-    CPTPMap.{u} (α₁ × α₂) (β₁ × β₂) where
-  env := 𝒟₁.env × 𝒟₂.env
-  fintypeEnv := inferInstance
-  decEqEnv := inferInstance
-  isom := Matrix.of fun ((b₁, b₂), (e₁, e₂)) (a₁, a₂) ↦
-    𝒟₁.isom (b₁, e₁) a₁ * 𝒟₂.isom (b₂, e₂) a₂
-  isometry := by
+    CPTPMap.{u} (α₁ × α₂) (β₁ × β₂) :=
+  ⟨𝒟₁.env × 𝒟₂.env, inferInstance, inferInstance,
+    Matrix.of fun ((b₁, b₂), (e₁, e₂)) (a₁, a₂) ↦
+      𝒟₁.isom (b₁, e₁) a₁ * 𝒟₂.isom (b₂, e₂) a₂, by
     ext ⟨a₁, a₂⟩ ⟨a₁', a₂'⟩
     simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
       Fintype.sum_prod_type, Matrix.one_apply, star_mul']
-    have h1 := congr_fun (congr_fun 𝒟₁.isometry a₁) a₁'
-    have h2 := congr_fun (congr_fun 𝒟₂.isometry a₂) a₂'
+    have h1 := congr_fun (congr_fun 𝒟₁.5 a₁) a₁'
+    have h2 := congr_fun (congr_fun 𝒟₂.5 a₂) a₂'
     simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
       Matrix.one_apply] at h1 h2
     calc ∑ b₁ : β₁, ∑ b₂ : β₂, ∑ e₁ : 𝒟₁.env, ∑ e₂ : 𝒟₂.env,
@@ -67,7 +68,7 @@ noncomputable def CPTPMap.tensor {α₁ β₁ α₂ β₂ : Type u}
       _ = (if a₁ = a₁' then (1 : ℂ) else 0) * (if a₂ = a₂' then (1 : ℂ) else 0) := by
             rw [h1, h2]
       _ = if (a₁, a₂) = (a₁', a₂') then 1 else 0 := by
-            by_cases ha1 : a₁ = a₁' <;> by_cases ha2 : a₂ = a₂' <;> simp [ha1, ha2]
+            by_cases ha1 : a₁ = a₁' <;> by_cases ha2 : a₂ = a₂' <;> simp [ha1, ha2]⟩
 
 /-- `(𝒟₁ ⊗ 𝒟₂)(ρ₁ ⊗ ρ₂) = 𝒟₁(ρ₁) ⊗ 𝒟₂(ρ₂)`. -/
 lemma CPTPMap.tensor_apply_tensor {α₁ β₁ α₂ β₂ : Type u}
@@ -79,9 +80,8 @@ lemma CPTPMap.tensor_apply_tensor {α₁ β₁ α₂ β₂ : Type u}
       (DensityOp.tensor (𝒟₁.apply ρ₁) (𝒟₂.apply ρ₂)).mat := by
   ext ⟨b₁, b₂⟩ ⟨b₁', b₂'⟩
   unfold CPTPMap.apply CPTPMap.toLinearMap CPTPMap.tensor partialTrace₂Mat DensityOp.tensor
-  dsimp only [LinearMap.coe_mk, AddHom.coe_mk]
-  simp only [Matrix.of_apply, Matrix.mul_apply, Matrix.conjTranspose_apply,
-    Matrix.kroneckerMap_apply, Fintype.sum_prod_type, star_mul']
+  simp only [LinearMap.coe_mk, AddHom.coe_mk, Matrix.of_apply, Matrix.mul_apply,
+    Matrix.conjTranspose_apply, Matrix.kroneckerMap_apply, Fintype.sum_prod_type, star_mul']
   have hterm : ∀ (e₁ : 𝒟₁.env) (e₂ : 𝒟₂.env),
       ∑ a₁' : α₁, ∑ a₂' : α₂,
         (∑ a₁ : α₁, ∑ a₂ : α₂,
@@ -106,12 +106,9 @@ lemma CPTPMap.tensor_apply_tensor {α₁ β₁ α₂ β₂ : Type u}
 /-- Identity-on-`Bool` tensored with a CPTP map `𝒟`: `id_Bool ⊗ 𝒟 : CPTPMap (Bool × α) (Bool × β)`. -/
 noncomputable def CPTPMap.idBoolTensor {α β : Type u} [Fintype α] [DecidableEq α]
     [Fintype β] [DecidableEq β] (𝒟 : CPTPMap.{u} α β) :
-    CPTPMap.{u} (Bool × α) (Bool × β) where
-  env := 𝒟.env
-  fintypeEnv := inferInstance
-  decEqEnv := inferInstance
-  isom := Matrix.of fun ((w, b), e) (w', a) ↦ if w = w' then 𝒟.isom (b, e) a else 0
-  isometry := by
+    CPTPMap.{u} (Bool × α) (Bool × β) :=
+  ⟨𝒟.env, inferInstance, inferInstance,
+    Matrix.of fun ((w, b), e) (w', a) ↦ if w = w' then 𝒟.isom (b, e) a else 0, by
     ext ⟨w₁, a₁⟩ ⟨w₂, a₂⟩
     simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
       Fintype.sum_prod_type, Matrix.one_apply]
@@ -119,7 +116,7 @@ noncomputable def CPTPMap.idBoolTensor {α β : Type u} [Fintype α] [DecidableE
     · subst hw
       rw [Finset.sum_eq_single w₁]
       · simp only [↓reduceIte, Prod.mk.injEq, true_and]
-        have h := congr_fun (congr_fun 𝒟.isometry a₁) a₂
+        have h := congr_fun (congr_fun 𝒟.5 a₁) a₂
         simpa [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
           Matrix.one_apply] using h
       · intro w _ hne; apply Finset.sum_eq_zero; intro b _; apply Finset.sum_eq_zero; intro e _
@@ -132,7 +129,7 @@ noncomputable def CPTPMap.idBoolTensor {α β : Type u} [Fintype α] [DecidableE
       apply Finset.sum_eq_zero; intro e _
       by_cases h1 : w = w₁
       · subst h1; simp [hw]
-      · simp [h1]
+      · simp [h1]⟩
 
 /-- `(id_Bool ⊗ 𝒟)(|w⟩⟨w| ⊗ ρ) = |w⟩⟨w| ⊗ 𝒟(ρ)`. -/
 lemma CPTPMap.idBoolTensor_apply_ketBra {α β : Type u} [Fintype α] [DecidableEq α]
@@ -142,9 +139,8 @@ lemma CPTPMap.idBoolTensor_apply_ketBra {α β : Type u} [Fintype α] [Decidable
   ext ⟨w₁, b₁⟩ ⟨w₂, b₂⟩
   unfold CPTPMap.apply CPTPMap.toLinearMap CPTPMap.idBoolTensor partialTrace₂Mat
     DensityOp.tensor CQChannel.ketBraBool
-  dsimp only [LinearMap.coe_mk, AddHom.coe_mk]
-  simp only [Matrix.of_apply, Matrix.mul_apply, Matrix.conjTranspose_apply,
-    Matrix.kroneckerMap_apply, Fintype.sum_prod_type]
+  simp only [LinearMap.coe_mk, AddHom.coe_mk, Matrix.of_apply, Matrix.mul_apply,
+    Matrix.conjTranspose_apply, Matrix.kroneckerMap_apply, Fintype.sum_prod_type]
   by_cases h1 : w₁ = w
   · subst h1
     by_cases h2 : w₂ = w₁
@@ -189,9 +185,8 @@ lemma CPTPMap.apply_midpoint {α β : Type u} [Fintype α] [DecidableEq α] [Fin
       (DensityOp.midpoint (𝒟.apply ρ) (𝒟.apply σ)).mat := by
   ext i j
   unfold CPTPMap.apply CPTPMap.toLinearMap partialTrace₂Mat DensityOp.midpoint DensityOp.mix
-  dsimp only [LinearMap.coe_mk, AddHom.coe_mk]
-  simp only [Matrix.of_apply, Matrix.add_apply, Matrix.smul_apply, Matrix.mul_apply,
-    Matrix.conjTranspose_apply, Complex.real_smul]
+  simp only [LinearMap.coe_mk, AddHom.coe_mk, Matrix.of_apply, Matrix.add_apply,
+    Matrix.smul_apply, Matrix.mul_apply, Matrix.conjTranspose_apply, Complex.real_smul]
   rw [Finset.mul_sum, Finset.mul_sum, ← Finset.sum_add_distrib]
   apply Finset.sum_congr rfl; intro e _
   rw [Finset.mul_sum, Finset.mul_sum, ← Finset.sum_add_distrib]
@@ -211,7 +206,11 @@ lemma CQChannel.DegradedTo.condEntropy_le {d₁ d₂ : Type u} [Fintype d₁] [D
   rcases h with ⟨𝒟, h𝒟⟩
   have heq : (𝒟.compCQ W₁).condEntropy = W₂.condEntropy := by
     have hch : 𝒟.compCQ W₁ = W₂ := by
-      cases W₂; congr; funext b; apply DensityOp.ext; exact h𝒟 b
+      cases W₂
+      unfold CPTPMap.compCQ
+      congr
+      funext b
+      exact densityOp_ext (h𝒟 b)
     rw [hch]
   rw [← heq]
   exact condEntropy_cptp_ge 𝒟 W₁
@@ -224,7 +223,7 @@ lemma CQChannel.DegradedTo.trans {d₁ d₂ d₃ : Type u} [Fintype d₁] [Decid
   rcases h23 with ⟨𝒟₂, h₂⟩
   refine ⟨𝒟₂.comp 𝒟₁, fun b ↦ ?_⟩
   rw [CPTPMap.comp_apply]
-  have h1' : 𝒟₁.apply (W₁.out b) = W₂.out b := DensityOp.ext (h₁ b)
+  have h1' : 𝒟₁.apply (W₁.out b) = W₂.out b := densityOp_ext (h₁ b)
   rw [h1', h₂ b]
 
 lemma CQChannel.DegradedTo.checkCombine {d₁ d₂ d₁' d₂' : Type u}
@@ -240,14 +239,14 @@ lemma CQChannel.DegradedTo.checkCombine {d₁ d₂ d₁' d₂' : Type u}
   rw [CPTPMap.apply_midpoint]
   have hd1 : (𝒟₁.tensor 𝒟₂).apply (DensityOp.tensor (W₁.out b) (W₂.out false)) =
       DensityOp.tensor (W₁'.out b) (W₂'.out false) := by
-    apply DensityOp.ext
+    apply densityOp_ext
     rw [CPTPMap.tensor_apply_tensor]
-    rw [DensityOp.ext (h𝒟₁ b), DensityOp.ext (h𝒟₂ false)]
+    rw [densityOp_ext (h𝒟₁ b), densityOp_ext (h𝒟₂ false)]
   have hd2 : (𝒟₁.tensor 𝒟₂).apply (DensityOp.tensor (W₁.out (!b)) (W₂.out true)) =
       DensityOp.tensor (W₁'.out (!b)) (W₂'.out true) := by
-    apply DensityOp.ext
+    apply densityOp_ext
     rw [CPTPMap.tensor_apply_tensor]
-    rw [DensityOp.ext (h𝒟₁ (!b)), DensityOp.ext (h𝒟₂ true)]
+    rw [densityOp_ext (h𝒟₁ (!b)), densityOp_ext (h𝒟₂ true)]
   rw [hd1, hd2]
 
 lemma CQChannel.DegradedTo.varCombine {d₁ d₂ d₁' d₂' : Type u}
@@ -264,20 +263,20 @@ lemma CQChannel.DegradedTo.varCombine {d₁ d₂ d₁' d₂' : Type u}
   have hd1 : (𝒟₁.tensor 𝒟₂).idBoolTensor.apply
       (DensityOp.tensor (CQChannel.ketBraBool false) (DensityOp.tensor (W₁.out b) (W₂.out b))) =
       DensityOp.tensor (CQChannel.ketBraBool false) (DensityOp.tensor (W₁'.out b) (W₂'.out b)) := by
-    apply DensityOp.ext
+    apply densityOp_ext
     rw [CPTPMap.idBoolTensor_apply_ketBra]
     have hinner : (𝒟₁.tensor 𝒟₂).apply (DensityOp.tensor (W₁.out b) (W₂.out b)) =
         DensityOp.tensor (W₁'.out b) (W₂'.out b) := by
-      apply DensityOp.ext; rw [CPTPMap.tensor_apply_tensor, DensityOp.ext (h𝒟₁ b), DensityOp.ext (h𝒟₂ b)]
+      apply densityOp_ext; rw [CPTPMap.tensor_apply_tensor, densityOp_ext (h𝒟₁ b), densityOp_ext (h𝒟₂ b)]
     rw [hinner]
   have hd2 : (𝒟₁.tensor 𝒟₂).idBoolTensor.apply
       (DensityOp.tensor (CQChannel.ketBraBool true) (DensityOp.tensor (W₁.out (!b)) (W₂.out b))) =
       DensityOp.tensor (CQChannel.ketBraBool true) (DensityOp.tensor (W₁'.out (!b)) (W₂'.out b)) := by
-    apply DensityOp.ext
+    apply densityOp_ext
     rw [CPTPMap.idBoolTensor_apply_ketBra]
     have hinner : (𝒟₁.tensor 𝒟₂).apply (DensityOp.tensor (W₁.out (!b)) (W₂.out b)) =
         DensityOp.tensor (W₁'.out (!b)) (W₂'.out b) := by
-      apply DensityOp.ext; rw [CPTPMap.tensor_apply_tensor, DensityOp.ext (h𝒟₁ (!b)), DensityOp.ext (h𝒟₂ b)]
+      apply densityOp_ext; rw [CPTPMap.tensor_apply_tensor, densityOp_ext (h𝒟₁ (!b)), densityOp_ext (h𝒟₂ b)]
     rw [hinner]
   rw [hd1, hd2]
 
@@ -340,24 +339,27 @@ theorem polarChannelTree_dual_complement_channelEquiv (W : CQChannel d) :
         (polarChannelTree W n b).ch.dual
   | 0, _ => CQChannel.ChannelEquiv.refl W.dual
   | n + 1, b => by
-    have h1 : (fun k : Fin (n + 1) ↦ !(b k)) =
-        Fin.snoc (α := fun _ ↦ Bool) (fun k : Fin n ↦ !(Fin.init b k)) (!(b (Fin.last n))) := by
-      funext k
-      refine Fin.lastCases ?_ ?_ k
-      · simp
-      · intro j; simp [Fin.init]
-    have h2 : b = Fin.snoc (α := fun _ ↦ Bool) (Fin.init b) (b (Fin.last n)) :=
-      (Fin.snoc_init_self b).symm
-    rw [h1]
-    conv_rhs => rw [h2]
-    have ih := polarChannelTree_dual_complement_channelEquiv W n (Fin.init b)
-    cases b (Fin.last n)
-    · simp only [Bool.not_false, polarChannelTree_snoc_true, polarChannelTree_snoc_false,
-        BundledCQChannel.plus, BundledCQChannel.minus, CQChannel.plusChannel, CQChannel.minusChannel]
-      exact (ih.varCombine ih).trans (prop_2_2_D2_check_channelEquiv _ _).symm
-    · simp only [Bool.not_true, polarChannelTree_snoc_false, polarChannelTree_snoc_true,
-        BundledCQChannel.plus, BundledCQChannel.minus, CQChannel.plusChannel, CQChannel.minusChannel]
-      exact (ih.checkCombine ih).trans (prop_2_2_D2_var_channelEquiv _ _).symm
+    have haux : ∀ (b₀ : Fin n → Bool) (bn : Bool),
+        (polarChannelTree W.dual (n + 1) (fun k ↦ !(Fin.snoc (α := fun _ ↦ Bool) b₀ bn k))).ch.ChannelEquiv
+          (polarChannelTree W (n + 1) (Fin.snoc (α := fun _ ↦ Bool) b₀ bn)).ch.dual := by
+      intro b₀ bn
+      have h1 : (fun k : Fin (n + 1) ↦ !(Fin.snoc (α := fun _ ↦ Bool) b₀ bn k)) =
+          Fin.snoc (α := fun _ ↦ Bool) (fun k : Fin n ↦ !(b₀ k)) (!bn) := by
+        funext k
+        refine Fin.lastCases ?_ ?_ k
+        · simp
+        · intro j; simp
+      rw [h1]
+      have ih := polarChannelTree_dual_complement_channelEquiv W n b₀
+      cases bn
+      · simp only [Bool.not_false, polarChannelTree_snoc_true, polarChannelTree_snoc_false,
+          BundledCQChannel.plus, BundledCQChannel.minus, CQChannel.plusChannel, CQChannel.minusChannel]
+        exact (ih.varCombine ih).trans (prop_2_2_D2_check_channelEquiv _ _).symm
+      · simp only [Bool.not_true, polarChannelTree_snoc_false, polarChannelTree_snoc_true,
+          BundledCQChannel.plus, BundledCQChannel.minus, CQChannel.plusChannel, CQChannel.minusChannel]
+        exact (ih.checkCombine ih).trans (prop_2_2_D2_var_channelEquiv _ _).symm
+    have hres := haux (Fin.init b) (b (Fin.last n))
+    rwa [Fin.snoc_init_self] at hres
 
 /-- Exact entropy duality along the polarization tree: `H((W⊥)_n^{(!b)}) = 1 - H(W_n^{(b)})`. -/
 theorem polarCondEntropy_dual_complement (W : CQChannel d) (n : ℕ) (b : Fin n → Bool) :
@@ -401,7 +403,7 @@ noncomputable def choiState {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPM
           ((Real.sqrt 2 : ℂ)⁻¹ * 𝒩.isom (b, e) a) *
           ((Real.sqrt 2 : ℂ)⁻¹ * star (𝒩.isom (b, e) a)) = (1 / 2 : ℂ) := by
       intro a
-      have hiso := congr_fun (congr_fun 𝒩.isometry a) a
+      have hiso := congr_fun (congr_fun 𝒩.5 a) a
       simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.one_apply, ↓reduceIte,
         Fintype.sum_prod_type] at hiso
       have hfactor : ∑ b : d, ∑ e : 𝒩.env,
@@ -416,7 +418,6 @@ noncomputable def choiState {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPM
       rw [hfactor, hiso, mul_one]
     simp_rw [hstep]
     simp [Fintype.sum_bool]
-    ring
 
 /-- Renes–Wilde phase classical–quantum channel `W_P`:
 `W_P(0) = Φ_𝒩 = (id ⊗ 𝒩)(|Φ⁺⟩⟨Φ⁺|)` and `W_P(1) = (Z ⊗ I) Φ_𝒩 (Z ⊗ I)`. -/
@@ -442,7 +443,8 @@ lemma choiFactor_conjTranspose_mul_eq {d : Type} [Fintype d] [DecidableEq d] (�
     Complex.real_smul, Fintype.card_bool, Nat.cast_ofNat]
   rw [Finset.sum_comm]
   apply Finset.sum_congr rfl; intro b _
-  simp only [Fintype.sum_bool, ↓reduceIte, Bool.true_eq_false, Bool.false_eq_true,
+  simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply, Matrix.smul_apply,
+    Matrix.one_apply, Fintype.sum_bool, ↓reduceIte, Bool.true_eq_false, Bool.false_eq_true,
     smul_eq_mul, mul_zero, zero_mul, add_zero, zero_add, mul_one,
     Complex.ofReal_inv, Complex.ofReal_ofNat]
   calc (Real.sqrt 2 : ℂ)⁻¹ * star (𝒩.isom (b, e₁) true) * ((Real.sqrt 2 : ℂ)⁻¹ * 𝒩.isom (b, e₂) true) +
@@ -483,11 +485,10 @@ lemma ampChannel_midpoint_mat {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPT
     partialTrace₂Mat, CQChannel.ketBraBool, maxMixedState, Matrix.add_apply, Matrix.smul_apply,
     Matrix.of_apply, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.one_apply,
     LinearMap.coe_mk, AddHom.coe_mk, Complex.real_smul, Fintype.sum_bool, Fintype.card_bool,
-    Nat.cast_ofNat, ↓reduceIte, Bool.true_eq_false, Bool.false_eq_true, mul_zero, zero_mul,
-    add_zero, zero_add, mul_one, Complex.ofReal_inv, Complex.ofReal_ofNat]
-  rw [← Finset.mul_sum, ← Finset.mul_sum, ← Finset.mul_sum, ← Finset.sum_add_distrib]
-  simp only [← mul_add, ← add_mul]
-  rw [Finset.mul_sum]
+    Nat.cast_ofNat, ↓reduceIte, Bool.true_eq_false, Bool.false_eq_true, and_self, and_false,
+    false_and, mul_zero, zero_mul, add_zero, zero_add, mul_one,
+    Complex.ofReal_inv, Complex.ofReal_ofNat]
+  rw [Finset.mul_sum, Finset.mul_sum, ← Finset.sum_add_distrib]
   apply Finset.sum_congr rfl; intro e _
   push_cast; ring
 
@@ -511,16 +512,23 @@ lemma phaseChannel_midpoint_mat {d : Type} [Fintype d] [DecidableEq d] (𝒩 : C
     · rcases Prod.mk.inj h with ⟨rfl, rfl⟩
       cases b₁ <;> simp [pauliZTensorI, Matrix.star_apply, Matrix.diagonal_apply]
     · simp [pauliZTensorI, Matrix.star_apply, Matrix.diagonal_apply, h, Ne.symm h]
+  have hZ_conj : ∀ (M : Matrix (Bool × d) (Bool × d) ℂ) (a₁ a₂ : Bool) (b₁ b₂ : d),
+      ((pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ) * M *
+        star (pauliZTensorI d : Matrix (Bool × d) (Bool × d) ℂ)) (a₁, b₁) (a₂, b₂) =
+      (if a₁ = false then (1 : ℂ) else -1) * M (a₁, b₁) (a₂, b₂) *
+        (if a₂ = false then (1 : ℂ) else -1) := by
+    intro M a₁ a₂ b₁ b₂
+    rw [hZstar]
+    simp [pauliZTensorI, Matrix.diagonal_mul, Matrix.mul_diagonal]
   ext ⟨a₁, b₁⟩ ⟨a₂, b₂⟩
   simp only [DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, phaseChannel, ampChannel,
-    choiState, DensityOp.conjUnitary, hZstar, pauliZTensorI, Matrix.add_apply, Matrix.smul_apply,
-    Matrix.kroneckerMap_apply, Matrix.mul_diagonal, Matrix.diagonal_mul, Matrix.mul_apply,
-    Matrix.conjTranspose_apply, choiFactor, CQChannel.ketBraBool, CPTPMap.apply,
-    CPTPMap.toLinearMap, partialTrace₂Mat, Matrix.of_apply, LinearMap.coe_mk, AddHom.coe_mk,
-    Complex.real_smul, Fintype.sum_bool, star_mul', hstar2]
+    choiState, DensityOp.conjUnitary, Matrix.add_apply, Matrix.smul_apply, hZ_conj,
+    Matrix.kroneckerMap_apply, Matrix.mul_apply, Matrix.conjTranspose_apply, choiFactor,
+    CQChannel.ketBraBool, CPTPMap.apply, CPTPMap.toLinearMap, partialTrace₂Mat, Matrix.of_apply,
+    LinearMap.coe_mk, AddHom.coe_mk, Complex.real_smul, Fintype.sum_bool, star_mul', hstar2]
   cases a₁ <;> cases a₂
-  · simp only [↓reduceIte, Bool.false_eq_true, Bool.true_eq_false, one_mul, mul_one, mul_zero,
-      zero_mul, add_zero, zero_add]
+  · simp only [↓reduceIte, Bool.false_eq_true, Bool.true_eq_false, and_self, and_false, false_and,
+      one_mul, mul_one, mul_zero, zero_mul, add_zero, zero_add]
     rw [Finset.mul_sum, Finset.mul_sum, Finset.mul_sum, ← Finset.sum_add_distrib]
     apply Finset.sum_congr rfl; intro e _
     calc (1 - 1 / 2 : ℂ) * ((Real.sqrt 2 : ℂ)⁻¹ * 𝒩.isom (b₁, e) false *
@@ -530,14 +538,14 @@ lemma phaseChannel_midpoint_mat {d : Type} [Fintype d] [DecidableEq d] (𝒩 : C
         = (((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) *
           (𝒩.isom (b₁, e) false * star (𝒩.isom (b₂, e) false)) := by ring
       _ = _ := by rw [hmul2]; push_cast; ring
-  · simp only [↓reduceIte, Bool.false_eq_true, Bool.true_eq_false, one_mul, mul_one, mul_neg,
-      neg_mul, mul_zero, zero_mul, add_zero, zero_add]
+  · simp only [↓reduceIte, Bool.false_eq_true, Bool.true_eq_false, and_self, and_false, false_and,
+      one_mul, mul_one, mul_neg, neg_mul, mul_zero, zero_mul, add_zero, zero_add]
     push_cast; ring
-  · simp only [↓reduceIte, Bool.false_eq_true, Bool.true_eq_false, one_mul, mul_one, mul_neg,
-      neg_mul, mul_zero, zero_mul, add_zero, zero_add]
+  · simp only [↓reduceIte, Bool.false_eq_true, Bool.true_eq_false, and_self, and_false, false_and,
+      one_mul, mul_one, mul_neg, neg_mul, mul_zero, zero_mul, add_zero, zero_add]
     push_cast; ring
-  · simp only [↓reduceIte, Bool.false_eq_true, Bool.true_eq_false, one_mul, mul_one, mul_neg,
-      neg_mul, neg_neg, mul_zero, zero_mul, add_zero, zero_add]
+  · simp only [↓reduceIte, Bool.false_eq_true, Bool.true_eq_false, and_self, and_false, false_and,
+      one_mul, mul_one, mul_neg, neg_mul, neg_neg, mul_zero, zero_mul, add_zero, zero_add]
     rw [Finset.mul_sum, Finset.mul_sum, Finset.mul_sum, ← Finset.sum_add_distrib]
     apply Finset.sum_congr rfl; intro e _
     calc (1 - 1 / 2 : ℂ) * ((Real.sqrt 2 : ℂ)⁻¹ * 𝒩.isom (b₁, e) true *
@@ -552,7 +560,7 @@ lemma phaseChannel_midpoint_mat {d : Type} [Fintype d] [DecidableEq d] (𝒩 : C
 `I(W_A) + I(W_P) - 1 = I_sym(𝒩)` for every finite-dimensional qubit-input CPTP map `𝒩`. -/
 theorem amp_phase_symCapacity_sum {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap.{0} Bool d) :
     (ampChannel 𝒩).symCapacity + (phaseChannel 𝒩).symCapacity - 1 = symCoherentInfo 𝒩 := by
-  unfold CQChannel.symCapacity CQChannel.condEntropy qjs symCoherentInfo
+  unfold CQChannel.symCapacity qjs symCoherentInfo
   have hAm := vonNeumannEntropy_eq_of_mat_eq (ampChannel_midpoint_mat 𝒩)
   have hPm := vonNeumannEntropy_eq_of_mat_eq (phaseChannel_midpoint_mat 𝒩)
   rw [vonNeumannEntropy_block_midpoint] at hPm
