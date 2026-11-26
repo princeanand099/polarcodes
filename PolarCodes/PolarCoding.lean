@@ -928,6 +928,7 @@ theorem wilde_guha_qsc_avg_bound (W : CQChannel d) (n : ℕ) (infoSet : Finset (
     have hemb : ∀ m', embedMsg infoSet (eSplit (f, m)) m' = embedMsg infoSet (extendF f) m' := by
       intro m'; funext i; by_cases hi : i ∈ infoSet <;> simp [embedMsg, eSplit, extendF, hi]
     simp only [G, CosetPolarCode.avgBlockError, qscPolarCode, CosetPolarCode.encode, hemb]
+    rfl
   have hfull : ((2 : ℝ) ^ (2 ^ n))⁻¹ * ∑ frozen : Fin (2 ^ n) → Bool, G frozen =
       ((2 : ℝ) ^ (2 ^ n - infoSet.card))⁻¹ *
         ∑ f : {i : Fin (2 ^ n) // i ∉ infoSet} → Bool, G (extendF f) := by
@@ -940,7 +941,7 @@ theorem wilde_guha_qsc_avg_bound (W : CQChannel d) (n : ℕ) (infoSet : Finset (
     have hN : (2 : ℝ) ^ (2 ^ n) = (2 : ℝ) ^ (2 ^ n - infoSet.card) * (2 : ℝ) ^ infoSet.card := by
       rw [← pow_add, Nat.sub_add_cancel hle]
     have h2pos : (2 : ℝ) ^ infoSet.card ≠ 0 := by positivity
-    rw [hN, mul_inv, mul_assoc, inv_mul_cancel₀ h2pos, mul_one]
+    rw [hN, mul_inv, mul_assoc ((2 : ℝ) ^ (2 ^ n - infoSet.card))⁻¹, ← mul_assoc ((2 : ℝ) ^ infoSet.card)⁻¹, inv_mul_cancel₀ h2pos, one_mul]
   change ((2 : ℝ) ^ (2 ^ n))⁻¹ * ∑ frozen : Fin (2 ^ n) → Bool, G frozen ≤ _
   rw [hfull]
   exact havg_bound
