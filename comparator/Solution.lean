@@ -12,9 +12,28 @@ private def toPolarDensityOp {d : Type*} [Fintype d] [DecidableEq d]
     (ρ : DensityOp d) : PolarCodes.DensityOp d :=
   ⟨ρ.mat, ρ.posSemidef, ρ.trace_one⟩
 
+private lemma toPolarDensityOp_eq_of_mat {d : Type*} [Fintype d] [DecidableEq d]
+    {ρ : DensityOp d} {σ : PolarCodes.DensityOp d} (h : ρ.mat = σ.mat) :
+    toPolarDensityOp ρ = σ := by
+  rcases ρ with ⟨m₁, p₁, t₁⟩
+  rcases σ with ⟨m₂, p₂, t₂⟩
+  dsimp only at h
+  subst h
+  rfl
+
 private def toPolarCQChannel {d : Type*} [Fintype d] [DecidableEq d]
     (W : CQChannel d) : PolarCodes.CQChannel d :=
   ⟨fun b ↦ toPolarDensityOp (W.out b)⟩
+
+private lemma toPolarCQChannel_eq_of_mat {d : Type*} [Fintype d] [DecidableEq d]
+    {W : CQChannel d} {W' : PolarCodes.CQChannel d}
+    (h : ∀ b, (W.out b).mat = (W'.out b).mat) :
+    toPolarCQChannel W = W' := by
+  rcases W' with ⟨out'⟩
+  unfold toPolarCQChannel
+  congr 1
+  funext b
+  exact toPolarDensityOp_eq_of_mat (h b)
 
 private def toPolarCPTPMap {d₁ d₂ : Type} [Fintype d₁] [DecidableEq d₁]
     [Fintype d₂] [DecidableEq d₂] (𝒩 : CPTPMap d₁ d₂) : PolarCodes.CPTPMap.{0} d₁ d₂ :=
@@ -47,17 +66,30 @@ private lemma polarFidelity_congr {d : Type} [Fintype d] [DecidableEq d]
     (t : ℕ) (b : Fin t → Bool) :
     PolarCodes.polarFidelity W₁ t b = PolarCodes.polarFidelity W₂ t b := by
   have hW : W₁ = W₂ := by
-    cases W₁ with
-    | mk out₁ =>
-      cases W₂ with
-      | mk out₂ =>
-        congr 1; funext z
-        have hz := h z
-        cases out₁ z; cases out₂ z; congr
+    rcases W₁ with ⟨out₁⟩
+    rcases W₂ with ⟨out₂⟩
+    congr 1; funext z
+    have hz := h z
+    rcases h1 : out₁ z with ⟨m₁, p₁, t₁⟩
+    rcases h2 : out₂ z with ⟨m₂, p₂, t₂⟩
+    simp only [h1, h2] at hz
+    subst hz; rfl
   rw [hW]
 
 private lemma symCapacity_eq {d : Type*} [Fintype d] [DecidableEq d] (W : CQChannel d) :
     W.symCapacity = (toPolarCQChannel W).symCapacity := rfl
+
+private lemma symCoherentInfo_eq {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap Bool d) :
+    symCoherentInfo 𝒩 = PolarCodes.symCoherentInfo (toPolarCPTPMap 𝒩) := by
+  unfold symCoherentInfo PolarCodes.symCoherentInfo
+  have h1 : toPolarDensityOp (𝒩.apply (maxMixedState Bool)) =
+      (toPolarCPTPMap 𝒩).apply (PolarCodes.maxMixedState Bool) :=
+    toPolarDensityOp_eq_of_mat rfl
+  have h2 : toPolarDensityOp (𝒩.complementary.apply (maxMixedState Bool)) =
+      (toPolarCPTPMap 𝒩).complementary.apply (PolarCodes.maxMixedState Bool) :=
+    toPolarDensityOp_eq_of_mat rfl
+  rw [← h1, ← h2]
+  rfl
 
 private lemma treeProb_eq (n : ℕ) (P : (Fin n → Bool) → Prop) :
     treeProb n P = PolarCodes.treeProb n P := by
@@ -118,8 +150,9 @@ private lemma fromPolarCosetPolarCode_avgBlockError {d : Type} [Fintype d] [Deci
     ext r s
     simp only [productStateMat, PolarCodes.productState, PolarCodes.productStateMat, Matrix.of_apply]
     apply Finset.prod_congr rfl; intro k _
-    exact hmat (C.encode m k)
+    rw [hmat (C.encode m k)]
   rw [hprod]
+  rfl
 
 private lemma toPolarCQChannel_dual_mat {d : Type} [Fintype d] [DecidableEq d]
     (W : CQChannel d) (b : Bool) :
@@ -154,14 +187,7 @@ private lemma unpolarizedSet_eq {d : Type} [Fintype d] [DecidableEq d]
     rw [polarFidelity_eq]
     refine polarFidelity_congr ?_ n (bitPath n (dualIndex n i))
     intro b
-    rw [toPolarCQChannel_dual_mat]
-    have hW : toPolarCQChannel W = W' := by
-      cases W' with
-      | mk out' =>
-        congr 1; funext z
-        have hz := hmat z
-        cases out' z; cases (toPolarCQChannel W).out z; congr
-    rw [hW]
+    rw [toPolarCQChannel_dual_mat, toPolarCQChannel_eq_of_mat hmat]
   rw [h1, h2]
 
 theorem theorem_1_1_quantum_polar_poly_blocklength :
@@ -258,12 +284,14 @@ theorem corollary_5_5_quantum_private_polar_coding :
       phaseCode := fromPolarCosetPolarCode C.phaseCode
       infoSet_align := halign
       assistanceSet := C.assistanceSet }
-  refine ⟨C', hrate, ?_, ?_, ?_, ?_, ?_, ?_⟩
-  · simpa only [C', fromPolarCosetPolarCode_avgBlockError (ampChannel_mat 𝒩)] using hamp
-  · simpa only [C', fromPolarCosetPolarCode_avgBlockError (phaseChannel_mat 𝒩)] using hphase
+  refine ⟨C', ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · rw [symCoherentInfo_eq]; exact hrate
+  · rw [fromPolarCosetPolarCode_avgBlockError (ampChannel_mat 𝒩)]; exact hamp
+  · rw [fromPolarCosetPolarCode_avgBlockError (phaseChannel_mat 𝒩)]; exact hphase
   · unfold CSSPrivatePolarCode.combinedError
-    simpa only [C', fromPolarCosetPolarCode_avgBlockError (ampChannel_mat 𝒩),
-      fromPolarCosetPolarCode_avgBlockError (phaseChannel_mat 𝒩)] using hcomb
+    rw [fromPolarCosetPolarCode_avgBlockError (ampChannel_mat 𝒩),
+      fromPolarCosetPolarCode_avgBlockError (phaseChannel_mat 𝒩)]
+    exact hcomb
   · rw [unpolarizedSet_eq (ampChannel_mat 𝒩)]; exact hUA
   · rw [unpolarizedSet_eq (phaseChannel_mat 𝒩)]; exact hUP
   · intro hdegN
