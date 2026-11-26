@@ -10,7 +10,7 @@ import PolarCodes
 # Comparator Solution Module for `PolarCodes`
 
 Proves all 13 locked headline theorems in `Challenge.lean` by structural transport to the
-zero-`sorry` formalization in `PolarCodes`.
+complete unconditional formalization in `PolarCodes`.
 -/
 
 namespace PolarCodesChallenge

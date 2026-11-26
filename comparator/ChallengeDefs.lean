@@ -8,7 +8,7 @@ import Mathlib.Analysis.Matrix.Spectrum
 import Mathlib.Analysis.SpecialFunctions.Log.Base
 import Mathlib.Analysis.SpecialFunctions.Log.NegMulLog
 import Mathlib.Analysis.SpecialFunctions.Pow.Real
-import Mathlib.Data.ENNReal.Real
+import Mathlib.Basic.ENNReal.Real
 import Mathlib.Data.Fin.VecNotation
 import Mathlib.LinearAlgebra.Matrix.Kronecker
 
@@ -96,11 +96,11 @@ noncomputable def sqrtMat (ρ : DensityOp d) : Matrix d d ℂ :=
 lemma sqrtMat_isHermitian (ρ : DensityOp d) : ρ.sqrtMat.IsHermitian := by
   unfold sqrtMat
   rw [Matrix.IsHermitian, Matrix.conjTranspose_mul, Matrix.conjTranspose_mul,
-    ← Matrix.star_eq_conjTranspose, star_star, Matrix.diagonal_conjTranspose]
-  have hdiag : (fun i ↦ star ((Real.sqrt (ρ.eigvals i) : ℂ))) =
-      fun i ↦ (Real.sqrt (ρ.eigvals i) : ℂ) := by
-    ext i; simp
-  simp [hdiag, Matrix.mul_assoc]
+    ← Matrix.star_eq_conjTranspose, star_star, Matrix.diagonal_conjTranspose,
+    ← Matrix.star_eq_conjTranspose, Matrix.mul_assoc]
+  congr 2
+  ext i j
+  simp [Matrix.diagonal_apply]
 
 lemma sqrtMat_mul_self (ρ : DensityOp d) : ρ.sqrtMat * ρ.sqrtMat = ρ.mat := by
   unfold sqrtMat
@@ -126,9 +126,13 @@ noncomputable def mix (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1) (ρ σ : Density
   mat := ((1 - p : ℝ) : ℂ) • ρ.mat + (p : ℂ) • σ.mat
   posSemidef := by
     have h1 : (((1 - p : ℝ) : ℂ) • ρ.mat).PosSemidef := by
-      simpa [Complex.real_smul] using ρ.posSemidef.smul (by linarith : (0 : ℝ) ≤ 1 - p)
+      have : (((1 - p : ℝ) : ℂ) • ρ.mat) = (1 - p : ℝ) • ρ.mat := by
+        ext i j; simp [Complex.real_smul]
+      rw [this]; exact ρ.posSemidef.smul (by linarith)
     have h2 : ((p : ℂ) • σ.mat).PosSemidef := by
-      simpa [Complex.real_smul] using σ.posSemidef.smul hp0
+      have : ((p : ℂ) • σ.mat) = p • σ.mat := by
+        ext i j; simp [Complex.real_smul]
+      rw [this]; exact σ.posSemidef.smul hp0
     exact h1.add h2
   trace_one := by
     simp [Matrix.trace_add, Matrix.trace_smul, ρ.trace_one, σ.trace_one]
@@ -181,6 +185,7 @@ def suppSubset (ρ σ : DensityOp d) : Prop :=
     (star (σ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ)) j i = 0
 
 /-- Umegaki quantum relative entropy `D(ρ ‖ σ) ∈ [0, ∞]` in bits. -/
+open Classical in
 noncomputable def relEntropy (ρ σ : DensityOp d) : ENNReal :=
   if suppSubset ρ σ then
     ENNReal.ofReal
@@ -210,9 +215,13 @@ noncomputable def maxMixedState (d : Type*) [Fintype d] [DecidableEq d] [Nonempt
   posSemidef := by
     have hnn : (0 : ℝ) ≤ (Fintype.card d : ℝ)⁻¹ :=
       inv_nonneg.mpr (Nat.cast_nonneg _)
-    simpa [Complex.real_smul] using (Matrix.PosSemidef.one (n := d) (R := ℂ)).smul hnn
+    have hEq : (((Fintype.card d : ℝ)⁻¹ : ℂ) • (1 : Matrix d d ℂ)) =
+        ((Fintype.card d : ℝ)⁻¹ : ℝ) • (1 : Matrix d d ℂ) := by
+      ext i j; simp [Complex.real_smul]
+    rw [hEq]
+    exact (Matrix.PosSemidef.one (n := d) (R := ℂ)).smul hnn
   trace_one := by
-    rw [Matrix.trace_smul, Matrix.trace_one, smul_eq_mul, Complex.ofReal_inv, Complex.ofReal_natCast]
+    rw [Matrix.trace_smul, Matrix.trace_one, smul_eq_mul, Complex.ofReal_natCast]
     have hpos : (Fintype.card d : ℂ) ≠ 0 := Nat.cast_ne_zero.mpr Fintype.card_ne_zero
     exact inv_mul_cancel₀ hpos
 
@@ -233,7 +242,7 @@ def pauliZTensorI (d : Type*) [Fintype d] [DecidableEq d] :
       apply Finset.sum_eq_zero
       intro r _
       by_cases h1 : p = r
-      · subst h1; simp [hpq]
+      · subst h1; simp [hpq, Ne.symm hpq]
       · simp [h1]⟩
 
 /-- Qubit dephasing channel `(Z_p ⊗ id)(Ψ) = (1 - p) Ψ + p (Z ⊗ I) Ψ (Z ⊗ I)`. -/
@@ -638,7 +647,7 @@ noncomputable def choiState {d : Type} [Fintype d] [DecidableEq d]
       intro a
       have h := congr_fun (congr_fun 𝒩.isom_eq a) a
       simpa [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type] using h
-    simp [hcol, Fintype.sum_bool]
+    rw [Fintype.sum_bool, hcol true, hcol false]
     ring
 
 /-- Renes–Wilde phase c-q channel `W_P(0) = Φ_𝒩`, `W_P(1) = (Z ⊗ I) Φ_𝒩 (Z ⊗ I)`. -/
@@ -685,7 +694,9 @@ private lemma bitPathFwd_inv : ∀ (n : ℕ) (b : Fin n → Bool), bitPathFwd n 
       cases b (Fin.last n) <;> simp <;> omega
     have hfin : (⟨(2 * (bitPathInv n (Fin.init b)).val + if b (Fin.last n) then 1 else 0) / 2,
         by omega⟩ : Fin (2 ^ n)) = bitPathInv n (Fin.init b) := Fin.ext hdiv
-    rw [hfin, bitPathFwd_inv n (Fin.init b), hmod]
+    rw [hfin, bitPathFwd_inv n (Fin.init b)]
+    congr 1
+    exact hmod
 
 /-- Canonical bijection `Fin (2^n) ≃ (Fin n → Bool)`. -/
 def bitPath (n : ℕ) : Fin (2 ^ n) ≃ (Fin n → Bool) where
