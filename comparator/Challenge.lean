@@ -48,11 +48,11 @@ theorem corollary_5_5_quantum_private_polar_coding :
         {ε : ℝ}, 0 < ε → ε < 1 →
         ∀ (n : ℕ), C₀ * (1 / ε) ^ μ ≤ (2 : ℝ) ^ n →
           let thresh : ℝ := (2 : ℝ) ^ (-(200 : ℝ) * ((2 : ℝ) ^ n) ^ (49047 / 100000 : ℝ))
-          ∃ C : CSSPrivatePolarCode 𝒩 n,
+          ∃ C : CSSPrivatePolarCode 𝒩 n thresh,
             symCoherentInfo 𝒩 - ε / 2 ≤ C.rate ∧
             C.ampCode.avgBlockError ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) ∧
             C.phaseCode.avgBlockError ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) ∧
-            C.combinedError ≤ 2 * (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) ∧
+            C.ampPhaseErrorSum ≤ 2 * (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) ∧
             ((unpolarizedSet (ampChannel 𝒩) n thresh).card : ℝ) / (2 : ℝ) ^ n ≤ ε / 4 ∧
             ((unpolarizedSet (phaseChannel 𝒩) n thresh).card : ℝ) / (2 : ℝ) ^ n ≤ ε / 4 ∧
             (𝒩.IsDegradable → C.assistanceRate ≤ ε / 2) := by
@@ -108,6 +108,10 @@ theorem theorem_1_3_equatorial_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 1
 
 theorem theorem_1_3_dephasing_sdpi_relEntropy {d : Type} [Fintype d] [DecidableEq d]
     (Ψ : DensityOp (Bool × d)) {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) :
+    relEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) Ψ)
+      (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ) ≠ ⊤ ∧
+    relEntropy (dephaseState 0 le_rfl (by norm_num) Ψ)
+      (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ) ≠ ⊤ ∧
     (relEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) Ψ)
       (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ)).toReal ≤
       1 - h2 (binConv (h2Inv (1 -
@@ -117,6 +121,10 @@ theorem theorem_1_3_dephasing_sdpi_relEntropy {d : Type} [Fintype d] [DecidableE
 
 theorem theorem_1_3_equatorial_equality_relEntropy {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 1)
     {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) :
+    relEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) (equatorialState x hx0 hx1))
+      (dephaseState (1 / 2) (by norm_num) (by norm_num) (equatorialState x hx0 hx1)) ≠ ⊤ ∧
+    relEntropy (dephaseState 0 le_rfl (by norm_num) (equatorialState x hx0 hx1))
+      (dephaseState (1 / 2) (by norm_num) (by norm_num) (equatorialState x hx0 hx1)) ≠ ⊤ ∧
     (relEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) (equatorialState x hx0 hx1))
       (dephaseState (1 / 2) (by norm_num) (by norm_num) (equatorialState x hx0 hx1))).toReal =
       1 - h2 (binConv (h2Inv (1 -

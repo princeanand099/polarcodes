@@ -12,6 +12,7 @@ import PolarCodes.ChannelEquiv
 import PolarCodes.Channels
 import PolarCodes.DataProcessing
 import PolarCodes.DephasingSDPI
+import PolarCodes.DivergenceCharacterizations
 import PolarCodes.FrenkelHelpers
 import PolarCodes.FrenkelIntegral
 import PolarCodes.GramDephasing
@@ -22,6 +23,7 @@ import PolarCodes.MrsGerber
 import PolarCodes.MrsGerberClassical
 import PolarCodes.MrsGerberHybrid
 import PolarCodes.NoncommutativeUnion
+import PolarCodes.PhiAndFuchs
 import PolarCodes.PolarCoding
 import PolarCodes.Polarization
 import PolarCodes.PolarizationFine
@@ -40,7 +42,7 @@ import PolarCodes.SplittingBounds
 /-!
 # Polynomial-Blocklength Quantum Polar Codes
 
-Root library module importing all 33 modules of the complete Lean 4 formalization of
+Root library module importing all 35 modules of the Lean 4 formalization of
 *Polynomial-Blocklength Quantum Polar Codes via Nonlinear Dephasing Contraction*
 (Prince Anand, 2026).
 -/

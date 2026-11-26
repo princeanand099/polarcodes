@@ -187,6 +187,15 @@ private lemma phaseChannel_mat {d : Type} [Fintype d] [DecidableEq d]
     ((phaseChannel 𝒩).out b).mat = ((PolarCodes.phaseChannel (toPolarCPTPMap 𝒩)).out b).mat := by
   cases b <;> rfl
 
+private lemma goodSet_eq {d : Type} [Fintype d] [DecidableEq d]
+    {W : CQChannel d} {W' : PolarCodes.CQChannel d}
+    (hmat : ∀ b, (W.out b).mat = (W'.out b).mat) (n : ℕ) (δ : ℝ) :
+    goodSet W n δ = PolarCodes.goodSet W' n δ := by
+  ext i
+  simp only [goodSet, PolarCodes.goodSet, Finset.mem_filter, Finset.mem_univ, true_and]
+  rw [PolarCodes.synthChannel_fidelityParam_eq, ← bitPath_eq, polarFidelity_eq,
+    polarFidelity_congr hmat n (bitPath n i)]
+
 private lemma unpolarizedSet_eq {d : Type} [Fintype d] [DecidableEq d]
     {W : CQChannel d} {W' : PolarCodes.CQChannel d}
     (hmat : ∀ b, (W.out b).mat = (W'.out b).mat) (n : ℕ) (δ : ℝ) :
@@ -280,11 +289,11 @@ theorem corollary_5_5_quantum_private_polar_coding :
         {ε : ℝ}, 0 < ε → ε < 1 →
         ∀ (n : ℕ), C₀ * (1 / ε) ^ μ ≤ (2 : ℝ) ^ n →
           let thresh : ℝ := (2 : ℝ) ^ (-(200 : ℝ) * ((2 : ℝ) ^ n) ^ (49047 / 100000 : ℝ))
-          ∃ C : CSSPrivatePolarCode 𝒩 n,
+          ∃ C : CSSPrivatePolarCode 𝒩 n thresh,
             symCoherentInfo 𝒩 - ε / 2 ≤ C.rate ∧
             C.ampCode.avgBlockError ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) ∧
             C.phaseCode.avgBlockError ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) ∧
-            C.combinedError ≤ 2 * (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) ∧
+            C.ampPhaseErrorSum ≤ 2 * (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) ∧
             ((unpolarizedSet (ampChannel 𝒩) n thresh).card : ℝ) / (2 : ℝ) ^ n ≤ ε / 4 ∧
             ((unpolarizedSet (phaseChannel 𝒩) n thresh).card : ℝ) / (2 : ℝ) ^ n ≤ ε / 4 ∧
             (𝒩.IsDegradable → C.assistanceRate ≤ ε / 2) := by
@@ -292,21 +301,31 @@ theorem corollary_5_5_quantum_private_polar_coding :
   refine ⟨μ, C₀, hμ, hC₀, ?_⟩
   intro d _ _ 𝒩 ε hε0 hε1 n hn
   dsimp only
+  set thresh : ℝ := (2 : ℝ) ^ (-(200 : ℝ) * ((2 : ℝ) ^ n) ^ (49047 / 100000 : ℝ))
   obtain ⟨C, hrate, hamp, hphase, hcomb, hUA, hUP, hdeg⟩ :=
     h (toPolarCPTPMap 𝒩) hε0 hε1 n hn
   have halign : C.phaseCode.infoSet = C.ampCode.infoSet.image (dualIndex n) := by
     rw [C.infoSet_align]
     congr 1; funext i; exact (dualIndex_eq n i).symm
-  let C' : CSSPrivatePolarCode 𝒩 n :=
+  have hassist : C.assistanceSet =
+      Finset.univ.filter (fun i : Fin (2 ^ n) ↦
+        i ∉ goodSet (ampChannel 𝒩) n thresh ∧
+        dualIndex n i ∉ goodSet (phaseChannel 𝒩) n thresh) := by
+    rw [C.assistanceSet_spec]
+    ext i
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and,
+      goodSet_eq (ampChannel_mat 𝒩), goodSet_eq (phaseChannel_mat 𝒩), dualIndex_eq]
+  let C' : CSSPrivatePolarCode 𝒩 n thresh :=
     { ampCode := fromPolarCosetPolarCode C.ampCode
       phaseCode := fromPolarCosetPolarCode C.phaseCode
       infoSet_align := halign
-      assistanceSet := C.assistanceSet }
+      assistanceSet := C.assistanceSet
+      assistanceSet_spec := hassist }
   refine ⟨C', ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
   · rw [symCoherentInfo_eq]; exact hrate
   · rw [fromPolarCosetPolarCode_avgBlockError (ampChannel_mat 𝒩)]; exact hamp
   · rw [fromPolarCosetPolarCode_avgBlockError (phaseChannel_mat 𝒩)]; exact hphase
-  · unfold CSSPrivatePolarCode.combinedError
+  · unfold CSSPrivatePolarCode.ampPhaseErrorSum
     rw [fromPolarCosetPolarCode_avgBlockError (ampChannel_mat 𝒩),
       fromPolarCosetPolarCode_avgBlockError (phaseChannel_mat 𝒩)]
     exact hcomb
@@ -367,20 +386,28 @@ theorem theorem_1_3_equatorial_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 1
 
 theorem theorem_1_3_dephasing_sdpi_relEntropy {d : Type} [Fintype d] [DecidableEq d]
     (Ψ : DensityOp (Bool × d)) {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) :
+    relEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) Ψ)
+      (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ) ≠ ⊤ ∧
+    relEntropy (dephaseState 0 le_rfl (by norm_num) Ψ)
+      (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ) ≠ ⊤ ∧
     (relEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) Ψ)
       (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ)).toReal ≤
       1 - h2 (binConv (h2Inv (1 -
         (relEntropy (dephaseState 0 le_rfl (by norm_num) Ψ)
           (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ)).toReal)) p) :=
-  PolarCodes.theorem_1_3_dephasing_sdpi_relEntropy (toPolarDensityOp Ψ) hp0 hp1
+  PolarCodes.theorem_1_3_dephasing_sdpi_relEntropy_finite (toPolarDensityOp Ψ) hp0 hp1
 
 theorem theorem_1_3_equatorial_equality_relEntropy {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 1)
     {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) :
+    relEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) (equatorialState x hx0 hx1))
+      (dephaseState (1 / 2) (by norm_num) (by norm_num) (equatorialState x hx0 hx1)) ≠ ⊤ ∧
+    relEntropy (dephaseState 0 le_rfl (by norm_num) (equatorialState x hx0 hx1))
+      (dephaseState (1 / 2) (by norm_num) (by norm_num) (equatorialState x hx0 hx1)) ≠ ⊤ ∧
     (relEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) (equatorialState x hx0 hx1))
       (dephaseState (1 / 2) (by norm_num) (by norm_num) (equatorialState x hx0 hx1))).toReal =
       1 - h2 (binConv (h2Inv (1 -
         (relEntropy (dephaseState 0 le_rfl (by norm_num) (equatorialState x hx0 hx1))
           (dephaseState (1 / 2) (by norm_num) (by norm_num) (equatorialState x hx0 hx1))).toReal)) p) :=
-  PolarCodes.theorem_1_3_equatorial_equality_relEntropy hx0 hx1 hp0 hp1
+  PolarCodes.theorem_1_3_equatorial_equality_relEntropy_finite hx0 hx1 hp0 hp1
 
 end PolarCodesChallenge

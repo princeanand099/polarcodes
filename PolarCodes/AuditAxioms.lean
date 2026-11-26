@@ -8,12 +8,22 @@ import PolarCodes
 /-!
 # Axiom Audit for `PolarCodes`
 
-Verifies via `#print axioms` that all 50 formalized theorems in the manuscript depend exclusively
-on Lean 4's standard axioms (`propext`, `Classical.choice`, `Quot.sound`) with zero custom axioms
-and zero `sorryAx`.
+Verifies via `#print axioms` that all 64 exported theorems depend exclusively on Lean 4's
+standard axioms (`propext`, `Classical.choice`, `Quot.sound`) with zero custom axioms and
+zero `sorryAx`.
 -/
 
--- Section 2: Channel duality, channel equivalence & entropy conservation
+-- Section 2: Divergence characterizations, Fuchs–van de Graaf, hockey-stick variational, duality & entropy conservation
+#print axioms PolarCodes.one_sub_rootFidelity_le_traceDist
+#print axioms PolarCodes.traceDist_le_sqrt_one_sub_rootFidelity_sq
+#print axioms PolarCodes.posPartMat_mul_negPartMat
+#print axioms PolarCodes.hockeyStick_eq_sSup
+#print axioms PolarCodes.qjs_eq_avg_relEntropy
+#print axioms PolarCodes.relEntropy_eq_zero_iff
+#print axioms PolarCodes.qjs_mem_Icc
+#print axioms PolarCodes.qjs_eq_zero_iff
+#print axioms PolarCodes.qjs_eq_one_iff
+#print axioms PolarCodes.rootFidelity_block_diagonal
 #print axioms PolarCodes.condEntropy_varCombine_eq
 #print axioms PolarCodes.entropy_conservation
 #print axioms PolarCodes.prop_2_2_D1
@@ -22,9 +32,13 @@ and zero `sorryAx`.
 #print axioms PolarCodes.prop_2_2_D2_channelEquiv
 #print axioms PolarCodes.prop_2_2_D3_channelEquiv
 
--- Section 3: Binary entropy, Lemma 3.1, Frenkel integral, CPTP DPI, hockey-stick, QJJS, Nonlinear SDPI
+-- Section 3: Binary entropy, Lemma 3.1 & phi, Frenkel integral, CPTP DPI, hockey-stick, QJJS, Nonlinear SDPI
 #print axioms PolarCodes.antitoneOn_deltaGap
 #print axioms PolarCodes.lemma_3_1_gx_nonneg
+#print axioms PolarCodes.hasDerivAt_phi_cParam
+#print axioms PolarCodes.continuousOn_phi
+#print axioms PolarCodes.strictMonoOn_phi
+#print axioms PolarCodes.strictConvexOn_phi
 #print axioms PolarCodes.convexOn_gc
 #print axioms PolarCodes.relEntropy_frenkel_integral
 #print axioms PolarCodes.relEntropy_hockeyStick_integral
@@ -38,9 +52,12 @@ and zero `sorryAx`.
 #print axioms PolarCodes.theorem_1_3_equatorial_equality
 #print axioms PolarCodes.theorem_1_3_dephasing_sdpi_relEntropy
 #print axioms PolarCodes.theorem_1_3_equatorial_equality_relEntropy
+#print axioms PolarCodes.theorem_1_3_dephasing_sdpi_relEntropy_finite
+#print axioms PolarCodes.theorem_1_3_equatorial_equality_relEntropy_finite
 
 -- Section 4: Gram dephasing, Hybrid Q-MGL, Four-branch purification, General Q-MGL
 #print axioms PolarCodes.lemma_4_1_gram_dephasing
+#print axioms PolarCodes.lemma_4_1_gram_dephasing_relEntropy
 #print axioms PolarCodes.theorem_1_2a_pure
 #print axioms PolarCodes.theorem_1_2a_bsc
 #print axioms PolarCodes.theorem_1_2a_classical
