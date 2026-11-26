@@ -141,18 +141,18 @@ lemma CPTPMap.idBoolTensor_apply_ketBra {α β : Type u} [Fintype α] [Decidable
     Matrix.conjTranspose_apply, Matrix.kroneckerMap_apply, Fintype.sum_prod_type]
   by_cases h1 : w₁ = w
   · subst h1
-    by_cases h2 : w₂ = w
+    by_cases h2 : w₂ = w₁
     · subst h2
       simp only [↓reduceIte, and_self, one_mul]
       apply Finset.sum_congr rfl; intro e _
-      rw [Finset.sum_eq_single w]
+      rw [Finset.sum_eq_single w₂]
       · apply Finset.sum_congr rfl; intro a' _
-        rw [Finset.sum_eq_single w]
+        rw [Finset.sum_eq_single w₂]
         · simp
         · intro w' _ hne; apply Finset.sum_eq_zero; intro a _; simp [Ne.symm hne]
-        · intro h; exact absurd (Finset.mem_univ w) h
+        · intro h; exact absurd (Finset.mem_univ w₂) h
       · intro w' _ hne; apply Finset.sum_eq_zero; intro a' _; simp [Ne.symm hne]
-      · intro h; exact absurd (Finset.mem_univ w) h
+      · intro h; exact absurd (Finset.mem_univ w₂) h
     · simp only [h2, and_false, ↓reduceIte, zero_mul]
       apply Finset.sum_eq_zero; intro e _
       apply Finset.sum_eq_zero; intro w' _
@@ -432,22 +432,33 @@ lemma choiFactor_conjTranspose_mul_eq {d : Type} [Fintype d] [DecidableEq d] (�
       Real.mul_self_sqrt (by norm_num : (0 : ℝ) ≤ 2)]
     push_cast; ring
   ext e₁ e₂
-  simp only [Matrix.transpose_apply, Matrix.mul_apply, Matrix.conjTranspose_apply,
-    choiFactor, Matrix.of_apply, Fintype.sum_prod_type, star_mul', hstar2,
-    CPTPMap.apply, CPTPMap.complementary, CPTPMap.toLinearMap, partialTrace₂Mat,
-    maxMixedState, Matrix.smul_apply, Matrix.one_apply, LinearMap.coe_mk, AddHom.coe_mk,
-    Complex.real_smul, Fintype.card_bool, Nat.cast_ofNat]
-  rw [Finset.sum_comm]
+  have hL : ((choiFactor 𝒩)ᴴ * choiFactor 𝒩) e₁ e₂ =
+      ∑ b : d, ∑ a : Bool, ((Real.sqrt 2 : ℂ)⁻¹ * star (𝒩.isom (b, e₁) a)) *
+        ((Real.sqrt 2 : ℂ)⁻¹ * 𝒩.isom (b, e₂) a) := by
+    simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, choiFactor, Matrix.of_apply,
+      Fintype.sum_prod_type, star_mul', hstar2]
+    rw [Finset.sum_comm]
+  have hR : (𝒩.complementary.apply (maxMixedState Bool)).matᵀ e₁ e₂ =
+      ∑ b : d, (1 / 2 : ℂ) * (𝒩.isom (b, e₂) true * star (𝒩.isom (b, e₁) true) +
+        𝒩.isom (b, e₂) false * star (𝒩.isom (b, e₁) false)) := by
+    rw [Matrix.transpose_apply]
+    change ∑ b : d, (𝒩.complementary.isom * (maxMixedState Bool).mat *
+      𝒩.complementary.isomᴴ) (e₂, b) (e₁, b) = _
+    apply Finset.sum_congr rfl; intro b _
+    simp only [CPTPMap.complementary, maxMixedState, Matrix.mul_apply, Matrix.conjTranspose_apply,
+      Matrix.smul_apply, Matrix.one_apply, Matrix.of_apply, Fintype.sum_bool, Fintype.card_bool,
+      Nat.cast_ofNat, ↓reduceIte, Bool.true_eq_false, Bool.false_eq_true, Complex.real_smul,
+      mul_zero, zero_mul, add_zero, zero_add, mul_one, Complex.ofReal_inv, Complex.ofReal_ofNat]
+    ring
+  rw [hL, hR]
   apply Finset.sum_congr rfl; intro b _
-  rw [Matrix.mul_smul, Matrix.mul_one, Matrix.smul_mul, Matrix.smul_apply, Matrix.mul_apply]
-  simp only [Matrix.conjTranspose_apply, Matrix.of_apply, Fintype.sum_bool,
-    Complex.real_smul, smul_eq_mul, Complex.ofReal_inv, Complex.ofReal_ofNat]
+  rw [Fintype.sum_bool]
   calc (Real.sqrt 2 : ℂ)⁻¹ * star (𝒩.isom (b, e₁) true) * ((Real.sqrt 2 : ℂ)⁻¹ * 𝒩.isom (b, e₂) true) +
         (Real.sqrt 2 : ℂ)⁻¹ * star (𝒩.isom (b, e₁) false) * ((Real.sqrt 2 : ℂ)⁻¹ * 𝒩.isom (b, e₂) false)
       = ((Real.sqrt 2 : ℂ)⁻¹ * (Real.sqrt 2 : ℂ)⁻¹) *
         (𝒩.isom (b, e₂) true * star (𝒩.isom (b, e₁) true) +
          𝒩.isom (b, e₂) false * star (𝒩.isom (b, e₁) false)) := by ring
-    _ = _ := by rw [hmul2]; push_cast; ring
+    _ = _ := by rw [hmul2]
 
 /-- `S(choiState 𝒩) = S(𝒩.complementary (π₂))`. -/
 theorem vonNeumannEntropy_choiState_eq_complementary {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap.{0} Bool d) :
