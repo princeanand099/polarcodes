@@ -265,7 +265,7 @@ theorem qjs_eq_avg_relEntropy (ρ σ : DensityOp d) :
                   congr 1; simp only [W, ← hW_star, Matrix.mul_assoc]
         rw [hcy]
         have hstep1 : ∀ j, ((W * Matrix.diagonal (Complex.ofReal ∘ A.eigvals) * Wᴴ) * Matrix.diagonal dm) j j =
-            (W * Matrix.diagonal (Complex.ofReal ∘ A.eigvals) * Wᴴ) j j * dm j := fun j ↦ by simp [Matrix.mul_diagonal]
+            (W * Matrix.diagonal (Complex.ofReal ∘ A.eigvals) * Wᴴ) j j * dm j := fun j ↦ by rw [Matrix.mul_diagonal]
         have hstep2 : ∀ j i, (W * Matrix.diagonal (Complex.ofReal ∘ A.eigvals)) j i =
             W j i * (A.eigvals i : ℂ) := fun j i ↦ by rw [Matrix.mul_diagonal]; rfl
         simp only [Matrix.trace, Matrix.diag]
@@ -632,6 +632,30 @@ private lemma qjs_eq_one_iff_mp (ρ σ : DensityOp d) (h1 : qjs ρ σ = 1) :
       _ = ρ.sqrtMat * (ρ.sqrtMat * σ.sqrtMat) * σ.sqrtMat := by simp only [Matrix.mul_assoc]
       _ = 0 := by rw [hprod0', Matrix.mul_zero, Matrix.zero_mul]
 
+private lemma sum_c2_sqrtMat_mul {d : Type*} [Fintype d] [DecidableEq d]
+    (ρ : DensityOp d) (i j : d) :
+    ∑ k : d, (((Real.sqrt 2 : ℝ) : ℂ)⁻¹ * ρ.sqrtMat i k) *
+      (star (ρ.sqrtMat j k) * ((Real.sqrt 2 : ℝ) : ℂ)⁻¹) =
+    (1 / 2 : ℂ) * ρ.mat i j := by
+  have hmul2 : ((Real.sqrt 2 : ℝ) : ℂ)⁻¹ * ((Real.sqrt 2 : ℝ) : ℂ)⁻¹ = (1 / 2 : ℂ) := by
+    rw [← Complex.ofReal_inv, ← Complex.ofReal_mul, ← mul_inv,
+      Real.mul_self_sqrt (by norm_num : (0 : ℝ) ≤ 2)]
+    push_cast; ring
+  have hterm : ∀ k : d,
+      (((Real.sqrt 2 : ℝ) : ℂ)⁻¹ * ρ.sqrtMat i k) * (star (ρ.sqrtMat j k) * ((Real.sqrt 2 : ℝ) : ℂ)⁻¹) =
+      (1 / 2 : ℂ) * (ρ.sqrtMat i k * ρ.sqrtMat k j) := by
+    intro k
+    have hh := congr_fun (congr_fun ρ.sqrtMat_isHermitian.eq k) j
+    simp only [Matrix.conjTranspose_apply] at hh
+    rw [← hh]
+    calc (((Real.sqrt 2 : ℝ) : ℂ)⁻¹ * ρ.sqrtMat i k) * (ρ.sqrtMat k j * ((Real.sqrt 2 : ℝ) : ℂ)⁻¹)
+        = (((Real.sqrt 2 : ℝ) : ℂ)⁻¹ * ((Real.sqrt 2 : ℝ) : ℂ)⁻¹) * (ρ.sqrtMat i k * ρ.sqrtMat k j) := by ring
+      _ = (1 / 2 : ℂ) * (ρ.sqrtMat i k * ρ.sqrtMat k j) := by rw [hmul2]
+  simp_rw [hterm, ← Finset.mul_sum]
+  have h := congr_fun (congr_fun ρ.sqrtMat_mul_self i) j
+  rw [Matrix.mul_apply] at h
+  rw [h]
+
 private lemma qjs_eq_one_iff_mpr (ρ σ : DensityOp d) (horth : ρ.mat * σ.mat = 0) :
     qjs ρ σ = 1 := by
   have horth' : σ.mat * ρ.mat = 0 := by
@@ -670,37 +694,13 @@ private lemma qjs_eq_one_iff_mpr (ρ σ : DensityOp d) (horth : ρ.mat * σ.mat 
   have hmul2 : c2 * c2 = (1 / 2 : ℂ) := by
     simp only [c2, ← mul_inv, ← Complex.ofReal_mul,
       Real.mul_self_sqrt (by norm_num : (0 : ℝ) ≤ 2)]; push_cast; ring
-  have h0_entry : ∀ i j, ∑ k : d, c2 * ρ.sqrtMat i k * (star (ρ.sqrtMat j k) * c2) =
-      (1 / 2 : ℂ) * ρ.mat i j := by
-    intro i j
-    have h := congr_fun (congr_fun ρ.sqrtMat_mul_self i) j
-    rw [← h, Matrix.mul_apply, Finset.mul_sum]
-    apply Finset.sum_congr rfl; intro k _
-    have hh := congr_fun (congr_fun ρ.sqrtMat_isHermitian.eq k) j
-    simp only [Matrix.conjTranspose_apply] at hh
-    rw [← hh]
-    calc c2 * ρ.sqrtMat i k * (ρ.sqrtMat k j * c2)
-        = (c2 * c2) * (ρ.sqrtMat i k * ρ.sqrtMat k j) := by ring
-      _ = _ := by rw [hmul2]
-  have h1_entry : ∀ i j, ∑ k : d, c2 * σ.sqrtMat i k * (star (σ.sqrtMat j k) * c2) =
-      (1 / 2 : ℂ) * σ.mat i j := by
-    intro i j
-    have h := congr_fun (congr_fun σ.sqrtMat_mul_self i) j
-    rw [← h, Matrix.mul_apply, Finset.mul_sum]
-    apply Finset.sum_congr rfl; intro k _
-    have hh := congr_fun (congr_fun σ.sqrtMat_isHermitian.eq k) j
-    simp only [Matrix.conjTranspose_apply] at hh
-    rw [← hh]
-    calc c2 * σ.sqrtMat i k * (σ.sqrtMat k j * c2)
-        = (c2 * c2) * (σ.sqrtMat i k * σ.sqrtMat k j) := by ring
-      _ = _ := by rw [hmul2]
   have hAAH : A * Aᴴ = (DensityOp.midpoint ρ σ).mat := by
     ext i j
     simp only [A, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
       Fintype.sum_prod_type, Fintype.sum_bool, ↓reduceIte, Bool.true_eq_false,
       star_mul', hstar2, DensityOp.midpoint, DensityOp.mix, Matrix.add_apply,
       Matrix.smul_apply, smul_eq_mul]
-    rw [h0_entry i j, h1_entry i j]; push_cast; ring
+    rw [sum_c2_sqrtMat_mul ρ i j, sum_c2_sqrtMat_mul σ i j]; push_cast; ring
   let B : DensityOp (Bool × d) := DensityOp.midpoint
     (DensityOp.tensor (CQChannel.ketBraBool false) ρ)
     (DensityOp.tensor (CQChannel.ketBraBool true) σ)
@@ -903,6 +903,17 @@ theorem rootFidelity_block_diagonal {ι : Type*} [Fintype ι] [DecidableEq ι]
         by_cases hy : y = x₁
         · subst hy; simp [hx]
         · simp [hy]
+    have hRsq_apply : ∀ a b, Rsq a b =
+        if a.1 = b.1 then ((Real.sqrt (p a.1) : ℝ) : ℂ) * (ρ a.1).sqrtMat a.2 b.2 else 0 :=
+      fun _ _ ↦ rfl
+    have hUblk_apply : ∀ a b, Ublk a b =
+        if h : a.1 = b.1 then
+          ((posSemidef_sqrt_mul_sqrt (ρ a.1) (σ a.1)).isHermitian.eigenvectorUnitary : Matrix d d ℂ) a.2 b.2
+        else 0 :=
+      fun _ _ ↦ rfl
+    have hS_apply : ∀ a b, S.mat a b =
+        if a.1 = b.1 then (p a.1 : ℂ) * (σ a.1).mat a.2 b.2 else 0 :=
+      fun _ _ ↦ rfl
     have hdiag_eq : Rsq * S.mat * Rsq =
         Ublk * Matrix.diagonal (Complex.ofReal ∘ lam) * Ublkᴴ := by
       have hUdiag : ∀ a b, (Ublk * Matrix.diagonal (Complex.ofReal ∘ lam)) a b = Ublk a b * (lam b : ℂ) :=
@@ -910,7 +921,7 @@ theorem rootFidelity_block_diagonal {ι : Type*} [Fintype ι] [DecidableEq ι]
       ext ⟨x₁, i₁⟩ ⟨x₂, i₂⟩
       simp only [Matrix.mul_apply, Matrix.conjTranspose_apply]
       simp_rw [hUdiag]
-      simp only [Rsq, S, blockDiagState, Ublk, Matrix.of_apply, Function.comp_apply, Fintype.sum_prod_type]
+      simp only [hRsq_apply, hS_apply, hUblk_apply, Fintype.sum_prod_type]
       by_cases hx : x₁ = x₂
       · subst hx
         have hLHS : ∑ a : ι, ∑ k : d,

@@ -925,13 +925,9 @@ theorem wilde_guha_qsc_avg_bound (W : CQChannel d) (n : ℕ) (infoSet : Finset (
       (m : {i : Fin (2 ^ n) // i ∈ infoSet} → Bool),
       G (eSplit (f, m)) = G (extendF f) := by
     intro f m
-    dsimp only [G]
-    unfold CosetPolarCode.avgBlockError qscPolarCode CosetPolarCode.encode
-    dsimp only
-    congr 1; apply Finset.sum_congr rfl; intro m' _
-    have hemb : embedMsg infoSet (eSplit (f, m)) m' = embedMsg infoSet (extendF f) m' := by
-      funext i; by_cases hi : i ∈ infoSet <;> simp [embedMsg, eSplit, extendF, hi]
-    rw [hemb]
+    have hemb : ∀ m', embedMsg infoSet (eSplit (f, m)) m' = embedMsg infoSet (extendF f) m' := by
+      intro m'; funext i; by_cases hi : i ∈ infoSet <;> simp [embedMsg, eSplit, extendF, hi]
+    simp only [G, CosetPolarCode.avgBlockError, qscPolarCode, CosetPolarCode.encode, hemb]
   have hfull : ((2 : ℝ) ^ (2 ^ n))⁻¹ * ∑ frozen : Fin (2 ^ n) → Bool, G frozen =
       ((2 : ℝ) ^ (2 ^ n - infoSet.card))⁻¹ *
         ∑ f : {i : Fin (2 ^ n) // i ∉ infoSet} → Bool, G (extendF f) := by
