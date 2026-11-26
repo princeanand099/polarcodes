@@ -919,6 +919,10 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
   let E := Fin (2 ^ n) → 𝒩.env
   let Anc := Y × A × R × E
   let B_tot := M × Anc
+  letI : DecidableEq M := Classical.decEq _
+  letI : DecidableEq E := Classical.decEq _
+  letI : DecidableEq Anc := Classical.decEq _
+  letI : DecidableEq B_tot := Classical.decEq _
   let y₀ : Y := fun _ ↦ d₀
   let a₀ : A := fun _ ↦ false
   let r₀ : R := fun _ ↦ false
@@ -1397,7 +1401,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
           rw [← Finset.add_sum_erase _ _ (Finset.mem_univ (eMR (m, r)))] at hsum
           exact eq_sub_of_add_eq' hsum
         rw [h1]
-        have hsum_psd : ∀ s : Finset ({i : Fin (2 ^ n) // i ∈ infoSet ∪ randSet} → Bool),
+        have hsum_psd : ∀ s : Finset ({i : Fin (2 ^ n) // i ∈ (C_qsc a).infoSet} → Bool),
             (∑ w ∈ s, (C_qsc a).povm w).PosSemidef := by
           intro s
           induction s using Finset.cons_induction with
@@ -1454,11 +1458,16 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
                     (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a))).mat).trace).re := by
           intro a
           unfold CosetPolarCode.avgBlockError
+          change 1 - ((2 : ℝ) ^ (infoSet ∪ randSet).card)⁻¹ *
+            ∑ w : {i : Fin (2 ^ n) // i ∈ infoSet ∪ randSet} → Bool,
+              (1 - (((C_qsc a).povm w * (productState (ampChannel 𝒩) n
+                (arikanTransform n (embedMsg (infoSet ∪ randSet) (bobEffectiveFrozen assistSet uF a) w))).mat).trace).re) = _
           have hcard : ((2 : ℝ) ^ (infoSet ∪ randSet).card) = (2 : ℝ) ^ infoSet.card * (2 : ℝ) ^ randSet.card := by
             rw [hcard_union, pow_add]
           have hsum_one : ∑ _w : {i : Fin (2 ^ n) // i ∈ infoSet ∪ randSet} → Bool, (1 : ℝ) =
               (2 : ℝ) ^ (infoSet ∪ randSet).card := by
-            simp [Fintype.card_fun, Fintype.card_bool, Fintype.card_coe]
+            simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fun, Fintype.card_bool,
+              Fintype.card_coe, nsmul_eq_mul, mul_one, Nat.cast_pow, Nat.cast_ofNat]
           have hrew : ∑ w : {i : Fin (2 ^ n) // i ∈ infoSet ∪ randSet} → Bool,
               (1 - (((C_qsc a).povm w * (productState (ampChannel 𝒩) n
                 (arikanTransform n (embedMsg (infoSet ∪ randSet) (bobEffectiveFrozen assistSet uF a) w))).mat).trace).re) =
