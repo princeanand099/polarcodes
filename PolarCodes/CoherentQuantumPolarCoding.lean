@@ -299,11 +299,13 @@ lemma traceDist_pureState_eq {α : Type*} [Fintype α] [DecidableEq α]
             = ∑ k : α, ∑ l : α, u i * star (u l) * (v l * star (v k)) * (u k * star (u j)) := by
                 apply Finset.sum_congr rfl; intro k _; rw [Finset.sum_mul]
           _ = ((∑ l : α, star (u l) * v l) * ∑ k : α, u k * star (v k)) * (u i * star (u j)) := by
-                conv_rhs => simp_rw [Finset.sum_mul, Finset.mul_sum]
-                conv_rhs => rw [Finset.sum_comm]
+                symm
+                rw [Finset.sum_mul, Finset.sum_mul]
+                simp_rw [Finset.mul_sum, Finset.sum_mul]
+                rw [Finset.sum_comm]
                 apply Finset.sum_congr rfl; intro k _
                 apply Finset.sum_congr rfl; intro l _; ring
-      -- Eigenvalues of `‖c‖² • P₀.mat`: trace of `√(‖c‖² • P₀)` = `‖c‖ * Tr(√P₀) = ‖c‖ * Tr(P₀) = ‖c‖`!
+      -- Eigenvalues of `‖c‖² • P₀.mat`: trace of `√(‖c‖² • P₀)` = `‖c‖ * Tr(√P₀) = `‖c‖ * Tr(P₀) = ‖c‖`!
       unfold rootFidelity
       have hH := posSemidef_sqrt_mul_sqrt P₀ P₁ |>.isHermitian
       have hP0_eigs : ∑ i : α, Real.sqrt (P₀.isHermitian.eigenvalues i) = 1 := by
@@ -894,8 +896,7 @@ private lemma productState_comp_eq_tensorPow_partialTrace (𝒩 : CPTPMap.{0} Bo
     simp only [ampChannel, CPTPMap.complementary, CPTPMap.apply, CPTPMap.toLinearMap,
       partialTrace₂Mat, CQChannel.ketBraBool, LinearMap.coe_mk, AddHom.coe_mk, Matrix.of_apply]
     apply Finset.sum_congr rfl; intro y _
-    simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply]
-    cases x i <;> simp [Fintype.sum_bool]
+    cases x i <;> simp [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply, Fintype.sum_bool]
   exact hcomp
 
 set_option maxHeartbeats 2400000 in
@@ -1023,7 +1024,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
       have h1 := congr_fun (congr_fun (C_qsc a₁).povm_sum_one y₁) y₂
       simp only [Matrix.sum_apply, Matrix.one_apply] at h1
       simp only [Prod.mk.injEq, and_true]
-      convert h1
+      exact h1
     · rw [if_neg (fun h ↦ ha (congr_arg Prod.snd h))]
       apply Finset.sum_eq_zero; intro m _
       apply Finset.sum_eq_zero; intro y _
@@ -1282,7 +1283,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
               star (V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r' a))) := by
         intro v m e
         rw [Finset.sum_eq_single m]
-        · simp only [true_and, Finset.mul_sum]
+        · simp only [true_and]
           have h1 : ∀ y : Y, ∀ a' : A, ∀ r' : R,
               ∑ e' : E,
                 star (if e' = e₀ then ν * phaseSign v r' * V_isom (y, e)
@@ -1314,18 +1315,25 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
               apply Finset.sum_congr rfl; intro y₁ _; ring
             · intro e' _ hne; simp [hne]
             · intro h; exact absurd (Finset.mem_univ e₀) h
-          simp_rw [h1]
+          let f : A → R → R → Y → ℂ := fun a r' r₂ y ↦ ∑ y₁ : Y,
+            K a m r' y y₁ *
+            V_isom (y₁, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₂ a)) *
+            star (V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r' a)))
+          trans (∑ y : Y, ∑ a : A, ∑ r' : R, (star ν * ν) * ∑ r₂ : R, (phaseSign v r' * phaseSign v r₂) * f a r' r₂ y)
+          · exact Finset.sum_congr rfl fun y _ ↦ Finset.sum_congr rfl fun a' _ ↦ Finset.sum_congr rfl fun r' _ ↦ h1 y a' r'
+          change ∑ y : Y, ∑ a : A, ∑ r' : R, (star ν * ν) * ∑ r₂ : R, (phaseSign v r' * phaseSign v r₂) * f a r' r₂ y =
+            (star ν * ν) * ∑ a : A, ∑ r' : R, ∑ r₂ : R, (phaseSign v r' * phaseSign v r₂) * ∑ y : Y, f a r' r₂ y
           rw [Finset.sum_comm]
+          conv_lhs => arg 2; ext a; rw [Finset.sum_comm]
+          conv_lhs => arg 2; ext a; arg 2; ext r'; rw [← Finset.mul_sum]
+          conv_lhs => arg 2; ext a; rw [← Finset.mul_sum]
+          rw [← Finset.mul_sum]
+          congr 1
           apply Finset.sum_congr rfl; intro a _
-          rw [Finset.sum_comm]
           apply Finset.sum_congr rfl; intro r' _
-          simp_rw [← Finset.mul_sum]
-          rw [Finset.mul_sum, Finset.sum_comm]
+          rw [Finset.sum_comm]
           apply Finset.sum_congr rfl; intro r₂ _
-          simp_rw [← Finset.mul_sum]
-          rw [Finset.mul_sum, Finset.mul_sum]
-          apply Finset.sum_congr rfl; intro y _
-          rw [Finset.mul_sum, Finset.mul_sum]
+          rw [← Finset.mul_sum]
         · intro m' _ hne
           apply Finset.sum_eq_zero; intro y _
           apply Finset.sum_eq_zero; intro a' _
@@ -1342,7 +1350,16 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
               star (V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r' a))) := by
         intro v
         simp only [ψ_ideal, ψ_Z, ψ_ch, W_Z, B_tot, Anc, Fintype.sum_prod_type]
-        simp_rw [hterm v, ← Finset.mul_sum]
+        let t : M → E → ℂ := fun m e ↦
+          ∑ a : A, ∑ r' : R, ∑ r₂ : R,
+            (phaseSign v r' * phaseSign v r₂) *
+            ∑ y : Y, ∑ y₁ : Y,
+              K a m r' y y₁ *
+              V_isom (y₁, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₂ a)) *
+              star (V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r' a)))
+        trans (∑ m : M, ∑ e : E, (star ν * ν) * t m e)
+        · exact Finset.sum_congr rfl fun m _ ↦ Finset.sum_congr rfl fun e _ ↦ hterm v m e
+        · simp_rw [← Finset.mul_sum]
       simp_rw [hsingle, ← Finset.mul_sum]
       let g : M → E → A → R → R → ℂ := fun m e a r' r₂ ↦
         ∑ y : Y, ∑ y₁ : Y,
@@ -1365,13 +1382,14 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
       have hkill : ∀ m e a r', ∑ r₂ : R, (∑ v : R, phaseSign v r' * phaseSign v r₂) * g m e a r' r₂ =
           ((2 : ℝ) ^ randSet.card : ℂ) * g m e a r' r' := by
         intro m e a r'
+        dsimp only [R]
         simp_rw [sum_phaseSign_mul]
         rw [Finset.sum_eq_single r']
-        · simp
+        · simp [Fintype.card_coe]
         · intro r₂ _ hne; simp [Ne.symm hne]
         · intro h; exact absurd (Finset.mem_univ r') h
       simp_rw [hkill, ← Finset.mul_sum]
-      rw [← mul_assoc, mul_comm (star ν * ν) ((2 : ℝ) ^ randSet.card : ℂ), mul_assoc]
+      rw [← mul_assoc, mul_comm (star ν * ν) ((2 : ℝ) ^ randSet.card : ℂ)]
       congr 1
       calc ∑ m : M, ∑ e : E, ∑ a : A, ∑ r : R, g m e a r r
           = ∑ a : A, ∑ m : M, ∑ r : R, ∑ e : E, g m e a r r := by
@@ -1394,7 +1412,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
             apply Finset.sum_congr rfl; intro y _
             rw [Finset.sum_comm]
             apply Finset.sum_congr rfl; intro y₁ _
-            apply Finset.sum_congr rfl; intro e _; simp only [mul_assoc]
+            apply Finset.sum_congr rfl; intro e _; simp only [mul_assoc]; rfl
     have hK_ge : ∀ (a : A) (m : M) (r : R),
         (((C_qsc a).povm (eMR (m, r)) * (productState (ampChannel 𝒩) n
             (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a))).mat).trace).re ≤
@@ -1674,7 +1692,9 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
             ∑ ra : R × A,
               (productState (ampChannel 𝒩.complementary) n
                 (arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ ra.1 ra.2))).mat e₁ e₂ :=
-          (Fintype.sum_prod_type _).symm
+          (Fintype.sum_prod_type (fun ra : R × A ↦
+            (productState (ampChannel 𝒩.complementary) n
+              (arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ ra.1 ra.2))).mat e₁ e₂)).symm
         rw [hsum_eq]
         refine Finset.sum_bij (fun (ra : R × A) _ ↦ wiretapWord infoSet randSet assistSet uF m₁ ra.1 ra.2)
           ?_ ?_ ?_ ?_
