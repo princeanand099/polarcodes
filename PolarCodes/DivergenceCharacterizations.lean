@@ -960,11 +960,15 @@ theorem rootFidelity_block_diagonal {ι : Type*} [Fintype ι] [DecidableEq ι]
             ((p x₁ ^ 2 : ℝ) : ℂ) * ((ρ x₁).sqrtMat * (σ x₁).mat * (ρ x₁).sqrtMat) i₁ i₂ := by
           rw [Finset.sum_eq_single x₁]
           · simp only [↓reduceDIte, lam]
-            have hspec := (posSemidef_sqrt_mul_sqrt (ρ x₁) (σ x₁)).isHermitian.spectral_theorem
-            have hspec_ij := congr_fun (congr_fun hspec i₁) i₂
-            rw [Unitary.conjStarAlgAut_apply, Matrix.mul_apply] at hspec_ij
-            simp only [Matrix.mul_diagonal, Matrix.star_apply, Function.comp_apply,
-              RCLike.ofReal_eq_complex_ofReal] at hspec_ij
+            have hspec_ij : ((ρ x₁).sqrtMat * (σ x₁).mat * (ρ x₁).sqrtMat) i₁ i₂ =
+                ∑ k : d,
+                  ((posSemidef_sqrt_mul_sqrt (ρ x₁) (σ x₁)).isHermitian.eigenvectorUnitary : Matrix d d ℂ) i₁ k *
+                  ((posSemidef_sqrt_mul_sqrt (ρ x₁) (σ x₁)).isHermitian.eigenvalues k : ℂ) *
+                  star (((posSemidef_sqrt_mul_sqrt (ρ x₁) (σ x₁)).isHermitian.eigenvectorUnitary : Matrix d d ℂ) i₂ k) := by
+              conv_lhs => rw [(posSemidef_sqrt_mul_sqrt (ρ x₁) (σ x₁)).isHermitian.spectral_theorem]
+              rw [Unitary.conjStarAlgAut_apply, Matrix.mul_apply]
+              simp only [Matrix.mul_diagonal, Matrix.star_apply, Function.comp_apply,
+                RCLike.ofReal_eq_complex_ofReal]
             rw [hspec_ij, Finset.mul_sum]
             apply Finset.sum_congr rfl; intro k _; push_cast; ring
           · intro a _ hne; apply Finset.sum_eq_zero; intro k _; simp [Ne.symm hne]
