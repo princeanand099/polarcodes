@@ -957,7 +957,8 @@ theorem theorem_1_1_coding_poly_blocklength :
       ∀ {d : Type u} [Fintype d] [DecidableEq d] (W : CQChannel d)
         {ε : ℝ}, 0 < ε → ε < 1 →
         ∀ (n : ℕ), C₀ * (1 / ε) ^ μ ≤ (2 : ℝ) ^ n →
-          ∃ C : CosetPolarCode W n,
+          ∃ (infoSet : Finset (Fin (2 ^ n))) (frozen : Fin (2 ^ n) → Bool),
+            let C := qscPolarCode W n infoSet frozen
             W.symCapacity - ε ≤ C.rate ∧
             C.avgBlockError ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) := by
   rcases theorem_1_1_quantum_polar_poly_blocklength with ⟨μ, C₀, hμ, hC₀, hpolar⟩
@@ -978,7 +979,7 @@ theorem theorem_1_1_coding_poly_blocklength :
     subst this; norm_num at hn_ge2
   -- Handle trivial case `W.symCapacity ≤ ε` with empty information set `𝒜 = ∅` (`P_e = 0`)
   by_cases htriv : W.symCapacity ≤ ε
-  · refine ⟨qscPolarCode W n ∅ (fun _ ↦ false), ?_, ?_⟩
+  · refine ⟨∅, fun _ ↦ false, ?_, ?_⟩
     · simp only [CosetPolarCode.rate, qscPolarCode, Finset.card_empty, Nat.cast_zero, zero_div]
       linarith
     · have herr0 : (qscPolarCode W n ∅ (fun _ ↦ false)).avgBlockError = 0 := by
@@ -1005,7 +1006,7 @@ theorem theorem_1_1_coding_poly_blocklength :
     let infoSet : Finset (Fin (2 ^ n)) :=
       Finset.univ.filter (fun i : Fin (2 ^ n) ↦ (synthChannel W n i).fidelityParam ≤ thresh)
     obtain ⟨frozen, hwg⟩ := wilde_guha_qsc_bound W n infoSet
-    refine ⟨qscPolarCode W n infoSet frozen, ?_, ?_⟩
+    refine ⟨infoSet, frozen, ?_, ?_⟩
     · -- Rate bound: `infoSet.card / 2^n = treeProb n (...) ≥ W.symCapacity - ε`
       have hrate_eq : (qscPolarCode W n infoSet frozen).rate =
           treeProb n (fun b ↦ polarFidelity W n b ≤ thresh) := by

@@ -14,9 +14,7 @@ This module proves:
 2. Klein's inequality equality characterization (`relEntropy_eq_zero_iff`).
 3. QJS range and equality characterizations (`qjs_mem_Icc`, `qjs_eq_zero_iff`, `qjs_eq_one_iff`).
 4. General finite-distribution block-diagonal additivity of `rootFidelity` (`rootFidelity_block_diagonal`).
-5. Explicit finiteness lemmas for dephasing relative entropy (`relEntropy_dephaseState_ne_top`),
-   Umegaki relative-entropy form of Lemma 4.1 Part 4 (`lemma_4_1_gram_dephasing_relEntropy`),
-   and explicit-finiteness Theorem 1.3 relative-entropy statements.
+5. Umegaki relative-entropy form of Lemma 4.1 Part 4 (`lemma_4_1_gram_dephasing_relEntropy`).
 -/
 
 open Matrix BigOperators Real Set Filter Polynomial
@@ -25,6 +23,8 @@ open scoped ComplexOrder ENNReal
 namespace PolarCodes
 
 section Section2Characterizations
+
+/-! ### 3. Section 2.1 Characterizations: Klein Equality, QJS Bounds/Equalities, Block-Diagonal Fidelity (Gap 5C) -/
 
 variable {d : Type*} [Fintype d] [DecidableEq d]
 
@@ -142,43 +142,14 @@ theorem qjs_eq_avg_relEntropy (ρ σ : DensityOp d) :
           Matrix.diagonal (fun j ↦ if m.eigvals j = 0 then (0 : ℂ) else (Real.log (m.eigvals j) : ℂ)) *
           star (m.eigUnitary : Matrix d d ℂ))).trace).re / Real.log 2 := by
     intro A hsuppA
-    have hcol : ∀ i : d, ∑ j : d, ‖(star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 = 1 := by
-      intro i
-      have hW : (star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ))ᴴ *
-          (star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) = 1 := by
-        rw [Matrix.conjTranspose_mul, Matrix.mul_assoc, ← Matrix.mul_assoc (star (m.eigUnitary : Matrix d d ℂ))ᴴ,
-          ← Matrix.star_eq_conjTranspose, star_star, Unitary.coe_mul_star_self m.eigUnitary,
-          Matrix.one_mul, ← Matrix.star_eq_conjTranspose, Unitary.coe_star_mul_self A.eigUnitary]
-      have h := congr_arg Complex.re (congr_fun (congr_fun hW i) i)
-      simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.one_apply_eq,
-        Complex.re_sum, Complex.one_re] at h
-      rw [← h]; apply Finset.sum_congr rfl; intro j _
-      rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
-    have hrow : ∀ j : d, ∑ i : d, ‖(star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 = 1 := by
-      intro j
-      have hW : (star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) *
-          (star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ))ᴴ = 1 := by
-        rw [Matrix.conjTranspose_mul, Matrix.mul_assoc, ← Matrix.mul_assoc (A.eigUnitary : Matrix d d ℂ),
-          ← Matrix.star_eq_conjTranspose, Unitary.coe_mul_star_self A.eigUnitary,
-          Matrix.one_mul, ← Matrix.star_eq_conjTranspose, star_star, Unitary.coe_star_mul_self m.eigUnitary]
-      have h := congr_arg Complex.re (congr_fun (congr_fun hW j) j)
-      simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.one_apply_eq,
-        Complex.re_sum, Complex.one_re] at h
-      rw [← h]; apply Finset.sum_congr rfl; intro i _
-      rw [Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
-    have htrA : ∑ i : d, A.eigvals i = 1 := by
-      have h := congr_arg Complex.re (A.isHermitian.trace_eq_sum_eigenvalues.symm.trans A.trace_one)
-      simpa [DensityOp.eigvals, Complex.re_sum] using h
-    have htrm : ∑ j : d, m.eigvals j = 1 := by
-      have h := congr_arg Complex.re (m.isHermitian.trace_eq_sum_eigenvalues.symm.trans m.trace_one)
-      simpa [DensityOp.eigvals, Complex.re_sum] using h
     have hsum_nn : 0 ≤ (∑ i : d, ∑ j : d,
         ‖(star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 *
           (A.eigvals i * (Real.log (A.eigvals i) - Real.log (m.eigvals j)))) / Real.log 2 := by
-      have hge0 : 0 ≤ ∑ i : d, ∑ j : d,
-          ‖(star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 *
+      -- Nonnegativity follows from `relEntropy` formula vs trace-log; use `klein` or `log` bound
+      have hlog_le : ∀ i j : d,
+          0 ≤ ‖(star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 *
             (A.eigvals i * (Real.log (A.eigvals i) - Real.log (m.eigvals j)) - (A.eigvals i - m.eigvals j)) := by
-        apply Finset.sum_nonneg; intro i _; apply Finset.sum_nonneg; intro j _
+        intro i j
         by_cases hAi : A.eigvals i = 0
         · rw [hAi]; simp only [zero_mul, zero_sub, neg_neg]
           exact mul_nonneg (sq_nonneg _) (m.eigvals_nonneg j)
@@ -193,15 +164,61 @@ theorem qjs_eq_avg_relEntropy (ρ σ : DensityOp d) :
             have hsimp : A.eigvals i * (m.eigvals j / A.eigvals i - 1) = m.eigvals j - A.eigvals i := by
               field_simp [ne_of_gt hAp]
             linarith
+      have hcol : ∀ i : d, ∑ j : d, ‖(star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 = 1 := by
+        intro i
+        have hW : (star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ))ᴴ *
+            (star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) = 1 := by
+          rw [Matrix.conjTranspose_mul, Matrix.mul_assoc, ← Matrix.mul_assoc (star (m.eigUnitary : Matrix d d ℂ))ᴴ,
+            ← Matrix.star_eq_conjTranspose, star_star, Unitary.coe_mul_star_self m.eigUnitary,
+            Matrix.one_mul, ← Matrix.star_eq_conjTranspose, Unitary.coe_star_mul_self A.eigUnitary]
+        have h := congr_arg Complex.re (congr_fun (congr_fun hW i) i)
+        simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.one_apply_eq,
+          Complex.re_sum, Complex.one_re] at h
+        rw [← h]; apply Finset.sum_congr rfl; intro j _
+        rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
+      have hrow : ∀ j : d, ∑ i : d, ‖(star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 = 1 := by
+        intro j
+        have hW : (star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) *
+            (star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ))ᴴ = 1 := by
+          rw [Matrix.conjTranspose_mul, Matrix.mul_assoc, ← Matrix.mul_assoc (A.eigUnitary : Matrix d d ℂ),
+            ← Matrix.star_eq_conjTranspose, Unitary.coe_mul_star_self A.eigUnitary,
+            Matrix.one_mul, ← Matrix.star_eq_conjTranspose, star_star, Unitary.coe_star_mul_self m.eigUnitary]
+        have h := congr_arg Complex.re (congr_fun (congr_fun hW j) j)
+        simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.one_apply_eq,
+          Complex.re_sum, Complex.one_re] at h
+        rw [← h]; apply Finset.sum_congr rfl; intro i _
+        rw [Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
+      have htrA : ∑ i : d, A.eigvals i = 1 := by
+        have h := congr_arg Complex.re (A.isHermitian.trace_eq_sum_eigenvalues.symm.trans A.trace_one)
+        simpa [DensityOp.eigvals, Complex.re_sum] using h
+      have htrm : ∑ j : d, m.eigvals j = 1 := by
+        have h := congr_arg Complex.re (m.isHermitian.trace_eq_sum_eigenvalues.symm.trans m.trace_one)
+        simpa [DensityOp.eigvals, Complex.re_sum] using h
       have hsum_diff : ∑ i : d, ∑ j : d,
           ‖(star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 *
             (A.eigvals i - m.eigvals j) = 0 := by
-        simp_rw [mul_sub, Finset.sum_sub_distrib, ← Finset.sum_mul, hcol, one_mul]
+        have h1 : ∀ i j, ‖(star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 *
+            (A.eigvals i - m.eigvals j) =
+            ‖(star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 * A.eigvals i -
+            ‖(star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 * m.eigvals j := fun _ _ ↦ by ring
+        simp_rw [h1, Finset.sum_sub_distrib, ← Finset.sum_mul, hcol, one_mul]
         rw [Finset.sum_comm]
         simp_rw [← Finset.sum_mul, hrow, one_mul, htrA, htrm, sub_self]
-      simp_rw [mul_sub, Finset.sum_sub_distrib] at hge0
-      rw [hsum_diff, sub_zero] at hge0
+      have hge0 : 0 ≤ ∑ i : d, ∑ j : d,
+          ‖(star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 *
+            (A.eigvals i * (Real.log (A.eigvals i) - Real.log (m.eigvals j)) - (A.eigvals i - m.eigvals j)) :=
+        Finset.sum_nonneg fun i _ ↦ Finset.sum_nonneg fun j _ ↦ hlog_le i j
+      have hsplit : ∑ i : d, ∑ j : d,
+          ‖(star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 *
+            (A.eigvals i * (Real.log (A.eigvals i) - Real.log (m.eigvals j)) - (A.eigvals i - m.eigvals j)) =
+          (∑ i : d, ∑ j : d, ‖(star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 *
+            (A.eigvals i * (Real.log (A.eigvals i) - Real.log (m.eigvals j)))) -
+          (∑ i : d, ∑ j : d, ‖(star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 *
+            (A.eigvals i - m.eigvals j)) := by
+        simp_rw [mul_sub, Finset.sum_sub_distrib]
+      rw [hsplit, hsum_diff, sub_zero] at hge0
       exact div_nonneg hge0 (le_of_lt (Real.log_pos (by norm_num)))
+    -- Now rewrite `relEntropy` directly via `ENNReal.toReal_ofReal` and expand trace-log
     unfold relEntropy
     rw [if_pos hsuppA, ENNReal.toReal_ofReal hsum_nn]
     set L_m : Matrix d d ℂ := (m.eigUnitary : Matrix d d ℂ) *
@@ -241,7 +258,21 @@ theorem qjs_eq_avg_relEntropy (ρ σ : DensityOp d) :
       apply Finset.sum_congr rfl; intro i _
       rw [Complex.re_sum]
       apply Finset.sum_congr rfl; intro j _
-      by_cases hmj : m.eigvals j = 0 <;> simp [hmj]
+      by_cases hmj : m.eigvals j = 0
+      · simp [hmj]
+      · simp [hmj]
+    have hcol : ∀ i : d, ∑ j : d, ‖(star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 = 1 := by
+      intro i
+      have hW : (star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ))ᴴ *
+          (star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) = 1 := by
+        rw [Matrix.conjTranspose_mul, Matrix.mul_assoc, ← Matrix.mul_assoc (star (m.eigUnitary : Matrix d d ℂ))ᴴ,
+          ← Matrix.star_eq_conjTranspose, star_star, Unitary.coe_mul_star_self m.eigUnitary,
+          Matrix.one_mul, ← Matrix.star_eq_conjTranspose, Unitary.coe_star_mul_self A.eigUnitary]
+      have h := congr_arg Complex.re (congr_fun (congr_fun hW i) i)
+      simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.one_apply_eq,
+        Complex.re_sum, Complex.one_re] at h
+      rw [← h]; apply Finset.sum_congr rfl; intro j _
+      rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
     rw [htr_L]
     unfold vonNeumannEntropy
     have hsplit : ∑ i : d, ∑ j : d,
@@ -277,7 +308,9 @@ theorem qjs_eq_avg_relEntropy (ρ σ : DensityOp d) :
     unfold vonNeumannEntropy
     rw [← neg_div, ← Finset.sum_neg_distrib]
     congr 1; apply Finset.sum_congr rfl; intro j _
-    by_cases hmj : m.eigvals j = 0 <;> simp [hmj, Real.negMulLog]
+    by_cases hmj : m.eigvals j = 0
+    · simp [hmj, Real.negMulLog]
+    · simp [hmj, Real.negMulLog]
   have htr_mid : (((ρ.mat * L_m).trace).re + ((σ.mat * L_m).trace).re) / 2 = ((m.mat * L_m).trace).re := by
     rw [hm_eq, Matrix.add_mul, Matrix.smul_mul, Matrix.smul_mul, Matrix.trace_add,
       Matrix.trace_smul, Matrix.trace_smul, smul_eq_mul, smul_eq_mul]
@@ -382,6 +415,7 @@ theorem relEntropy_eq_zero_iff (ρ σ : DensityOp d) :
       have hi := (Finset.sum_eq_zero_iff_of_nonneg (fun a _ ↦ Finset.sum_nonneg fun b _ ↦ hterm_nn a b)).mp
         hsum_zero i (Finset.mem_univ i)
       exact (Finset.sum_eq_zero_iff_of_nonneg (fun b _ ↦ hterm_nn i b)).mp hi j (Finset.mem_univ j)
+    -- Every nonzero overlap `W_{j i} ≠ 0` forces `ρ.eigvals i = σ.eigvals j`
     have hcomm_entry : ∀ i j,
         (star (σ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ)) j i * (ρ.eigvals i : ℂ) =
         (σ.eigvals j : ℂ) * (star (σ.eigUnitary : Matrix d d ℂ) * (ρ.eigUnitary : Matrix d d ℂ)) j i := by
@@ -545,6 +579,11 @@ theorem qjs_eq_one_iff (ρ σ : DensityOp d) :
       _ = ρ.sqrtMat * (ρ.sqrtMat * σ.sqrtMat) * σ.sqrtMat := by simp only [Matrix.mul_assoc]
       _ = 0 := by rw [hprod0', Matrix.mul_zero, Matrix.zero_mul]
   · intro horth
+    -- Orthogonal supports imply `((ρ + σ)/2)` has the same nonzero spectrum as `(1/2) ρ ⊕ (1/2) σ`
+    have horth' : σ.mat * ρ.mat = 0 := by
+      have h := congr_arg Matrix.conjTranspose horth
+      simpa [Matrix.conjTranspose_mul, ρ.isHermitian.eq, σ.isHermitian.eq] using h
+    -- Check `A * Aᴴ = (ρ + σ)/2` vs `Aᴴ * A = diag(ρ/2, σ/2)` for `A = [√(ρ/2), √(σ/2)]`
     have hsqrt_orth : ρ.sqrtMat * σ.sqrtMat = 0 := by
       have hsq : (ρ.sqrtMat * σ.sqrtMat)ᴴ * (ρ.sqrtMat * σ.sqrtMat) = 0 := by
         have htr : ((ρ.sqrtMat * σ.sqrtMat)ᴴ * (ρ.sqrtMat * σ.sqrtMat)).trace = 0 := by
@@ -776,6 +815,9 @@ theorem rootFidelity_block_diagonal {ι : Type*} [Fintype ι] [DecidableEq ι]
       rw [h1, h2]
       exact Matrix.charpoly_mul_comm _ _
     rw [hx_cp]
+    have hA_herm : (((p x ^ 2 : ℝ) : ℂ) • ((ρ x).sqrtMat * (σ x).mat * (ρ x).sqrtMat)).IsHermitian := by
+      simpa [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal]
+        using congr_arg (((p x ^ 2 : ℝ) : ℂ) • ·) (posSemidef_sqrt_mul_sqrt (ρ x) (σ x)).isHermitian.eq
     set A := (ρ x).sqrtMat * (σ x).mat * (ρ x).sqrtMat
     have hA := (posSemidef_sqrt_mul_sqrt (ρ x) (σ x)).isHermitian
     set U : Matrix d d ℂ := (hA.eigenvectorUnitary : Matrix d d ℂ)
@@ -805,13 +847,6 @@ theorem rootFidelity_block_diagonal {ι : Type*} [Fintype ι] [DecidableEq ι]
 
 end Section2Characterizations
 
-theorem relEntropy_dephaseState_ne_top {d : Type*} [Fintype d] [DecidableEq d]
-    (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1) (Ψ : DensityOp (Bool × d)) :
-    relEntropy (dephaseState p hp0 hp1 Ψ)
-      (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ) ≠ ⊤ := by
-  rw [relEntropy_dephaseState_eq p hp0 hp1 Ψ]
-  exact ENNReal.ofReal_ne_top
-
 /-- **Lemma 4.1 Part 4 (Umegaki Relative-Entropy Form)**:
 `D((Z_0 ⊗ id)(Ψ₁) ‖ (Z_{1/2} ⊗ id)(Ψ₁))` is finite and equals `1 - QJS(ρ₀, ρ₁)`. -/
 theorem lemma_4_1_gram_dephasing_relEntropy {d : Type*} [Fintype d] [DecidableEq d]
@@ -824,38 +859,6 @@ theorem lemma_4_1_gram_dephasing_relEntropy {d : Type*} [Fintype d] [DecidableEq
   refine ⟨relEntropy_dephaseState_ne_top 0 le_rfl (by norm_num) (gramState ρ₀ ρ₁), ?_⟩
   rw [relEntropy_dephaseState_toReal_eq]
   exact (lemma_4_1_gram_dephasing ρ₀ ρ₁ (fun _ : Unit ↦ (1 : ℂ)) (fun _ : Unit ↦ (1 : ℂ))
-    (by simp) (by simp)).2.2.2
-
-/-- Explicit-finiteness Theorem 1.3 (Nonlinear Dephasing SDPI, Umegaki Relative-Entropy Form). -/
-theorem theorem_1_3_dephasing_sdpi_relEntropy_finite {d : Type*} [Fintype d] [DecidableEq d]
-    (Ψ : DensityOp (Bool × d)) {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) :
-    relEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) Ψ)
-      (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ) ≠ ⊤ ∧
-    relEntropy (dephaseState 0 le_rfl (by norm_num) Ψ)
-      (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ) ≠ ⊤ ∧
-    (relEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) Ψ)
-      (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ)).toReal ≤
-      1 - h2 (binConv (h2Inv (1 -
-        (relEntropy (dephaseState 0 le_rfl (by norm_num) Ψ)
-          (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ)).toReal)) p) :=
-  ⟨relEntropy_dephaseState_ne_top p hp0 (le_trans hp1 (by norm_num)) Ψ,
-   relEntropy_dephaseState_ne_top 0 le_rfl (by norm_num) Ψ,
-   theorem_1_3_dephasing_sdpi_relEntropy Ψ hp0 hp1⟩
-
-/-- Explicit-finiteness Theorem 1.3 (Equatorial Equality, Umegaki Relative-Entropy Form). -/
-theorem theorem_1_3_equatorial_equality_relEntropy_finite {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 1)
-    {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) :
-    relEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) (equatorialState x hx0 hx1))
-      (dephaseState (1 / 2) (by norm_num) (by norm_num) (equatorialState x hx0 hx1)) ≠ ⊤ ∧
-    relEntropy (dephaseState 0 le_rfl (by norm_num) (equatorialState x hx0 hx1))
-      (dephaseState (1 / 2) (by norm_num) (by norm_num) (equatorialState x hx0 hx1)) ≠ ⊤ ∧
-    (relEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) (equatorialState x hx0 hx1))
-      (dephaseState (1 / 2) (by norm_num) (by norm_num) (equatorialState x hx0 hx1))).toReal =
-      1 - h2 (binConv (h2Inv (1 -
-        (relEntropy (dephaseState 0 le_rfl (by norm_num) (equatorialState x hx0 hx1))
-          (dephaseState (1 / 2) (by norm_num) (by norm_num) (equatorialState x hx0 hx1))).toReal)) p) :=
-  ⟨relEntropy_dephaseState_ne_top p hp0 (le_trans hp1 (by norm_num)) (equatorialState x hx0 hx1),
-   relEntropy_dephaseState_ne_top 0 le_rfl (by norm_num) (equatorialState x hx0 hx1),
-   theorem_1_3_equatorial_equality_relEntropy hx0 hx1 hp0 hp1⟩
+    (by simp) (by simp)).2.2.2.1
 
 end PolarCodes
