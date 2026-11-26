@@ -57,12 +57,14 @@ private lemma hasDerivAt_phiParam_aux {x : ℝ} (hx0 : 0 < x) (hx1 : x < 1) :
   have h1mx2 : 0 < 1 - x ^ 2 := by nlinarith
   have hlog2 : Real.log 2 ≠ 0 := ne_of_gt (Real.log_pos (by norm_num))
   have hfun : phiParam = fun t ↦ (t / 2) * (Real.log ((1 + t) / (1 - t)) / Real.log 2) := by
-    ext t; simp [phiParam, Real.logb]; ring
+    ext t; simp [phiParam, Real.logb]
   rw [hfun]
   have hd_quo : HasDerivAt (fun t : ℝ ↦ (1 + t) / (1 - t))
       ((1 * (1 - x) - (1 + x) * (-1)) / (1 - x) ^ 2) x := by
-    simpa using ((hasDerivAt_const x (1 : ℝ)).add (hasDerivAt_id x)).div
-      ((hasDerivAt_const x (1 : ℝ)).sub (hasDerivAt_id x)) (ne_of_gt h1mx)
+    convert ((hasDerivAt_const x (1 : ℝ)).add (hasDerivAt_id x)).div
+      ((hasDerivAt_const x (1 : ℝ)).sub (hasDerivAt_id x)) (ne_of_gt h1mx) using 1
+    · ext r; rfl
+    · simp; ring
   have hd_log : HasDerivAt (fun t : ℝ ↦ Real.log ((1 + t) / (1 - t)))
       (((1 * (1 - x) - (1 + x) * (-1)) / (1 - x) ^ 2) / ((1 + x) / (1 - x))) x :=
     hd_quo.log (ne_of_gt (div_pos h1px h1mx))
@@ -98,7 +100,6 @@ private lemma phiDerivParam_eq_ratio {x : ℝ} (hx0 : 0 < x) (hx1 : x < 1) :
   unfold phiDerivParam
   simp only [Real.logb]
   field_simp [ne_of_gt h1mx2, hlog2, ne_of_gt hlog_pos, ne_of_gt hlogb_pos]
-  ring
 
 /-- Standalone derivative of `phi` at `c = cParam x` for `x ∈ (0, 1)`. -/
 theorem hasDerivAt_phi_cParam {x : ℝ} (hx0 : 0 < x) (hx1 : x < 1) :
@@ -150,14 +151,16 @@ theorem continuousOn_phi : ContinuousOn phi (Ico (0 : ℝ) 1) := by
   have hphiP_cont : ContinuousOn phiParam (Ico (0 : ℝ) 1) := by
     intro x hx
     have hfun : phiParam = fun t : ℝ ↦ (t / 2) * (Real.log ((1 + t) / (1 - t)) / Real.log 2) := by
-      ext t; simp [phiParam, Real.logb]; ring
+      ext t; simp [phiParam, Real.logb]
     rw [hfun]
     have h1 : ContinuousAt (fun t : ℝ ↦ (t / 2) * (Real.log ((1 + t) / (1 - t)) / Real.log 2)) x := by
       refine (continuousAt_id.div_const 2).mul ?_
       refine ContinuousAt.div_const ?_ (Real.log 2)
-      refine (Real.continuousAt_log (ne_of_gt (div_pos (by linarith [hx.1]) (by linarith [hx.2])))).comp ?_
+      refine ContinuousAt.comp (g := Real.log) (f := fun t : ℝ ↦ (1 + t) / (1 - t))
+        (Real.continuousAt_log (ne_of_gt (div_pos (by linarith [hx.1] : (0 : ℝ) < 1 + x)
+          (by linarith [hx.2] : (0 : ℝ) < 1 - x)))) ?_
       exact (continuousAt_const.add continuousAt_id).div
-        (continuousAt_const.sub continuousAt_id) (ne_of_gt (by linarith [hx.2]))
+        (continuousAt_const.sub continuousAt_id) (ne_of_gt (by linarith [hx.2] : (0 : ℝ) < 1 - x))
     exact h1.continuousWithinAt
   exact hphiP_cont.comp hx_cont fun c hc ↦
     let h := cParam_eq_iff hc.1 hc.2; ⟨h.1, h.2.1⟩
@@ -248,12 +251,15 @@ theorem strictConvexOn_phi : StrictConvexOn ℝ (Ico (0 : ℝ) 1) phi := by
           have hinv := hasDerivAt_inv (ne_of_gt ht0)
           have h1' : (fun s : ℝ ↦ 1 / s - s) = (fun s : ℝ ↦ s⁻¹ - s) := by ext s; simp [one_div]
           rw [h1']
-          convert hinv.sub (hasDerivAt_id t) using 1; simp [one_div, neg_div]
+          convert hinv.sub (hasDerivAt_id t) using 1
+          · ext s; rfl
+          · simp [one_div]
         have hd_quo : HasDerivAt (fun s : ℝ ↦ (1 + s) / (1 - s))
             ((1 * (1 - t) - (1 + t) * (-1)) / (1 - t) ^ 2) t := by
           convert ((hasDerivAt_const t (1 : ℝ)).add (hasDerivAt_id t)).div
             ((hasDerivAt_const t (1 : ℝ)).sub (hasDerivAt_id t)) (ne_of_gt h1mt) using 1
-          ring
+          · ext r; rfl
+          · simp; ring
         have hd_log : HasDerivAt (fun s : ℝ ↦ Real.log ((1 + s) / (1 - s)))
             (((1 * (1 - t) - (1 + t) * (-1)) / (1 - t) ^ 2) / ((1 + t) / (1 - t))) t :=
           hd_quo.log (ne_of_gt (div_pos h1pt h1mt))
@@ -292,7 +298,8 @@ theorem strictConvexOn_phi : StrictConvexOn ℝ (Ico (0 : ℝ) 1) phi := by
                 ((1 * (1 - s) - (1 + s) * (-1)) / (1 - s) ^ 2) s := by
               convert ((hasDerivAt_const s (1 : ℝ)).add (hasDerivAt_id s)).div
                 ((hasDerivAt_const s (1 : ℝ)).sub (hasDerivAt_id s)) (ne_of_gt h1ms) using 1
-              ring
+              · ext r; rfl
+              · simp; ring
             have hd_log := hd_quo.log (ne_of_gt (div_pos h1ps h1ms))
             have hd_lin : HasDerivAt (fun r : ℝ ↦ 2 * r) (2 * 1) s :=
               (hasDerivAt_id s).const_mul (2 : ℝ)
@@ -479,7 +486,7 @@ lemma traceDist_eq_half_traceNorm (ρ σ : DensityOp d) :
       rw [hsim, ← Matrix.mul_assoc, hU_star, Matrix.one_mul]
     have hsum := spectral_sum_eq_of_charpoly_mul_X_pow (f := Real.sqrt) (k := 0) (l := 0)
       (Matrix.posSemidef_conjTranspose_mul_self (ρ.mat - σ.mat)).isHermitian hD_herm
-      (by rw [hcp]; simp) Real.sqrt_zero
+      (by rw [hcp]) Real.sqrt_zero
     rw [hsum, spectral_sum_diagonal (fun i ↦ (hΔ.eigenvalues i) ^ 2) hD_herm (by simp)]
     apply Finset.sum_congr rfl; intro i _
     exact Real.sqrt_sq_eq_abs _
@@ -514,7 +521,7 @@ theorem one_sub_rootFidelity_le_traceDist (ρ σ : DensityOp d) :
           (ρ.sqrtMat * σ.mat * ρ.sqrtMat).charpoly := by rw [hM, hcp]
       exact spectral_sum_eq_of_charpoly_mul_X_pow (f := Real.sqrt) (k := 0) (l := 0)
         (Matrix.posSemidef_conjTranspose_mul_self _).isHermitian
-        (posSemidef_sqrt_mul_sqrt ρ σ).isHermitian (by rw [hcp']; simp) Real.sqrt_zero
+        (posSemidef_sqrt_mul_sqrt ρ σ).isHermitian (by rw [hcp']) Real.sqrt_zero
     simpa [h2] using h1
   rw [traceDist_eq_half_traceNorm]
   linarith
@@ -606,8 +613,8 @@ theorem traceDist_le_sqrt_one_sub_rootFidelity_sq (ρ σ : DensityOp d) :
         = Polynomial.X ^ 2 - (Polynomial.C (1 : ℂ) - Polynomial.C c * Polynomial.C (star c)) := by
           simp only [map_one]; ring
       _ = Polynomial.X ^ 2 - Polynomial.C ((r : ℂ) * (r : ℂ)) := by rw [← hC]
-      _ = (Polynomial.X - Polynomial.C (r : ℂ)) * (Polynomial.X - Polynomial.C (-r : ℂ)) := by
-          simp only [map_mul, map_neg]; ring
+      _ = (Polynomial.X - Polynomial.C (r : ℂ)) * (Polynomial.X - -Polynomial.C (r : ℂ)) := by
+          simp only [map_mul]; ring
   have hpure_td : traceDist P₀ P₁ = r := by
     have h10 : (1 : Fin 2) ≠ 0 := by decide
     have hcp_syl := charpoly_mul_rect_eq A B

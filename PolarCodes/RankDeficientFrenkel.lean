@@ -296,7 +296,7 @@ private lemma relEntropy_le_neg_logb_of_scale {α : Type*} [Fintype α] [Decidab
       (Set.disjoint_left.mpr fun x h1 h2 ↦ by
         rcases h2 with h2 | h2
         · linarith [h1.2, h2.1]
-        · linarith [h1.2, h2, h1c_ge1]),
+        · linarith [h1.2, Set.mem_Ici.mp h2, h1c_ge1]),
       lintegral_union measurableSet_Ici
       (Set.disjoint_left.mpr fun x h1 h2 ↦ not_le.mpr h1.2 h2)]
     have hz : ∫⁻ s in Ici (1 / c), ENNReal.ofReal (g s) ∂volume = 0 := by
@@ -330,7 +330,7 @@ private lemma relEntropy_le_neg_logb_of_scale {α : Type*} [Fintype α] [Decidab
       ← intervalIntegral.integral_of_le h1c_ge1]
     congr 1
     have hinv_int : IntervalIntegrable (fun s : ℝ ↦ (1 : ℝ) / s) volume 1 (1 / c) :=
-      (continuousOn_const.div continuousOn_id fun s hs ↦ ne_of_gt (by linarith [hs.1])).intervalIntegrable_of_Icc h1c_ge1
+      (continuousOn_const.div continuousOn_id fun s hs ↦ ne_of_gt (by show (0 : ℝ) < s; linarith [hs.1])).intervalIntegrable_of_Icc h1c_ge1
     have hsub : ∫ s in (1 : ℝ)..(1 / c), (1 / s - c) =
         (∫ s in (1 : ℝ)..(1 / c), (1 / s)) - (∫ _ in (1 : ℝ)..(1 / c), c) :=
       intervalIntegral.integral_sub hinv_int intervalIntegrable_const
@@ -510,29 +510,61 @@ private lemma negPartTrace_add_le {α : Type*} [Fintype α] [DecidableEq α]
 private lemma continuous_negPartTrace_pencil_aux {α : Type*} [Fintype α] [DecidableEq α]
     (ρ σ : DensityOp α) :
     Continuous (fun s : ℝ ↦ negPartTrace (pencil_isHermitian s ρ σ)) := by
-  have hconv : ConvexOn ℝ Set.univ (fun s : ℝ ↦ negPartTrace (pencil_isHermitian s ρ σ)) := by
-    refine ⟨convex_univ, fun x _ y _ a b ha hb hab ↦ ?_⟩
-    have hmat : ((1 - (a * x + b * y) : ℝ) : ℂ) • ρ.mat + ((a * x + b * y : ℝ) : ℂ) • σ.mat =
-        (a : ℂ) • (((1 - x : ℝ) : ℂ) • ρ.mat + (x : ℂ) • σ.mat) +
-        (b : ℂ) • (((1 - y : ℝ) : ℂ) • ρ.mat + (y : ℂ) • σ.mat) := by
-      ext i j; simp only [Matrix.add_apply, Matrix.smul_apply, smul_eq_mul]
-      have h1 : (1 - (a * x + b * y) : ℝ) = a * (1 - x) + b * (1 - y) := by nlinarith
-      rw [h1]; push_cast; ring
-    have hA : ((a : ℂ) • (((1 - x : ℝ) : ℂ) • ρ.mat + (x : ℂ) • σ.mat)).IsHermitian := by
-      rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal,
-          (pencil_isHermitian x ρ σ).eq]
-    have hB : ((b : ℂ) • (((1 - y : ℝ) : ℂ) • ρ.mat + (y : ℂ) • σ.mat)).IsHermitian := by
-      rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal,
-          (pencil_isHermitian y ρ σ).eq]
-    dsimp only
-    simp only [smul_eq_mul]
-    rw [negPartTrace_eq_of_eq (pencil_isHermitian (a * x + b * y) ρ σ) (hA.add hB) hmat]
-    calc negPartTrace (hA.add hB) ≤ negPartTrace hA + negPartTrace hB := negPartTrace_add_le hA hB
-      _ = a * negPartTrace (pencil_isHermitian x ρ σ) + b * negPartTrace (pencil_isHermitian y ρ σ) := by
-          rw [negPartTrace_smul_nonneg ha (pencil_isHermitian x ρ σ),
-              negPartTrace_smul_nonneg hb (pencil_isHermitian y ρ σ)]
-  rw [← continuousOn_univ]
-  simpa [interior_univ] using hconv.continuousOn_interior
+  let M : ℝ := negPartTrace (σ.isHermitian.sub ρ.isHermitian) +
+    negPartTrace (ρ.isHermitian.sub σ.isHermitian) + 1
+  have hM_pos : 0 < M := by
+    have h1 := negPartTrace_nonneg (σ.isHermitian.sub ρ.isHermitian)
+    have h2 := negPartTrace_nonneg (ρ.isHermitian.sub σ.isHermitian)
+    linarith
+  have hstep : ∀ x y : ℝ,
+      negPartTrace (pencil_isHermitian y ρ σ) - negPartTrace (pencil_isHermitian x ρ σ) ≤
+        |y - x| * M := by
+    intro x y
+    by_cases hxy : x ≤ y
+    · have hd : 0 ≤ y - x := sub_nonneg.mpr hxy
+      have hH : (((y - x : ℝ) : ℂ) • (σ.mat - ρ.mat)).IsHermitian := by
+        rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal,
+          (σ.isHermitian.sub ρ.isHermitian).eq]
+      have hmat : ((1 - y : ℝ) : ℂ) • ρ.mat + (y : ℂ) • σ.mat =
+          (((1 - x : ℝ) : ℂ) • ρ.mat + (x : ℂ) • σ.mat) +
+            ((y - x : ℝ) : ℂ) • (σ.mat - ρ.mat) := by
+        ext i j; simp only [Matrix.add_apply, Matrix.sub_apply, Matrix.smul_apply, smul_eq_mul,
+          Complex.real_smul]; push_cast; ring
+      have hle := negPartTrace_add_le (pencil_isHermitian x ρ σ) hH
+      rw [← negPartTrace_eq_of_eq (pencil_isHermitian y ρ σ) ((pencil_isHermitian x ρ σ).add hH) hmat] at hle
+      have hsm := negPartTrace_smul_nonneg hd (σ.isHermitian.sub ρ.isHermitian)
+      rw [abs_of_nonneg hd]
+      have h2 := negPartTrace_nonneg (ρ.isHermitian.sub σ.isHermitian)
+      nlinarith
+    · have hd : 0 ≤ x - y := by linarith
+      have hH : (((x - y : ℝ) : ℂ) • (ρ.mat - σ.mat)).IsHermitian := by
+        rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal,
+          (ρ.isHermitian.sub σ.isHermitian).eq]
+      have hmat : ((1 - y : ℝ) : ℂ) • ρ.mat + (y : ℂ) • σ.mat =
+          (((1 - x : ℝ) : ℂ) • ρ.mat + (x : ℂ) • σ.mat) +
+            ((x - y : ℝ) : ℂ) • (ρ.mat - σ.mat) := by
+        ext i j; simp only [Matrix.add_apply, Matrix.sub_apply, Matrix.smul_apply, smul_eq_mul,
+          Complex.real_smul]; push_cast; ring
+      have hle := negPartTrace_add_le (pencil_isHermitian x ρ σ) hH
+      rw [← negPartTrace_eq_of_eq (pencil_isHermitian y ρ σ) ((pencil_isHermitian x ρ σ).add hH) hmat] at hle
+      have hsm := negPartTrace_smul_nonneg hd (ρ.isHermitian.sub σ.isHermitian)
+      have habs : |y - x| = x - y := by rw [abs_of_neg (by linarith)]; ring
+      rw [habs]
+      have h1 := negPartTrace_nonneg (σ.isHermitian.sub ρ.isHermitian)
+      nlinarith
+  rw [Metric.continuous_iff]
+  intro x ε hε
+  refine ⟨ε / M, div_pos hε hM_pos, fun y hy ↦ ?_⟩
+  rw [Real.dist_eq] at hy ⊢
+  have h1 := hstep x y
+  have h2 := hstep y x
+  rw [abs_sub_comm] at h2
+  have habs_le : |negPartTrace (pencil_isHermitian y ρ σ) - negPartTrace (pencil_isHermitian x ρ σ)| ≤
+      |y - x| * M := abs_le.mpr ⟨by linarith, h1⟩
+  have hlt : |y - x| * M < ε := by
+    have := mul_lt_mul_of_pos_right hy hM_pos
+    rwa [div_mul_cancel₀ _ (ne_of_gt hM_pos)] at this
+  exact lt_of_le_of_lt habs_le hlt
 
 private lemma relEntropy_frenkel_integral_of_posDef_right {α : Type*} [Fintype α] [DecidableEq α]
     {ρ σ : DensityOp α} (hσ : σ.mat.PosDef) :
@@ -568,7 +600,7 @@ private lemma relEntropy_frenkel_integral_of_posDef_right {α : Type*} [Fintype 
   have hS_tend : Tendsto (fun n ↦ vonNeumannEntropy (ρn n)) atTop (𝓝 (vonNeumannEntropy ρ)) := by
     have hlow : Tendsto (fun n ↦ (1 - ε n) * vonNeumannEntropy ρ + ε n * vonNeumannEntropy σ)
         atTop (𝓝 (vonNeumannEntropy ρ)) := by
-      have h := ((tendsto_const_nhds.sub hε_tend).mul_const (vonNeumannEntropy ρ)).add
+      have h := (((tendsto_const_nhds (x := (1 : ℝ))).sub hε_tend).mul_const (vonNeumannEntropy ρ)).add
         (hε_tend.mul_const (vonNeumannEntropy σ))
       simpa using h
     have hh2_tend : Tendsto (fun n ↦ h2 (ε n)) atTop (𝓝 0) := by
@@ -599,7 +631,7 @@ private lemma relEntropy_frenkel_integral_of_posDef_right {α : Type*} [Fintype 
             Matrix.trace_smul, Complex.real_smul, Complex.add_re, Complex.mul_re, Complex.ofReal_re,
             Complex.ofReal_im, zero_mul, sub_zero]
         simp_rw [hlin]
-        have h := ((tendsto_const_nhds.sub hε_tend).mul_const (((ρ.mat * Lσ).trace).re)).add
+        have h := (((tendsto_const_nhds (x := (1 : ℝ))).sub hε_tend).mul_const (((ρ.mat * Lσ).trace).re)).add
           (hε_tend.mul_const (((σ.mat * Lσ).trace).re))
         simpa using h
       have h1 : ∀ n, (relEntropy (ρn n) σ).toReal = -vonNeumannEntropy (ρn n) -
@@ -631,7 +663,8 @@ private lemma relEntropy_frenkel_integral_of_posDef_right {α : Type*} [Fintype 
     have hderiv : ∀ t ∈ (Set.univ : Set ℝ), HasDerivWithinAt φ (1 - ε n) Set.univ t := fun t _ ↦ by
       have h1 : HasDerivAt φ (1 - ε n) t := by
         convert ((hasDerivAt_id t).const_mul (1 - ε n)).add (hasDerivAt_const t (ε n)) using 1
-        simp
+        · ext s; rfl
+        · ring
       exact h1.hasDerivWithinAt
     have hinj : Set.InjOn φ Set.univ := fun t₁ _ t₂ _ h ↦ by
       simp only [φ] at h
@@ -656,28 +689,33 @@ private lemma relEntropy_frenkel_integral_of_posDef_right {α : Type*} [Fintype 
     rw [← hsub]
     apply lintegral_congr_ae
     have hae : ∀ᵐ s ∂volume, s ∉ ({(0 : ℝ), 1} : Set ℝ) :=
-      (Set.toFinite ({(0 : ℝ), 1} : Set ℝ)).countable.ae_notMem volume
+        (Set.toFinite ({(0 : ℝ), 1} : Set ℝ)).countable.ae_notMem volume
     filter_upwards [hae] with s hs
     simp only [mem_singleton_iff, mem_insert_iff, not_or] at hs
     have hpencil_eq : negPartTrace (pencil_isHermitian ((s - ε n) / (1 - ε n)) (ρn n) σ) =
         negPartTrace (pencil_isHermitian s ρ σ) := by
       apply negPartTrace_eq_of_eq
       ext i j
+      have h1mεC : (1 - (ε n : ℂ)) ≠ 0 := by exact_mod_cast ne_of_gt h1mε
       simp only [ρn, DensityOp.mix, Matrix.add_apply, Matrix.smul_apply, smul_eq_mul, Complex.real_smul]
-      push_cast; field_simp [ne_of_gt h1mε]; ring
+      push_cast; field_simp [h1mεC]; ring
     simp only [F, hpencil_eq]
     by_cases hs0 : s < 0
     · simp only [G, hs0, ↓reduceIte]
       congr 1
       have hneg : (s - ε n) / (1 - ε n) < 0 := div_neg_of_neg_of_pos (by linarith [hε0 n]) h1mε
-      rw [abs_of_neg hneg]
+      have hsub1 : (s - ε n) / (1 - ε n) - 1 = (s - 1) / (1 - ε n) := by
+        field_simp [ne_of_gt h1mε]; ring
+      rw [abs_of_neg hneg, hsub1]
       field_simp [ne_of_gt h1mε, ne_of_gt (by linarith [hε0 n] : 0 < -s + ε n), ne_of_gt (by linarith : 0 < 1 - s)]
       ring
     · by_cases hs1 : 1 < s
       · simp only [G, hs0, hs1, ↓reduceIte]
         congr 1
         have hpos : 0 < (s - ε n) / (1 - ε n) := div_pos (by linarith [hε1 n]) h1mε
-        rw [abs_of_pos hpos]
+        have hsub1 : (s - ε n) / (1 - ε n) - 1 = (s - 1) / (1 - ε n) := by
+          field_simp [ne_of_gt h1mε]; ring
+        rw [abs_of_pos hpos, hsub1]
         field_simp [ne_of_gt h1mε, ne_of_gt (by linarith [hε1 n] : 0 < s - ε n), ne_of_gt (by linarith : 0 < s - 1)]
         ring
       · have hmem : s ∈ Icc (0 : ℝ) 1 := ⟨not_lt.mp hs0, not_lt.mp hs1⟩
@@ -734,10 +772,10 @@ private lemma relEntropy_frenkel_integral_of_posDef_right {α : Type*} [Fintype 
       apply (ENNReal.continuous_ofReal.tendsto _).comp
       have hnum : Tendsto (fun n ↦ (1 - ε n) ^ 2 * negPartTrace (pencil_isHermitian s ρ σ)) atTop
           (𝓝 (negPartTrace (pencil_isHermitian s ρ σ))) := by
-        have h := ((tendsto_const_nhds.sub hε_tend).pow 2).mul_const (negPartTrace (pencil_isHermitian s ρ σ))
+        have h := (((tendsto_const_nhds (x := (1 : ℝ))).sub hε_tend).pow 2).mul_const (negPartTrace (pencil_isHermitian s ρ σ))
         simpa using h
       have hden : Tendsto (fun n ↦ (-s + ε n) * (1 - s) ^ 2) atTop (𝓝 ((-s) * (1 - s) ^ 2)) := by
-        have h := (tendsto_const_nhds.add hε_tend).mul_const ((1 - s) ^ 2)
+        have h := ((tendsto_const_nhds (x := -s)).add hε_tend).mul_const ((1 - s) ^ 2)
         simpa using h
       have hdiv := hnum.div hden (ne_of_gt (mul_pos (by linarith) (sq_pos_of_pos (by linarith : 0 < 1 - s))))
       rw [abs_of_neg hlt0, show (s - 1) ^ 2 = (1 - s) ^ 2 by ring]
@@ -749,10 +787,10 @@ private lemma relEntropy_frenkel_integral_of_posDef_right {α : Type*} [Fintype 
         apply (ENNReal.continuous_ofReal.tendsto _).comp
         have hnum : Tendsto (fun n ↦ (1 - ε n) ^ 2 * negPartTrace (pencil_isHermitian s ρ σ)) atTop
             (𝓝 (negPartTrace (pencil_isHermitian s ρ σ))) := by
-          have h := ((tendsto_const_nhds.sub hε_tend).pow 2).mul_const (negPartTrace (pencil_isHermitian s ρ σ))
+          have h := (((tendsto_const_nhds (x := (1 : ℝ))).sub hε_tend).pow 2).mul_const (negPartTrace (pencil_isHermitian s ρ σ))
           simpa using h
         have hden : Tendsto (fun n ↦ (s - ε n) * (s - 1) ^ 2) atTop (𝓝 (s * (s - 1) ^ 2)) := by
-          have h := (tendsto_const_nhds.sub hε_tend).mul_const ((s - 1) ^ 2)
+          have h := ((tendsto_const_nhds (x := s)).sub hε_tend).mul_const ((s - 1) ^ 2)
           simpa using h
         have hdiv := hnum.div hden (ne_of_gt (mul_pos (by linarith) (sq_pos_of_pos (by linarith : 0 < s - 1))))
         rw [abs_of_pos (by linarith : 0 < s)]
@@ -984,7 +1022,8 @@ theorem relEntropy_frenkel_integral_of_suppSubset {ρ σ : DensityOp d} (hsupp :
           rw [Matrix.mul_diagonal]; simp [V, Matrix.conjTranspose_apply]
         have hR : Lσ i j = ∑ k : d, U i k *
             (if σ.eigvals k = 0 then (0 : ℂ) else (Real.log (σ.eigvals k) : ℂ)) * star (U j k) := by
-          simp only [Lσ, Matrix.mul_apply]
+          change ((U * Matrix.diagonal _) * star U) i j = _
+          rw [Matrix.mul_apply]
           apply Finset.sum_congr rfl; intro k _
           rw [Matrix.mul_diagonal]; simp [Matrix.star_apply]
         rw [hL, hR]
