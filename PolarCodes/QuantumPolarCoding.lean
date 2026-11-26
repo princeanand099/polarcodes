@@ -42,6 +42,10 @@ open scoped ComplexOrder
 
 namespace PolarCodes
 
+private lemma rootFidelity_nonneg {α : Type*} [Fintype α] [DecidableEq α] (ρ σ : DensityOp α) :
+    0 ≤ rootFidelity ρ σ :=
+  Finset.sum_nonneg fun _ _ ↦ Real.sqrt_nonneg _
+
 universe u
 
 section QuantumPolarCoding
@@ -388,21 +392,21 @@ theorem polarCondEntropy_dual_complement (W : CQChannel d) (n : ℕ) (b : Fin n 
 
 /-- Symmetric coherent (and, for degradable channels, symmetric private) information
 `I_sym(𝒩) = S(𝒩(π₂)) - S(𝒩^c(π₂))` of a qubit-input CPTP map `𝒩 : CPTPMap Bool d`. -/
-noncomputable def symCoherentInfo (𝒩 : CPTPMap.{0} Bool d) : ℝ :=
+noncomputable def symCoherentInfo {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap.{0} Bool d) : ℝ :=
   vonNeumannEntropy (𝒩.apply (maxMixedState Bool)) -
     vonNeumannEntropy (𝒩.complementary.apply (maxMixedState Bool))
 
 /-- Renes–Wilde amplitude classical–quantum channel `W_A(z) = 𝒩(|z⟩⟨z|)`. -/
-noncomputable def ampChannel (𝒩 : CPTPMap.{0} Bool d) : CQChannel d where
+noncomputable def ampChannel {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap.{0} Bool d) : CQChannel d where
   out z := 𝒩.apply (CQChannel.ketBraBool z)
 
 /-- Square-root / Stinespring factor `A : Matrix (Bool × d) 𝒩.env ℂ` of the Choi state
 `Φ_𝒩 = (id ⊗ 𝒩)(|Φ⁺⟩⟨Φ⁺|)`: `A (a, b) e = (√2)⁻¹ 𝒩.isom (b, e) a`. -/
-noncomputable def choiFactor (𝒩 : CPTPMap.{0} Bool d) : Matrix (Bool × d) 𝒩.env ℂ :=
+noncomputable def choiFactor {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap.{0} Bool d) : Matrix (Bool × d) 𝒩.env ℂ :=
   Matrix.of fun (a, b) e ↦ ((Real.sqrt 2 : ℂ)⁻¹) * 𝒩.isom (b, e) a
 
 /-- Choi state `Φ_𝒩 = (id ⊗ 𝒩)(|Φ⁺⟩⟨Φ⁺|) = A * Aᴴ` of a qubit-input CPTP map `𝒩`. -/
-noncomputable def choiState (𝒩 : CPTPMap.{0} Bool d) : DensityOp (Bool × d) where
+noncomputable def choiState {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap.{0} Bool d) : DensityOp (Bool × d) where
   mat := choiFactor 𝒩 * (choiFactor 𝒩)ᴴ
   posSemidef := posSemidef_mul_conjTranspose (choiFactor 𝒩)
   trace_one := by
@@ -438,13 +442,13 @@ noncomputable def choiState (𝒩 : CPTPMap.{0} Bool d) : DensityOp (Bool × d) 
 
 /-- Renes–Wilde phase classical–quantum channel `W_P`:
 `W_P(0) = Φ_𝒩 = (id ⊗ 𝒩)(|Φ⁺⟩⟨Φ⁺|)` and `W_P(1) = (Z ⊗ I) Φ_𝒩 (Z ⊗ I)`. -/
-noncomputable def phaseChannel (𝒩 : CPTPMap.{0} Bool d) : CQChannel (Bool × d) where
+noncomputable def phaseChannel {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap.{0} Bool d) : CQChannel (Bool × d) where
   out b := match b with
     | false => choiState 𝒩
     | true => (choiState 𝒩).conjUnitary (pauliZTensorI d)
 
 /-- `((choiFactor 𝒩)ᴴ * choiFactor 𝒩)` equals the transpose of `(𝒩.complementary.apply (maxMixedState Bool)).mat`. -/
-lemma choiFactor_conjTranspose_mul_eq (𝒩 : CPTPMap.{0} Bool d) :
+lemma choiFactor_conjTranspose_mul_eq {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap.{0} Bool d) :
     (choiFactor 𝒩)ᴴ * choiFactor 𝒩 = (𝒩.complementary.apply (maxMixedState Bool)).matᵀ := by
   have hstar2 : star ((Real.sqrt 2 : ℂ)⁻¹) = ((Real.sqrt 2 : ℂ)⁻¹) := by
     rw [← Complex.ofReal_inv, Complex.star_def, Complex.conj_ofReal]
@@ -471,28 +475,29 @@ lemma choiFactor_conjTranspose_mul_eq (𝒩 : CPTPMap.{0} Bool d) :
     _ = _ := by rw [hmul2]; ring
 
 /-- `S(choiState 𝒩) = S(𝒩.complementary (π₂))`. -/
-theorem vonNeumannEntropy_choiState_eq_complementary (𝒩 : CPTPMap.{0} Bool d) :
+theorem vonNeumannEntropy_choiState_eq_complementary {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap.{0} Bool d) :
     vonNeumannEntropy (choiState 𝒩) =
       vonNeumannEntropy (𝒩.complementary.apply (maxMixedState Bool)) := by
   unfold vonNeumannEntropy
+  congr 1
   have h1 : ((choiFactor 𝒩 * (choiFactor 𝒩)ᴴ)).IsHermitian := (choiState 𝒩).isHermitian
   have h2 : (((choiFactor 𝒩)ᴴ * choiFactor 𝒩)).IsHermitian := by
     rw [choiFactor_conjTranspose_mul_eq]
     exact (𝒩.complementary.apply (maxMixedState Bool)).isHermitian.transpose
   have h3 := (𝒩.complementary.apply (maxMixedState Bool)).isHermitian
-  have hspec1 : ∑ i : Bool × d, negMulLog2 (h1.eigenvalues i) =
-      ∑ j : 𝒩.env, negMulLog2 (h2.eigenvalues j) :=
-    spectral_sum_mul_conjTranspose (choiFactor 𝒩) h1 h2 (by simp [negMulLog2])
+  have hspec1 : ∑ i : Bool × d, Real.negMulLog (h1.eigenvalues i) =
+      ∑ j : 𝒩.env, Real.negMulLog (h2.eigenvalues j) :=
+    spectral_sum_mul_conjTranspose (choiFactor 𝒩) h1 h2 (by simp [Real.negMulLog])
   have hchar_tr : ((choiFactor 𝒩)ᴴ * choiFactor 𝒩).charpoly * Polynomial.X ^ Fintype.card 𝒩.env =
       (𝒩.complementary.apply (maxMixedState Bool)).mat.charpoly * Polynomial.X ^ Fintype.card 𝒩.env := by
     rw [choiFactor_conjTranspose_mul_eq, Matrix.charpoly_transpose]
-  have hspec2 : ∑ j : 𝒩.env, negMulLog2 (h2.eigenvalues j) =
-      ∑ j : 𝒩.env, negMulLog2 (h3.eigenvalues j) :=
-    spectral_sum_eq_of_charpoly_mul_X_pow h2 h3 hchar_tr (by simp [negMulLog2])
+  have hspec2 : ∑ j : 𝒩.env, Real.negMulLog (h2.eigenvalues j) =
+      ∑ j : 𝒩.env, Real.negMulLog (h3.eigenvalues j) :=
+    spectral_sum_eq_of_charpoly_mul_X_pow h2 h3 hchar_tr (by simp [Real.negMulLog])
   exact hspec1.trans hspec2
 
 /-- The midpoint of `ampChannel 𝒩` is `𝒩(maxMixedState Bool)`. -/
-lemma ampChannel_midpoint_mat (𝒩 : CPTPMap.{0} Bool d) :
+lemma ampChannel_midpoint_mat {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap.{0} Bool d) :
     (DensityOp.midpoint ((ampChannel 𝒩).out false) ((ampChannel 𝒩).out true)).mat =
       (𝒩.apply (maxMixedState Bool)).mat := by
   ext i j
@@ -510,7 +515,7 @@ lemma ampChannel_midpoint_mat (𝒩 : CPTPMap.{0} Bool d) :
 
 /-- The midpoint of `phaseChannel 𝒩` is the block-diagonal state
 `½ |0⟩⟨0| ⊗ 𝒩(|0⟩⟨0|) + ½ |1⟩⟨1| ⊗ 𝒩(|1⟩⟨1|)`. -/
-lemma phaseChannel_midpoint_mat (𝒩 : CPTPMap.{0} Bool d) :
+lemma phaseChannel_midpoint_mat {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap.{0} Bool d) :
     (DensityOp.midpoint ((phaseChannel 𝒩).out false) ((phaseChannel 𝒩).out true)).mat =
       (DensityOp.midpoint
         (DensityOp.tensor (CQChannel.ketBraBool false) ((ampChannel 𝒩).out false))
@@ -567,7 +572,7 @@ lemma phaseChannel_midpoint_mat (𝒩 : CPTPMap.{0} Bool d) :
 
 /-- **Renes–Wilde Capacity Identity**:
 `I(W_A) + I(W_P) - 1 = I_sym(𝒩)` for every finite-dimensional qubit-input CPTP map `𝒩`. -/
-theorem amp_phase_symCapacity_sum (𝒩 : CPTPMap.{0} Bool d) :
+theorem amp_phase_symCapacity_sum {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap.{0} Bool d) :
     (ampChannel 𝒩).symCapacity + (phaseChannel 𝒩).symCapacity - 1 = symCoherentInfo 𝒩 := by
   unfold CQChannel.symCapacity CQChannel.condEntropy qjs symCoherentInfo
   have hAm := vonNeumannEntropy_eq_of_mat_eq (ampChannel_midpoint_mat 𝒩)
@@ -612,7 +617,9 @@ noncomputable def unpolarizedSet (W : CQChannel d) (n : ℕ) (δ : ℝ) : Finset
 
 lemma goodSet_card_eq_treeProb (W : CQChannel d) (n : ℕ) (δ : ℝ) :
     ((goodSet W n δ).card : ℝ) / (2 : ℝ) ^ n = treeProb n (fun b ↦ polarFidelity W n b ≤ δ) := by
-  unfold treeProb
+  unfold treeProb treeAvg ind
+  dsimp only
+  rw [Finset.sum_boole]
   congr 1
   norm_cast
   apply Finset.card_bij (fun i _ ↦ bitPath n i)
@@ -692,7 +699,7 @@ theorem dual_unpolarized_fraction_le (W : CQChannel d) (n : ℕ) {δ η : ℝ} (
     rw [Finset.card_union_of_disjoint hdisj, veryNoisySet_card_eq]
   have hsub : (unpolarizedSet W n δ).card + (goodSet W n δ ∪ veryNoisySet W n δ).card = 2 ^ n := by
     unfold unpolarizedSet
-    rw [Finset.card_sdiff (Finset.subset_univ _), Finset.card_univ, Fintype.card_fin]
+    rw [Finset.card_sdiff, Finset.inter_univ, Finset.card_univ, Fintype.card_fin]
     have hle : (goodSet W n δ ∪ veryNoisySet W n δ).card ≤ 2 ^ n := by
       simpa [Fintype.card_fin] using Finset.card_le_univ (goodSet W n δ ∪ veryNoisySet W n δ)
     omega
@@ -738,11 +745,12 @@ noncomputable def CQChannel.symmetrize {α : Type*} [Fintype α] [DecidableEq α
 lemma vonNeumannEntropy_transpose {α : Type*} [Fintype α] [DecidableEq α] (ρ : DensityOp α) :
     vonNeumannEntropy ρ.transpose = vonNeumannEntropy ρ := by
   unfold vonNeumannEntropy
+  congr 1
   have hchar : ρ.transpose.mat.charpoly * Polynomial.X ^ Fintype.card α =
       ρ.mat.charpoly * Polynomial.X ^ Fintype.card α := by
     simp [DensityOp.transpose, Matrix.charpoly_transpose]
   exact spectral_sum_eq_of_charpoly_mul_X_pow ρ.transpose.isHermitian ρ.isHermitian hchar
-    (by simp [negMulLog2])
+    (by simp [Real.negMulLog])
 
 /-- Transpose commutes with `polarChannelTree` (up to exact matrix transpose on outputs). -/
 lemma polarChannelTree_transpose_condEntropy {α : Type u} [Fintype α] [DecidableEq α]
@@ -771,12 +779,14 @@ lemma polarChannelTree_transpose_condEntropy {α : Type u} [Fintype α] [Decidab
         simp only [BundledCQChannel.minus, CQChannel.minusChannel, CQChannel.checkCombine,
           DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, Matrix.add_apply, Matrix.smul_apply,
           Matrix.kroneckerMap_apply, Equiv.prodCongr_apply, Prod.map_apply, he]
+        rfl
       · rw [polarChannelTree_snoc_true, polarChannelTree_snoc_true]
         refine ⟨(Equiv.refl Bool).prodCongr (e.prodCongr e), fun z ⟨w₁, x₁, x₂⟩ ⟨w₂, y₁, y₂⟩ ↦ ?_⟩
         simp only [BundledCQChannel.plus, CQChannel.plusChannel, CQChannel.varCombine,
           DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, CQChannel.ketBraBool,
           Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Matrix.of_apply,
           Equiv.prodCongr_apply, Equiv.refl_apply, Prod.map_apply, he]
+        dsimp only
         cases w₁ <;> cases w₂ <;> simp
   intro n b
   obtain ⟨e, he⟩ := hmat n b
@@ -802,6 +812,7 @@ lemma polarChannelTree_transpose_condEntropy {α : Type u} [Fintype α] [Decidab
 lemma condEntropy_symmetrize {α : Type*} [Fintype α] [DecidableEq α] (W : CQChannel α) :
     W.symmetrize.condEntropy = W.condEntropy := by
   unfold CQChannel.condEntropy CQChannel.symmetrize qjs
+  dsimp only
   have h0 : vonNeumannEntropy (DensityOp.midpoint
       (DensityOp.tensor (CQChannel.ketBraBool false) (W.out false))
       (DensityOp.tensor (CQChannel.ketBraBool true) (W.out true))) =
@@ -832,6 +843,7 @@ lemma condEntropy_symmetrize {α : Type*} [Fintype α] [DecidableEq α] (W : CQC
 lemma symmetrize_minusChannel_channelEquiv {α : Type u} [Fintype α] [DecidableEq α]
     (W : CQChannel α) :
     W.symmetrize.minusChannel.ChannelEquiv W.minusChannel.symmetrize := by
+  -- Basis permutation on `(Bool × α) × (Bool × α) ≃ ULift Bool × (Bool × (α × α))`
   let e : (ULift.{u} Bool × (Bool × (α × α))) ≃ ((Bool × α) × (Bool × α)) :=
     { toFun := fun ⟨⟨w₂⟩, w, x₁, x₂⟩ ↦ ((xor w w₂, x₁), (w₂, x₂))
       invFun := fun ⟨(w₁, x₁), (w₂, x₂)⟩ ↦ (ULift.up w₂, xor w₁ w₂, x₁, x₂)
@@ -851,7 +863,7 @@ lemma symmetrize_minusChannel_channelEquiv {α : Type u} [Fintype α] [Decidable
       · subst h; simp
       · have he : e c₁ ≠ e c₂ := fun h' ↦ h (e.injective h')
         simp [h, he]
-    · intro r _ hne; simp [Ne.symm hne]
+    · intro r _ hne; simp [hne]
     · intro h; exact absurd (Finset.mem_univ (e c₁)) h
   have hiso : (W.minusChannel.symmetrize.tensorMaxMixed (ULift.{u} Bool)).IsoEquiv
       W.symmetrize.minusChannel := by
@@ -874,11 +886,11 @@ lemma symmetrize_minusChannel_channelEquiv {α : Type u} [Fintype α] [Decidable
         cases b <;> cases w₁ <;> cases w₂ <;> cases w₁' <;> cases w₂' <;>
           simp <;> push_cast <;> ring
       · intro c _ hne
-        have : ((w₁, i₁), (w₂, i₂)) ≠ e c := fun h ↦ hne (by rw [h, e.symm_apply_apply]).symm
+        have : ((w₁, i₁), (w₂, i₂)) ≠ e c := fun h ↦ hne ((e.symm_apply_apply c).symm.trans (congr_arg e.symm h.symm))
         simp [this]
       · intro h; exact absurd (Finset.mem_univ _) h
     · intro c _ hne
-      have : ((w₁', j₁), (w₂', j₂)) ≠ e c := fun h ↦ hne (by rw [h, e.symm_apply_apply]).symm
+      have : ((w₁', j₁), (w₂', j₂)) ≠ e c := fun h ↦ hne ((e.symm_apply_apply c).symm.trans (congr_arg e.symm h.symm))
       simp [this]
     · intro h; exact absurd (Finset.mem_univ _) h
   exact ((W.minusChannel.symmetrize.channelEquiv_tensorMaxMixed (ULift.{u} Bool)).trans
@@ -908,7 +920,7 @@ lemma symmetrize_plusChannel_channelEquiv {α : Type u} [Fintype α] [DecidableE
       · subst h; simp
       · have he : e c₁ ≠ e c₂ := fun h' ↦ h (e.injective h')
         simp [h, he]
-    · intro r _ hne; simp [Ne.symm hne]
+    · intro r _ hne; simp [hne]
     · intro h; exact absurd (Finset.mem_univ (e c₁)) h
   have hiso : (W.plusChannel.symmetrize.tensorMaxMixed (ULift.{u} Bool)).IsoEquiv
       W.symmetrize.plusChannel := by
@@ -931,11 +943,11 @@ lemma symmetrize_plusChannel_channelEquiv {α : Type u} [Fintype α] [DecidableE
         cases b <;> cases u₁ <;> cases u₂ <;> cases w₁ <;> cases w₂ <;> cases w₁' <;> cases w₂' <;>
           simp <;> push_cast <;> ring
       · intro c _ hne
-        have : (u₁, (w₁, i₁), (w₂, i₂)) ≠ e c := fun h ↦ hne (by rw [h, e.symm_apply_apply]).symm
+        have : (u₁, (w₁, i₁), (w₂, i₂)) ≠ e c := fun h ↦ hne ((e.symm_apply_apply c).symm.trans (congr_arg e.symm h.symm))
         simp [this]
       · intro h; exact absurd (Finset.mem_univ _) h
     · intro c _ hne
-      have : (u₂, (w₁', j₁), (w₂', j₂)) ≠ e c := fun h ↦ hne (by rw [h, e.symm_apply_apply]).symm
+      have : (u₂, (w₁', j₁), (w₂', j₂)) ≠ e c := fun h ↦ hne ((e.symm_apply_apply c).symm.trans (congr_arg e.symm h.symm))
       simp [this]
     · intro h; exact absurd (Finset.mem_univ _) h
   exact ((W.plusChannel.symmetrize.channelEquiv_tensorMaxMixed (ULift.{u} Bool)).trans
@@ -1155,7 +1167,8 @@ theorem degradable_assistance_subset_unpolarized {d : Type} [Fintype d] [Decidab
   simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hi
   rcases hi with ⟨hnotGA, hnotGP⟩
   by_cases hBA : i ∈ veryNoisySet (ampChannel 𝒩) n δ
-  · apply Finset.mem_union_right
+  · -- If `i ∈ ℬ_N(W_A)`, then `dualIndex n i` cannot be in `ℬ_N(W_P)`, so it is in `𝒰_N(W_P)`
+    apply Finset.mem_union_right
     rw [Finset.mem_image]
     refine ⟨dualIndex n i, ?_, dualIndex_involutive n i⟩
     simp only [unpolarizedSet, Finset.mem_sdiff, Finset.mem_univ, true_and, Finset.mem_union,
@@ -1168,7 +1181,7 @@ theorem degradable_assistance_subset_unpolarized {d : Type} [Fintype d] [Decidab
         (synthChannel (ampChannel 𝒩).dual n (dualIndex n i))
       have h2 : Real.logb 2 (1 + (synthChannel (ampChannel 𝒩).dual n (dualIndex n i)).fidelityParam) ≤
           Real.logb 2 (5 / 4 : ℝ) :=
-        Real.logb_le_logb_of_le (by norm_num) (by linarith [rootFidelity_nonneg ((synthChannel (ampChannel 𝒩).dual n (dualIndex n i)).out false) ((synthChannel (ampChannel 𝒩).dual n (dualIndex n i)).out true)]) (by linarith)
+        Real.logb_le_logb_of_le (by norm_num) (by have hnn : 0 ≤ (synthChannel (ampChannel 𝒩).dual n (dualIndex n i)).fidelityParam := rootFidelity_nonneg _ _; linarith) (by linarith)
       exact this.trans h2
     have hH2 : (synthChannel (phaseChannel 𝒩).dual n (dualIndex n (dualIndex n i))).condEntropy ≤
         Real.logb 2 (5 / 4 : ℝ) := by
@@ -1176,7 +1189,7 @@ theorem degradable_assistance_subset_unpolarized {d : Type} [Fintype d] [Decidab
         (synthChannel (phaseChannel 𝒩).dual n (dualIndex n (dualIndex n i)))
       have h2 : Real.logb 2 (1 + (synthChannel (phaseChannel 𝒩).dual n (dualIndex n (dualIndex n i))).fidelityParam) ≤
           Real.logb 2 (5 / 4 : ℝ) :=
-        Real.logb_le_logb_of_le (by norm_num) (by linarith [rootFidelity_nonneg ((synthChannel (phaseChannel 𝒩).dual n (dualIndex n (dualIndex n i))).out false) ((synthChannel (phaseChannel 𝒩).dual n (dualIndex n (dualIndex n i))).out true)]) (by linarith)
+        Real.logb_le_logb_of_le (by norm_num) (by have hnn : 0 ≤ (synthChannel (phaseChannel 𝒩).dual n (dualIndex n (dualIndex n i))).fidelityParam := rootFidelity_nonneg _ _; linarith) (by linarith)
       exact this.trans h2
     rw [synthChannel_condEntropy_eq] at hH1 hH2
     rw [dualIndex_involutive] at hH2
@@ -1276,11 +1289,13 @@ theorem corollary_5_5_quantum_private_polar_coding :
       rw [heq, Real.mul_rpow (by norm_num) (by positivity)]
     rw [h8, ← mul_assoc]
     exact le_trans (mul_le_mul_of_nonneg_right (le_max_left _ _) (by positivity)) hn
+  -- Apply Theorem 1.1 with `ε' = ε / 8` to `W_A`, `W_A⊥`, `W_P`, `W_P⊥`
   have hWA := hpolar (ampChannel 𝒩) hε8_pos hε8_lt1 n hn_eps8
   have hWAd := hpolar (ampChannel 𝒩).dual hε8_pos hε8_lt1 n hn_eps8
   have hWP := hpolar (phaseChannel 𝒩) hε8_pos hε8_lt1 n hn_eps8
   have hWPd := hpolar (phaseChannel 𝒩).dual hε8_pos hε8_lt1 n hn_eps8
   rw [← goodSet_card_eq_treeProb] at hWA hWAd hWP hWPd
+  -- Show `thresh ≤ 1 / 4` (since `2^n ≥ 2` implies `200 * (2^n)^0.49047 ≥ 200 ≥ 2`)
   have hthresh_le : thresh ≤ 1 / 4 := by
     have hpow2 : (1 : ℝ) ≤ ((2 : ℝ) ^ n) ^ (49047 / 100000 : ℝ) :=
       Real.one_le_rpow (by linarith) (by norm_num)
@@ -1294,6 +1309,7 @@ theorem corollary_5_5_quantum_private_polar_coding :
   have hU_P : ((unpolarizedSet (phaseChannel 𝒩) n thresh).card : ℝ) / (2 : ℝ) ^ n ≤ ε / 4 := by
     have := dual_unpolarized_fraction_le (phaseChannel 𝒩) n hthresh_le hWP hWPd
     linarith
+  -- Shared information set `𝒜 = 𝒢_N(W_A) ∩ {i : dualIndex n i ∈ 𝒢_N(W_P)}`
   let infoA : Finset (Fin (2 ^ n)) :=
     (goodSet (ampChannel 𝒩) n thresh).filter (fun i ↦ dualIndex n i ∈ goodSet (phaseChannel 𝒩) n thresh)
   let infoP : Finset (Fin (2 ^ n)) := infoA.image (dualIndex n)
@@ -1305,7 +1321,8 @@ theorem corollary_5_5_quantum_private_polar_coding :
   refine ⟨⟨qscPolarCode (ampChannel 𝒩) n infoA frozenA,
            qscPolarCode (phaseChannel 𝒩) n infoP frozenP, rfl, assistSet⟩,
           ?_, ?_, ?_, ?_, hU_A, hU_P, ?_⟩
-  · let gP_dual : Finset (Fin (2 ^ n)) :=
+  · -- Rate bound: `|infoA| / 2^n ≥ I(W_A) + I(W_P) - 1 - ε/4 ≥ I_sym(𝒩) - ε/2`
+    let gP_dual : Finset (Fin (2 ^ n)) :=
       (goodSet (phaseChannel 𝒩) n thresh).image (dualIndex n)
     have hinfoA_eq : infoA = goodSet (ampChannel 𝒩) n thresh ∩ gP_dual := by
       ext i
@@ -1339,7 +1356,8 @@ theorem corollary_5_5_quantum_private_polar_coding :
     have hcap := amp_phase_symCapacity_sum 𝒩
     change symCoherentInfo 𝒩 - ε / 2 ≤ (infoA.card : ℝ) / (2 : ℝ) ^ n
     linarith
-  · have hthresh_nn : 0 ≤ thresh := Real.rpow_nonneg (by norm_num) _
+  · -- Amplitude QSC error bound
+    have hthresh_nn : 0 ≤ thresh := Real.rpow_nonneg (by norm_num) _
     have hsum_le : ∑ i ∈ infoA, (1 / 2 : ℝ) * (synthChannel (ampChannel 𝒩) n i).fidelityParam ≤
         (2 : ℝ) ^ n * thresh := by
       have h1 : ∑ i ∈ infoA, (1 / 2 : ℝ) * (synthChannel (ampChannel 𝒩) n i).fidelityParam ≤
@@ -1359,7 +1377,8 @@ theorem corollary_5_5_quantum_private_polar_coding :
       _ ≤ 2 * Real.sqrt ((2 : ℝ) ^ n * thresh) :=
           mul_le_mul_of_nonneg_left (Real.sqrt_le_sqrt hsum_le) (by norm_num)
       _ ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) := polar_error_exponent_bound hn1
-  · have hthresh_nn : 0 ≤ thresh := Real.rpow_nonneg (by norm_num) _
+  · -- Phase / secrecy QSC error bound
+    have hthresh_nn : 0 ≤ thresh := Real.rpow_nonneg (by norm_num) _
     have hsum_le : ∑ j ∈ infoP, (1 / 2 : ℝ) * (synthChannel (phaseChannel 𝒩) n j).fidelityParam ≤
         (2 : ℝ) ^ n * thresh := by
       have h1 : ∑ j ∈ infoP, (1 / 2 : ℝ) * (synthChannel (phaseChannel 𝒩) n j).fidelityParam ≤
@@ -1381,7 +1400,8 @@ theorem corollary_5_5_quantum_private_polar_coding :
       _ ≤ 2 * Real.sqrt ((2 : ℝ) ^ n * thresh) :=
           mul_le_mul_of_nonneg_left (Real.sqrt_le_sqrt hsum_le) (by norm_num)
       _ ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) := polar_error_exponent_bound hn1
-  · unfold CSSPrivatePolarCode.combinedError
+  · -- Combined error bound
+    unfold CSSPrivatePolarCode.combinedError
     dsimp only
     have hthresh_nn : 0 ≤ thresh := Real.rpow_nonneg (by norm_num) _
     have hA_err : (qscPolarCode (ampChannel 𝒩) n infoA frozenA).avgBlockError ≤
@@ -1393,7 +1413,7 @@ theorem corollary_5_5_quantum_private_polar_coding :
           apply Finset.sum_le_sum; intro i hi
           have hiG : i ∈ goodSet (ampChannel 𝒩) n thresh := (Finset.mem_filter.mp hi).1
           simp only [goodSet, Finset.mem_filter, Finset.mem_univ, true_and] at hiG
-          linarith [rootFidelity_nonneg ((synthChannel (ampChannel 𝒩) n i).out false) ((synthChannel (ampChannel 𝒩) n i).out true)]
+          have hnn : 0 ≤ (synthChannel (ampChannel 𝒩) n i).fidelityParam := rootFidelity_nonneg _ _; linarith
         have hcard_le : (infoA.card : ℝ) ≤ (2 : ℝ) ^ n := by
           simpa [Fintype.card_fin] using (Nat.cast_le (α := ℝ)).mpr (Finset.card_le_univ infoA)
         calc ∑ i ∈ infoA, (1 / 2 : ℝ) * (synthChannel (ampChannel 𝒩) n i).fidelityParam
@@ -1411,7 +1431,7 @@ theorem corollary_5_5_quantum_private_polar_coding :
           rcases Finset.mem_image.mp hj with ⟨i, hi, rfl⟩
           have hiP : dualIndex n i ∈ goodSet (phaseChannel 𝒩) n thresh := (Finset.mem_filter.mp hi).2
           simp only [goodSet, Finset.mem_filter, Finset.mem_univ, true_and] at hiP
-          linarith [rootFidelity_nonneg ((synthChannel (phaseChannel 𝒩) n (dualIndex n i)).out false) ((synthChannel (phaseChannel 𝒩) n (dualIndex n i)).out true)]
+          have hnn : 0 ≤ (synthChannel (phaseChannel 𝒩) n (dualIndex n i)).fidelityParam := rootFidelity_nonneg _ _; linarith
         have hcard_le : (infoP.card : ℝ) ≤ (2 : ℝ) ^ n := by
           simpa [Fintype.card_fin] using (Nat.cast_le (α := ℝ)).mpr (Finset.card_le_univ infoP)
         calc ∑ j ∈ infoP, (1 / 2 : ℝ) * (synthChannel (phaseChannel 𝒩) n j).fidelityParam
@@ -1420,7 +1440,8 @@ theorem corollary_5_5_quantum_private_polar_coding :
       exact (hwgP.trans (mul_le_mul_of_nonneg_left (Real.sqrt_le_sqrt hsum_le) (by norm_num))).trans
         (polar_error_exponent_bound hn1)
     linarith
-  · intro hdeg
+  · -- Vanishing assistance rate for degradable channels
+    intro hdeg
     unfold CSSPrivatePolarCode.assistanceRate
     dsimp only
     have hsub := degradable_assistance_subset_unpolarized 𝒩 hdeg n hthresh_le
