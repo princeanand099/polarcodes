@@ -4,12 +4,14 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Prince Anand
 -/
 import PolarCodes.ArikanTransform
+import PolarCodes.AuditAxioms
 import PolarCodes.Bhattacharyya
 import PolarCodes.BinaryEntropy
 import PolarCodes.ChannelDuality
 import PolarCodes.ChannelDualityEquiv
 import PolarCodes.ChannelEquiv
 import PolarCodes.Channels
+import PolarCodes.CoherentQuantumPolarCoding
 import PolarCodes.DataProcessing
 import PolarCodes.DephasingSDPI
 import PolarCodes.DivergenceCharacterizations
@@ -23,10 +25,12 @@ import PolarCodes.MrsGerber
 import PolarCodes.MrsGerberClassical
 import PolarCodes.MrsGerberHybrid
 import PolarCodes.NoncommutativeUnion
+import PolarCodes.OperationalCorollary55
 import PolarCodes.PhiAndFuchs
 import PolarCodes.PolarCoding
 import PolarCodes.Polarization
 import PolarCodes.PolarizationFine
+import PolarCodes.PrivatePolarCoding
 import PolarCodes.QJJS
 import PolarCodes.QuantumChannels
 import PolarCodes.QuantumPolarCoding
@@ -43,7 +47,7 @@ import PolarCodes.SplittingBounds
 /-!
 # Polynomial-Blocklength Quantum Polar Codes
 
-Root library module importing all 36 modules of the Lean 4 formalization of
+Root library module importing the complete Lean 4 formalization of
 *Polynomial-Blocklength Quantum Polar Codes via Nonlinear Dephasing Contraction*
 (Prince Anand, 2026).
 -/
