@@ -1604,7 +1604,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
   have hpt_ideal : partialTrace₂Mat (M × E) B_tot (pureState (ψ_ideal v) (hψ_ideal_norm v)).mat =
       (wiretapEveJointState 𝒩 n infoSet randSet assistSet uF).mat := by
     ext ⟨m₁, e₁⟩ ⟨m₂, e₂⟩
-    simp only [partialTrace₂Mat, pureState, ψ_ideal, Matrix.of_apply, B_tot, Anc, Fintype.sum_prod_type]
+    simp only [partialTrace₂Mat, pureState, ψ_ideal, Matrix.of_apply, LinearMap.coe_mk, AddHom.coe_mk, B_tot, Anc, Fintype.sum_prod_type]
     by_cases hm : m₁ = m₂
     · subst hm
       have hL : ∑ m' : M, ∑ y : Y, ∑ a : A, ∑ r : R, ∑ e' : E,
@@ -1676,7 +1676,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
   have hpt_target : partialTrace₂Mat (M × E) B_tot (pureState ψ_target hψ_target_norm).mat =
       (wiretapIdealEveState 𝒩 n infoSet).mat := by
     ext ⟨m₁, e₁⟩ ⟨m₂, e₂⟩
-    simp only [partialTrace₂Mat, pureState, ψ_target, Matrix.of_apply, B_tot, Anc, Fintype.sum_prod_type]
+    simp only [partialTrace₂Mat, pureState, ψ_target, Matrix.of_apply, LinearMap.coe_mk, AddHom.coe_mk, B_tot, Anc, Fintype.sum_prod_type]
     have hL : ∑ m' : M, ∑ y : Y, ∑ a : A, ∑ r : R, ∑ e' : E,
         (if y = y₀ ∧ a = a₀ ∧ r = r₀ then maxEntangledVec M (m₁, m') * ρ_E.sqrtMat e₁ e' else 0) *
         star (if y = y₀ ∧ a = a₀ ∧ r = r₀ then maxEntangledVec M (m₂, m') * ρ_E.sqrtMat e₂ e' else 0) =
@@ -1777,13 +1777,15 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
   have htd_dec1 : traceDist (pureState ψ_Z_dec hψ_Z_dec_norm)
       (pureState ψ_ideal_dec hψ_ideal_dec_norm) ≤
       Real.sqrt (2 * wiretapBobError 𝒩 n infoSet randSet assistSet uF) := by
-    rw [traceDist_symm, traceDist_pureState_eq ψ_ideal_dec ψ_Z_dec hψ_ideal_dec_norm hψ_Z_dec_norm,
-      hunitary_inner (ψ_ideal v) (ψ_Z v)]
+    rw [traceDist_symm]
+    refine le_trans (traceDist_pureState_eq ψ_ideal_dec ψ_Z_dec hψ_ideal_dec_norm hψ_Z_dec_norm) ?_
+    rw [hunitary_inner (ψ_ideal v) (ψ_Z v)]
     exact sqrt_one_sub_norm_sq_le_sqrt_two_mul hbob_nn hv_ov
   have htd_dec2 : traceDist (pureState ψ_ideal_dec hψ_ideal_dec_norm)
       (pureState ψ_target hψ_target_norm) ≤
       Real.sqrt (2 * wiretapSecrecyError 𝒩 n infoSet randSet assistSet uF) := by
-    rw [traceDist_symm, traceDist_pureState_eq ψ_target ψ_ideal_dec hψ_target_norm hψ_ideal_dec_norm]
+    rw [traceDist_symm]
+    refine le_trans (traceDist_pureState_eq ψ_target ψ_ideal_dec hψ_target_norm hψ_ideal_dec_norm) ?_
     have hfvg := one_sub_rootFidelity_le_traceDist
       (wiretapEveJointState 𝒩 n infoSet randSet assistSet uF)
       (wiretapIdealEveState 𝒩 n infoSet)
@@ -1827,7 +1829,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
         · rw [Finset.sum_eq_single m₁']
           · rw [Finset.sum_eq_single e₁]
             · rw [Finset.sum_eq_single anc₁]
-              · simp only [Prod.mk.injEq]; congr 1; apply propext; tauto
+              · simp only [true_and, ↓reduceIte, star_one, one_mul, Prod.mk.injEq]; congr 1; apply propext; tauto
               · intro anc _ hne; simp [hne]
               · intro h; exact absurd (Finset.mem_univ anc₁) h
             · intro e _ hne; apply Finset.sum_eq_zero; intro anc _; simp [hne]
@@ -1973,7 +1975,11 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
               · intro h; exact absurd (Finset.mem_univ a₁) h
             · intro a₂ _ hne; simp [maxEntangledVec, Ne.symm hne]
             · intro h; exact absurd (Finset.mem_univ a₁) h
-          simp_rw [ha_coll]
+          trans (∑ a₁ : A, ∑ y : Y,
+              (∑ b : B_tot, U_dec (m', anc) b * W_Z b (y, a₁)) *
+              (ν * ∑ r : R, phaseSign v r * V_isom (y, e)
+                (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a₁))))
+          · exact Finset.sum_congr rfl fun a₁ _ ↦ ha_coll a₁
           simp only [ψ_Z_dec, ψ_Z, ψ_ch, Fintype.sum_prod_type]
           rw [Finset.sum_comm]
           have hreorder : ∑ y : Y, ∑ a₁ : A,
@@ -2052,8 +2058,9 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
           star (∑ p : M × ((M × A) × A),
             (CPTPMap.tensorIdLeft M fullBob).isom ((m₂, m₂'), (anc, ((e, ()), ()))) p * initVec p) = _
         rw [hamp_eq m₁ m₁' anc e, hamp_eq m₂ m₂' anc e]
-      simp_rw [hunit]
-      exact Finset.sum_comm
+      trans (∑ anc : Anc, ∑ e : E, ψ_Z_dec ((m₁, e), (m₁', anc)) * star (ψ_Z_dec ((m₂, e), (m₂', anc))))
+      · exact Finset.sum_congr rfl fun anc _ ↦ hunit anc
+      · exact Finset.sum_comm
     rw [hL, hR]
   refine ⟨v, 𝒟, ?_⟩
   unfold quantumEntanglementError

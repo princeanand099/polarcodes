@@ -18,14 +18,25 @@ Corollary 5.5 (both c-q polarization reduction and operational wiretap / coheren
 
 namespace PolarCodes.SanityChecks
 
+private lemma exists_two_pow_ge (B : ℝ) : ∃ n : ℕ, B ≤ (2 : ℝ) ^ n := by
+  obtain ⟨n, hn⟩ := exists_nat_gt B
+  refine ⟨n, le_trans (le_of_lt hn) ?_⟩
+  induction n with
+  | zero => norm_num
+  | succ k ih =>
+    rw [pow_succ]
+    push_cast
+    have h1 : (1 : ℝ) ≤ (2 : ℝ) ^ k := one_le_pow₀ (by norm_num)
+    linarith
+
 /-- `BSC(1/4)` has strictly positive symmetric capacity `1 - h₂(1/4) > 0`. -/
 lemma bsc_quarter_symCapacity_pos :
     0 < (bscChannel (1 / 4) (by norm_num) (by norm_num)).symCapacity := by
-  unfold CQChannel.symCapacity
-  rw [condEntropy_bscChannel]
+  have hc := condEntropy_bscChannel (1 / 4) (by norm_num) (by norm_num)
   have hlt : h2 (1 / 4 : ℝ) < h2 (1 / 2 : ℝ) :=
-    h2_strictMonoOn (by norm_num) (by norm_num) (by norm_num)
+    strictMonoOn_h2 ⟨by norm_num, by norm_num⟩ ⟨by norm_num, by norm_num⟩ (by norm_num)
   rw [h2_half] at hlt
+  unfold CQChannel.symCapacity CQChannel.condEntropy at hc ⊢
   linarith
 
 /-- Non-vacuity check for `theorem_1_1_coding_poly_blocklength` on `BSC(1/4)` at `ε = 1 / 10`. -/
@@ -36,7 +47,7 @@ example :
       W.symCapacity - 1 / 10 ≤ C.rate ∧
       C.avgBlockError ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) := by
   rcases theorem_1_1_coding_poly_blocklength.{0} with ⟨μ, C₀, hμ, hC₀, h⟩
-  obtain ⟨n, hn⟩ := exists_nat_pow_ge (by norm_num : (1 : ℝ) < 2) (C₀ * (1 / (1 / 10 : ℝ)) ^ μ)
+  obtain ⟨n, hn⟩ := exists_two_pow_ge (C₀ * (1 / (1 / 10 : ℝ)) ^ μ)
   obtain ⟨infoSet, frozen, hr, he⟩ :=
     h (bscChannel (1 / 4) (by norm_num) (by norm_num)) (by norm_num : (0 : ℝ) < 1 / 10)
       (by norm_num) n hn
@@ -49,7 +60,7 @@ example {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap.{0} Bool d) :
       symCoherentInfo 𝒩 - 1 / 4 ≤ C.rate ∧
       C.ampPhaseErrorSum ≤ 2 * (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) := by
   rcases corollary_5_5_quantum_private_polar_coding with ⟨μ, C₀, hμ, hC₀, h⟩
-  obtain ⟨n, hn⟩ := exists_nat_pow_ge (by norm_num : (1 : ℝ) < 2) (C₀ * (1 / (1 / 2 : ℝ)) ^ μ)
+  obtain ⟨n, hn⟩ := exists_two_pow_ge (C₀ * (1 / (1 / 2 : ℝ)) ^ μ)
   obtain ⟨C, hr, _, _, hsum, _, _, _⟩ := h 𝒩 (by norm_num : (0 : ℝ) < 1 / 2) (by norm_num) n hn
   exact ⟨n, C, hr, hsum⟩
 
@@ -62,7 +73,7 @@ example {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap.{0} Bool d) :
       C_priv.eveSecrecyError ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) ∧
       C_quant.entanglementError ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) := by
   rcases corollary_5_5_operational_quantum_private_polar_coding with ⟨μ, C₀, hμ, hC₀, h⟩
-  obtain ⟨n, hn⟩ := exists_nat_pow_ge (by norm_num : (1 : ℝ) < 2) (C₀ * (1 / (1 / 2 : ℝ)) ^ μ)
+  obtain ⟨n, hn⟩ := exists_two_pow_ge (C₀ * (1 / (1 / 2 : ℝ)) ^ μ)
   obtain ⟨C_priv, C_quant, _, _, hr, _, hbob, hsec, hent, _⟩ :=
     h 𝒩 (by norm_num : (0 : ℝ) < 1 / 2) (by norm_num) n hn
   exact ⟨n, C_priv, C_quant, hr, hbob, hsec, hent⟩
