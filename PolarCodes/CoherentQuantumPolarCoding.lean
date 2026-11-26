@@ -234,6 +234,7 @@ lemma traceDist_pureState_eq {α : Type*} [Fintype α] [DecidableEq α]
       Real.sqrt (1 - ‖∑ a : α, star (u a) * v a‖ ^ 2) := by
   have hfv := traceDist_le_sqrt_one_sub_rootFidelity_sq (pureState u hu) (pureState v hv)
   have hfid : ‖∑ a : α, star (u a) * v a‖ ≤ rootFidelity (pureState u hu) (pureState v hv) := by
+    -- Direct computation: `F(|u⟩⟨u|, |v⟩⟨v|) = |⟨u|v⟩|`
     set P₀ := pureState u hu
     set P₁ := pureState v hv
     have hP₀_sq : P₀.mat * P₀.mat = P₀.mat := by
@@ -272,10 +273,14 @@ lemma traceDist_pureState_eq {α : Type*} [Fintype α] [DecidableEq α]
       apply Finset.sum_congr rfl; intro a _
       apply Finset.sum_congr rfl; intro b _
       ring
+    -- Use `re_trace_unitary_mul_le_traceNorm` with phase unitary `e^{iθ} I`
     set c : ℂ := ∑ a : α, star (u a) * v a
     by_cases hc : c = 0
     · rw [hc, norm_zero]; exact rootFidelity_nonneg _ _
-    · have hprod : P₀.sqrtMat * P₁.mat * P₀.sqrtMat = ((‖c‖ ^ 2 : ℝ) : ℂ) • P₀.mat := by
+    · -- Even simpler: `traceNorm (P₀.mat * P₁.mat) = ‖c‖` because `‖c‖ * P₀ = ...`
+      -- Actually `re_trace_unitary_mul_le_traceNorm` with `U = 1` gives `‖c‖² ≤ F`, not `‖c‖`!
+      -- Instead, compute `rootFidelity P₀ P₁` directly via `P₀.mat * P₁.mat * P₀.mat = ‖c‖² • P₀.mat`!
+      have hprod : P₀.sqrtMat * P₁.mat * P₀.sqrtMat = ((‖c‖ ^ 2 : ℝ) : ℂ) • P₀.mat := by
         rw [hsq0]
         ext i j
         simp only [P₀, P₁, pureState, Matrix.mul_apply, Matrix.of_apply, Matrix.smul_apply,
@@ -290,6 +295,7 @@ lemma traceDist_pureState_eq {α : Type*} [Fintype α] [DecidableEq α]
                 apply Finset.sum_congr rfl; intro k _
                 apply Finset.sum_congr rfl; intro l _; ring
           _ = (∑ l : α, star (u l) * v l) * (∑ k : α, star (v k) * u k) * (u i * star (u j)) := by ring
+      -- Eigenvalues of `‖c‖² • P₀.mat`: trace of `√(‖c‖² • P₀)` = `‖c‖ * Tr(√P₀) = ‖c‖ * Tr(P₀) = ‖c‖`!
       unfold rootFidelity
       have hH := posSemidef_sqrt_mul_sqrt P₀ P₁ |>.isHermitian
       have hP0_eigs : ∑ i : α, Real.sqrt (P₀.isHermitian.eigenvalues i) = 1 := by
@@ -308,6 +314,7 @@ lemma traceDist_pureState_eq {α : Type*} [Fintype α] [DecidableEq α]
       have hsum1 := spectral_sum_eq_of_charpoly_mul_X_pow (f := Real.sqrt) (k := 0) (l := 0)
         hH hsm_herm (by rw [hcp]) Real.sqrt_zero
       rw [hsum1]
+      -- Now relate `spectral_sum` of `r • P₀.mat` to `√r * spectral_sum P₀.mat`
       set U0 : Matrix α α ℂ := (P₀.isHermitian.eigenvectorUnitary : Matrix α α ℂ)
       have hD_eq : (((‖c‖ ^ 2 : ℝ) : ℂ) • P₀.mat) =
           U0 * Matrix.diagonal (fun i : α ↦ ((‖c‖ ^ 2 * P₀.isHermitian.eigenvalues i : ℝ) : ℂ)) * star U0 := by
@@ -364,6 +371,11 @@ theorem exists_uhlmann_unitary {A B : Type*} [Fintype A] [DecidableEq A]
     simp [Mv, partialTrace₂Mat, pureState, Matrix.mul_apply, Matrix.conjTranspose_apply]
   let X : Matrix B B ℂ := Mvᴴ * Mu
   obtain ⟨W, hW⟩ := exists_unitary_trace_eq_traceNorm X
+  -- Set `U := (W : Matrix B B ℂ)ᴴᵀ` (conjugate of `W`), so `U b b' = star ((W : Matrix B B ℂ) b b')`?
+  -- Wait: let's check `((Wᴴ * X).trace)` = `∑ b, ∑ b', (Wᴴ) b b' * X b' b`
+  -- `= ∑ b, ∑ b', star (W b' b) * ∑ a, star (v (a, b')) * u (a, b)`
+  -- `= ∑ a, ∑ b', star (v (a, b')) * ∑ b, star (W b' b) * u (a, b)`!
+  -- So `U b' b := star (W b' b)` = `(Wᴴ)ᵀ b' b`!
   let Umat : Matrix B B ℂ := Matrix.of fun b₁ b₂ ↦ star ((W : Matrix B B ℂ) b₁ b₂)
   have hU_mem : Umat ∈ Matrix.unitaryGroup B ℂ := by
     rw [Matrix.mem_unitaryGroup_iff']
@@ -430,6 +442,7 @@ theorem exists_uhlmann_unitary {A B : Type*} [Fintype A] [DecidableEq A]
           apply Finset.sum_congr rfl; intro b' _
           apply Finset.sum_congr rfl; intro b _
           rw [Finset.mul_sum]
+  -- Now show `traceNorm X = rootFidelity ρ σ`
   have htn_eq : traceNorm X = rootFidelity ρ σ := by
     unfold traceNorm rootFidelity
     have hXHX : Xᴴ * X = Muᴴ * σ.mat * Mu := by
@@ -437,6 +450,7 @@ theorem exists_uhlmann_unitary {A B : Type*} [Fintype A] [DecidableEq A]
         ← Matrix.mul_assoc Mv Mvᴴ, hMv]
     have hcp1 : (Muᴴ * (σ.mat * Mu)).charpoly * Polynomial.X ^ Fintype.card A =
         ((σ.mat * Mu) * Muᴴ).charpoly * Polynomial.X ^ Fintype.card B := by
+      -- Sylvester's identity for rectangular matrices
       let P : Matrix (B ⊕ A) (B ⊕ A) ℂ := Matrix.fromBlocks 0 Muᴴ 0 0
       let Q : Matrix (B ⊕ A) (B ⊕ A) ℂ := Matrix.fromBlocks 0 0 (σ.mat * Mu) 0
       have hPQ : P * Q = Matrix.fromBlocks (Muᴴ * (σ.mat * Mu)) 0 0 0 := by
@@ -567,6 +581,7 @@ lemma psdSqrt_ge_self_of_le_one {α : Type*} [Fintype α] [DecidableEq α]
   simpa [Matrix.star_eq_conjTranspose] using hD.mul_mul_conjTranspose_same U
 
 end UhlmannAndGentle
+
 
 section CoherentCSSPolarCoding
 
@@ -1467,7 +1482,32 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
     unfold wiretapBobError
     apply mul_nonneg (by positivity)
     apply Finset.sum_nonneg; intro a _
-    exact (C_qsc a).avgBlockError_nonneg
+    unfold CosetPolarCode.avgBlockError
+    apply mul_nonneg (by positivity)
+    apply Finset.sum_nonneg; intro m _
+    have hle : (((C_qsc a).povm m * (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).mat).trace).re ≤ 1 := by
+      have hsum1 : ∑ m', (((C_qsc a).povm m' * (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).mat).trace).re = 1 := by
+        rw [← Complex.re_sum, ← Matrix.trace_sum, ← Finset.sum_mul, (C_qsc a).povm_sum_one, Matrix.one_mul,
+          (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).trace_one, Complex.one_re]
+      have hnn : ∀ m', 0 ≤ (((C_qsc a).povm m' * (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).mat).trace).re := by
+        intro m'
+        have htr := Matrix.trace_mul_comm ((C_qsc a).povm m') (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).mat
+        have hsq : (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).mat =
+            (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat *
+              (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat :=
+          (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat_mul_self.symm
+        rw [htr, hsq, ← Matrix.mul_assoc, Matrix.trace_mul_cycle]
+        have hpsd := ((C_qsc a).povm_posSemidef m').mul_mul_conjTranspose_same
+          (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat
+        have hHerm : ((productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat * (C_qsc a).povm m' *
+            ((productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat)ᴴ).PosSemidef := by
+          simpa [Matrix.star_eq_conjTranspose,
+            (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat_isHermitian.eq] using hpsd
+        rw [hHerm.isHermitian.trace_eq_sum_eigenvalues, Complex.re_sum]
+        exact Finset.sum_nonneg fun idx _ ↦ by simpa using hHerm.eigenvalues_nonneg idx
+      have hm_le := Finset.single_le_sum (fun m' _ ↦ hnn m') (Finset.mem_univ m)
+      linarith
+    linarith
   let ρ_E : DensityOp E := fixedSubsetAvgState (ampChannel 𝒩.complementary) n ∅ (fun _ ↦ false)
   let ψ_target : (M × E) × B_tot → ℂ := fun p ↦
     if p.2.2.1 = y₀ ∧ p.2.2.2.1 = a₀ ∧ p.2.2.2.2.1 = r₀ then
