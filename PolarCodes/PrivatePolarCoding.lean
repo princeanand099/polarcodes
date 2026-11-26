@@ -612,24 +612,31 @@ private lemma polarChannelTree_transpose_perm {α : Type} [Fintype α] [Decidabl
     obtain ⟨e, he⟩ := ih (Fin.init b)
     rcases Bool.eq_false_or_eq_true (b (Fin.last k)) with hb | hb
     · rw [polarChannelTree_succ_true W.transpose b hb, polarChannelTree_succ_true W b hb]
-      simp only [BundledCQChannel.plus]
+      dsimp only [BundledCQChannel.plus]
       refine ⟨Equiv.prodCongr (Equiv.refl Bool) (Equiv.prodCongr e e), fun c ⟨v₁, x₁, x₂⟩ ⟨v₂, y₁, y₂⟩ ↦ ?_⟩
-      simp only [Equiv.prodCongr_apply, Equiv.refl_apply, Prod.map_apply, CQChannel.varCombine,
-        CQChannel.transpose, DensityOp.transpose, DensityOp.midpoint, DensityOp.mix,
-        DensityOp.tensor, CQChannel.ketBraBool, Matrix.add_apply, Matrix.smul_apply,
-        Matrix.kroneckerMap_apply, Matrix.transpose_apply, smul_eq_mul]
-      simp only [CQChannel.transpose, DensityOp.transpose, Matrix.transpose_apply] at he
-      rw [he false y₁ x₁, he false y₂ x₂, he true y₁ x₁, he true y₂ x₂]
+      change (((polarChannelTree W k (Fin.init b)).ch.varCombine
+          (polarChannelTree W k (Fin.init b)).ch).out c).mat (v₂, e y₁, e y₂) (v₁, e x₁, e x₂) =
+        (((polarChannelTree W.transpose k (Fin.init b)).ch.varCombine
+          (polarChannelTree W.transpose k (Fin.init b)).ch).out c).mat (v₁, x₁, x₂) (v₂, y₁, y₂)
+      have he' : ∀ c x y, ((polarChannelTree W k (Fin.init b)).ch.out c).mat (e y) (e x) =
+          ((polarChannelTree W.transpose k (Fin.init b)).ch.out c).mat x y := he
+      simp only [CQChannel.varCombine, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor,
+        CQChannel.ketBraBool, Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply,
+        smul_eq_mul]
+      rw [he' false x₁ y₁, he' false x₂ y₂, he' true x₁ y₁, he' true x₂ y₂]
       cases c <;> cases v₁ <;> cases v₂ <;> simp
     · rw [polarChannelTree_succ_false W.transpose b hb, polarChannelTree_succ_false W b hb]
-      simp only [BundledCQChannel.minus]
+      dsimp only [BundledCQChannel.minus]
       refine ⟨Equiv.prodCongr e e, fun c ⟨x₁, x₂⟩ ⟨y₁, y₂⟩ ↦ ?_⟩
-      simp only [Equiv.prodCongr_apply, Prod.map_apply, CQChannel.checkCombine,
-        CQChannel.transpose, DensityOp.transpose, DensityOp.midpoint, DensityOp.mix,
-        DensityOp.tensor, Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply,
-        Matrix.transpose_apply, smul_eq_mul]
-      simp only [CQChannel.transpose, DensityOp.transpose, Matrix.transpose_apply] at he
-      rw [he false y₁ x₁, he false y₂ x₂, he true y₁ x₁, he true y₂ x₂]
+      change (((polarChannelTree W k (Fin.init b)).ch.checkCombine
+          (polarChannelTree W k (Fin.init b)).ch).out c).mat (e y₁, e y₂) (e x₁, e x₂) =
+        (((polarChannelTree W.transpose k (Fin.init b)).ch.checkCombine
+          (polarChannelTree W.transpose k (Fin.init b)).ch).out c).mat (x₁, x₂) (y₁, y₂)
+      have he' : ∀ c x y, ((polarChannelTree W k (Fin.init b)).ch.out c).mat (e y) (e x) =
+          ((polarChannelTree W.transpose k (Fin.init b)).ch.out c).mat x y := he
+      simp only [CQChannel.checkCombine, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor,
+        Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, smul_eq_mul]
+      rw [he' false x₁ y₁, he' false x₂ y₂, he' true x₁ y₁, he' true x₂ y₂]
       cases c <;> simp
 
 private lemma polarChannelTree_transpose_traceDist {α : Type} [Fintype α] [DecidableEq α]
