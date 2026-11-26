@@ -207,7 +207,7 @@ theorem lemma_4_1_gram_dephasing
     vonNeumannEntropy (DensityOp.midpoint
         (DensityOp.tensor ρ₀ (pureState φ₀ hφ₀))
         (DensityOp.tensor ρ₁ (pureState φ₁ hφ₁))) =
-      vonNeumannEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₀ ρ₁)) ∧
+      vonNeumannEntropy (dephaseState p hp0 (le_trans hp1 (half_le_self zero_le_one)) (gramState ρ₀ ρ₁)) ∧
     vonNeumannEntropy (gramState ρ₀ ρ₁) = vonNeumannEntropy (DensityOp.midpoint ρ₀ ρ₁) ∧
     vonNeumannEntropy (dephaseState (1 / 2) (by norm_num) (by norm_num) (gramState ρ₀ ρ₁)) =
       1 + (vonNeumannEntropy ρ₀ + vonNeumannEntropy ρ₁) / 2 ∧
@@ -216,7 +216,7 @@ theorem lemma_4_1_gram_dephasing
         (DensityOp.tensor ρ₀ (pureState φ₀ hφ₀))
         (DensityOp.tensor ρ₁ (pureState φ₁ hφ₁))).mat.charpoly *
       Polynomial.X ^ Fintype.card (Bool × d₁) =
-      (dephaseState p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₀ ρ₁)).mat.charpoly *
+      (dephaseState p hp0 (le_trans hp1 (half_le_self zero_le_one)) (gramState ρ₀ ρ₁)).mat.charpoly *
         Polynomial.X ^ Fintype.card (d₁ × d₂) := by
   intro f₂ hf₂_le p hp0 hp1
   have hsq2 : star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) = (1 / 2 : ℂ) := by
@@ -356,7 +356,7 @@ theorem lemma_4_1_gram_dephasing
     ((Real.sqrt 2)⁻¹ : ℂ) *
       if p.1 = false then ρ₀.sqrtMat p.2 q.1 * star (φ₀ q.2)
       else ρ₁.sqrtMat p.2 q.1 * star (ψ₁ q.2)
-  have hAAH : A * Aᴴ = (dephaseState p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₀ ρ₁)).mat := by
+  have hAAH : A * Aᴴ = (dephaseState p hp0 (le_trans hp1 (half_le_self zero_le_one)) (gramState ρ₀ ρ₁)).mat := by
     ext ⟨b₁, i⟩ ⟨b₂, j⟩
     rw [dephaseState_apply]
     simp only [A, gramState, gramFactor, Matrix.mul_apply, Matrix.conjTranspose_apply,
@@ -450,7 +450,7 @@ theorem lemma_4_1_gram_dephasing
         (DensityOp.tensor ρ₀ (pureState φ₀ hφ₀))
         (DensityOp.tensor ρ₁ (pureState φ₁ hφ₁))).mat.charpoly *
       Polynomial.X ^ Fintype.card (Bool × d₁) =
-      (dephaseState p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₀ ρ₁)).mat.charpoly *
+      (dephaseState p hp0 (le_trans hp1 (half_le_self zero_le_one)) (gramState ρ₀ ρ₁)).mat.charpoly *
         Polynomial.X ^ Fintype.card (d₁ × d₂) := by
     have h := (charpoly_mul_conjTranspose_eq A).symm
     rw [hAAH, hAHA] at h
@@ -458,13 +458,13 @@ theorem lemma_4_1_gram_dephasing
   have hpart1 : vonNeumannEntropy (DensityOp.midpoint
         (DensityOp.tensor ρ₀ (pureState φ₀ hφ₀))
         (DensityOp.tensor ρ₁ (pureState φ₁ hφ₁))) =
-      vonNeumannEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₀ ρ₁)) := by
+      vonNeumannEntropy (dephaseState p hp0 (le_trans hp1 (half_le_self zero_le_one)) (gramState ρ₀ ρ₁)) := by
     unfold vonNeumannEntropy DensityOp.eigvals
     congr 1
     exact spectral_sum_eq_of_charpoly_mul_X_pow
       (DensityOp.midpoint (DensityOp.tensor ρ₀ (pureState φ₀ hφ₀))
         (DensityOp.tensor ρ₁ (pureState φ₁ hφ₁))).isHermitian
-      (dephaseState p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₀ ρ₁)).isHermitian hcp (by simp [Real.negMulLog])
+      (dephaseState p hp0 (le_trans hp1 (half_le_self zero_le_one)) (gramState ρ₀ ρ₁)).isHermitian hcp (by simp [Real.negMulLog])
   exact ⟨hpart1, hpart2, hpart3, hpart4, hcp⟩
 
 end PolarCodes
