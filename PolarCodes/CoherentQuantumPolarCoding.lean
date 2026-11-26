@@ -1496,7 +1496,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
             (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat *
               (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat :=
           (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat_mul_self.symm
-        rw [htr, hsq, ← Matrix.mul_assoc, Matrix.trace_mul_cycle]
+        rw [htr, hsq, Matrix.trace_mul_cycle]
         have hpsd := ((C_qsc a).povm_posSemidef m').mul_mul_conjTranspose_same
           (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat
         have hHerm : ((productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat * (C_qsc a).povm m' *
@@ -1800,7 +1800,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
           apply Finset.sum_eq_zero; intro anc _; simp [hne]
         · intro h; exact absurd (Finset.mem_univ m₁) h }
   have hptr_target : ptraceEA.apply (pureState ψ_target hψ_target_norm) = maxEntangledState M := by
-    apply DensityOp.ext
+    apply densityOp_eq_of_mat
     ext ⟨m₁, m₁'⟩ ⟨m₂, m₂'⟩
     rw [CPTPMap.apply_pureState]
     simp only [ptraceEA, maxEntangledState, pureState, Matrix.of_apply, Fintype.sum_prod_type]
@@ -1954,7 +1954,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
       · intro m₁ _ hne; apply Finset.sum_eq_zero; intro m₂ _; apply Finset.sum_eq_zero; intro a₁ _
         apply Finset.sum_eq_zero; intro a₂ _; simp [hne]
       · intro h; exact absurd (Finset.mem_univ m) h
-    apply DensityOp.ext
+    apply densityOp_eq_of_mat
     ext ⟨m₁, m₁'⟩ ⟨m₂, m₂'⟩
     have hL : (ptraceEA.apply (pureState ψ_Z_dec hψ_Z_dec_norm)).mat (m₁, m₁') (m₂, m₂') =
         ∑ e : E, ∑ anc : Anc, ψ_Z_dec ((m₁, e), (m₁', anc)) * star (ψ_Z_dec ((m₂, e), (m₂', anc))) := by

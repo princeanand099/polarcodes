@@ -32,6 +32,16 @@ section TraceDistProps
 
 variable {d : Type*} [Fintype d] [DecidableEq d]
 
+lemma densityOp_eq_of_mat {α : Type*} [Fintype α] [DecidableEq α]
+    {ρ σ : DensityOp α} (h : ρ.mat = σ.mat) : ρ = σ := by
+  rcases ρ with ⟨m₁, p₁, t₁⟩; rcases σ with ⟨m₂, p₂, t₂⟩
+  dsimp at h; subst h; rfl
+
+lemma traceDist_congr {α : Type*} [Fintype α] [DecidableEq α]
+    {ρ₁ ρ₂ σ₁ σ₂ : DensityOp α} (hρ : ρ₁.mat = ρ₂.mat) (hσ : σ₁.mat = σ₂.mat) :
+    traceDist ρ₁ σ₁ = traceDist ρ₂ σ₂ := by
+  rw [densityOp_eq_of_mat hρ, densityOp_eq_of_mat hσ]
+
 private lemma posPartTrace_add_le_aux {α : Type*} [Fintype α] [DecidableEq α]
     {A B : Matrix α α ℂ} (hA : A.IsHermitian) (hB : B.IsHermitian) :
     posPartTrace (hA.add hB) ≤ posPartTrace hA + posPartTrace hB := by
@@ -147,12 +157,12 @@ lemma CQChannel.ChannelEquiv.traceDist_eq {d₁ d₂ : Type*}
   rcases h with ⟨⟨ℰ₁, h₁⟩, ⟨ℰ₂, h₂⟩⟩
   refine le_antisymm ?_ ?_
   · have hle := traceDist_cptp_le ℰ₂ (W₂.out false) (W₂.out true)
-    have hf : ℰ₂.apply (W₂.out false) = W₁.out false := DensityOp.ext (h₂ false)
-    have ht : ℰ₂.apply (W₂.out true) = W₁.out true := DensityOp.ext (h₂ true)
+    have hf : ℰ₂.apply (W₂.out false) = W₁.out false := densityOp_eq_of_mat (h₂ false)
+    have ht : ℰ₂.apply (W₂.out true) = W₁.out true := densityOp_eq_of_mat (h₂ true)
     rwa [hf, ht] at hle
   · have hle := traceDist_cptp_le ℰ₁ (W₁.out false) (W₁.out true)
-    have hf : ℰ₁.apply (W₁.out false) = W₂.out false := DensityOp.ext (h₁ false)
-    have ht : ℰ₁.apply (W₁.out true) = W₂.out true := DensityOp.ext (h₁ true)
+    have hf : ℰ₁.apply (W₁.out false) = W₂.out false := densityOp_eq_of_mat (h₁ false)
+    have ht : ℰ₁.apply (W₁.out true) = W₂.out true := densityOp_eq_of_mat (h₁ true)
     rwa [hf, ht] at hle
 
 lemma traceDist_transpose (ρ σ : DensityOp d) :
@@ -256,8 +266,13 @@ lemma traceDist_uniformBlockDiag {κ α : Type*} [Fintype κ] [DecidableEq κ] [
       rw [Finset.sum_eq_single k₁]
       · simp only [↓reduceIte]
         have hsk := congr_fun (congr_fun (hΔ k₁).spectral_theorem i₁) i₂
-        simp only [Unitary.conjStarAlgAut_apply, Matrix.mul_apply, Matrix.mul_diagonal,
-          Matrix.star_apply, Function.comp_apply] at hsk
+        have hdiag : ∀ a b,
+            (((hΔ k₁).eigenvectorUnitary : Matrix α α ℂ) *
+              Matrix.diagonal (RCLike.ofReal ∘ (hΔ k₁).eigenvalues)) a b =
+            ((hΔ k₁).eigenvectorUnitary : Matrix α α ℂ) a b * ((hΔ k₁).eigenvalues b : ℂ) :=
+          fun a b ↦ by rw [Matrix.mul_diagonal]; rfl
+        simp only [Unitary.conjStarAlgAut_apply, Matrix.mul_apply, Matrix.star_apply] at hsk
+        simp_rw [hdiag] at hsk
         rw [← mul_sub, hsk, Finset.mul_sum]
         apply Finset.sum_congr rfl; intro j _
         push_cast; ring
@@ -278,20 +293,25 @@ lemma traceDist_uniformBlockDiag {κ α : Type*} [Fintype κ] [DecidableEq κ] [
     rw [hsim, ← Matrix.mul_assoc, hU_l, Matrix.one_mul]
   rw [traceDist_eq_hockeyStick_one, hockeyStick_eq_posPartTrace]
   unfold posPartTrace
+  have hcp' : ((uniformBlockDiag ρ).mat - ((1 : ℝ) : ℂ) • (uniformBlockDiag σ).mat).charpoly =
+      (Matrix.diagonal (Complex.ofReal ∘ lam)).charpoly := by
+    simpa using hcp
   have hsum := spectral_sum_eq_of_charpoly_mul_X_pow (f := fun x : ℝ ↦ max x 0) (k := 0) (l := 0)
     (hockeyStick_isHermitian 1 (uniformBlockDiag ρ) (uniformBlockDiag σ)) hD_herm
-    (by rw [hcp]) (by simp)
+    (by rw [hcp']) (by simp)
   rw [hsum, spectral_sum_diagonal (f := fun x : ℝ ↦ max x 0) lam hD_herm (by simp),
     Fintype.sum_prod_type, Finset.mul_sum]
   apply Finset.sum_congr rfl; intro k _
   have hpos : (0 : ℝ) ≤ (Fintype.card κ : ℝ)⁻¹ := by positivity
-  simp_rw [lam, ← mul_max_of_nonneg _ _ hpos, mul_zero, ← Finset.mul_sum]
+  have hmax : ∀ x : ℝ, max ((Fintype.card κ : ℝ)⁻¹ * x) 0 = (Fintype.card κ : ℝ)⁻¹ * max x 0 :=
+    fun x ↦ by rw [mul_max_of_nonneg _ _ hpos, mul_zero]
+  simp_rw [lam, hmax, ← Finset.mul_sum]
   congr 1
   rw [traceDist_eq_hockeyStick_one, hockeyStick_eq_posPartTrace]
   exact (posPartTrace_eq_of_eq (hockeyStick_isHermitian 1 (ρ k) (σ k)) (hΔ k) (by simp)).symm
 
 /-- Convexity of trace distance over finite uniform averages. -/
-lemma traceDist_uniformAvg_le {ι α : Type*} [Fintype ι] [DecidableEq ι] [Nonempty ι]
+lemma traceDist_uniformAvg_le {ι α : Type} [Fintype ι] [DecidableEq ι] [Nonempty ι]
     [Fintype α] [DecidableEq α]
     (ρ σ : ι → DensityOp α) (ρAvg σAvg : DensityOp α)
     (hρ : ρAvg.mat = ((Fintype.card ι : ℂ)⁻¹) • ∑ i : ι, (ρ i).mat)
@@ -339,8 +359,8 @@ lemma traceDist_uniformAvg_le {ι α : Type*} [Fintype ι] [DecidableEq ι] [Non
       · intro h; exact absurd (Finset.mem_univ a₂) h
     · intro k' _ hne; apply Finset.sum_eq_zero; intro a _; simp [Ne.symm hne]
     · intro h; exact absurd (Finset.mem_univ k) h
-  have h1 : ℰ.apply (uniformBlockDiag ρ) = ρAvg := DensityOp.ext ((happly ρ).trans hρ.symm)
-  have h2 : ℰ.apply (uniformBlockDiag σ) = σAvg := DensityOp.ext ((happly σ).trans hσ.symm)
+  have h1 : ℰ.apply (uniformBlockDiag ρ) = ρAvg := densityOp_eq_of_mat ((happly ρ).trans hρ.symm)
+  have h2 : ℰ.apply (uniformBlockDiag σ) = σAvg := densityOp_eq_of_mat ((happly σ).trans hσ.symm)
   rw [← h1, ← h2, ← traceDist_uniformBlockDiag ρ σ]
   exact traceDist_cptp_le ℰ (uniformBlockDiag ρ) (uniformBlockDiag σ)
 
@@ -348,7 +368,7 @@ lemma traceDist_symmetrize (W : CQChannel d) :
     traceDist (W.symmetrize.out false) (W.symmetrize.out true) =
       traceDist (W.out false) (W.out true) := by
   have h0 : W.symmetrize.out false = uniformBlockDiag (fun b : Bool ↦ W.out b) := by
-    apply DensityOp.ext
+    apply densityOp_eq_of_mat
     ext ⟨b₁, i₁⟩ ⟨b₂, i₂⟩
     simp only [CQChannel.symmetrize, uniformBlockDiag, DensityOp.midpoint, DensityOp.mix,
       DensityOp.tensor, CQChannel.ketBraBool, Matrix.add_apply, Matrix.smul_apply,
@@ -356,7 +376,7 @@ lemma traceDist_symmetrize (W : CQChannel d) :
       Nat.cast_ofNat]
     cases b₁ <;> cases b₂ <;> simp <;> ring
   have h1 : W.symmetrize.out true = uniformBlockDiag (fun b : Bool ↦ W.out (!b)) := by
-    apply DensityOp.ext
+    apply densityOp_eq_of_mat
     ext ⟨b₁, i₁⟩ ⟨b₂, i₂⟩
     simp only [CQChannel.symmetrize, uniformBlockDiag, DensityOp.midpoint, DensityOp.mix,
       DensityOp.tensor, CQChannel.ketBraBool, Matrix.add_apply, Matrix.smul_apply,
@@ -487,6 +507,7 @@ theorem traceDist_dual_eq_fidelityParam (V : CQChannel d) :
       have hsim := Matrix.charpoly_mul_comm (U * Matrix.diagonal (Complex.ofReal ∘ hM₀.isHermitian.eigenvalues)) (star U)
       rw [hsim, ← Matrix.mul_assoc, Unitary.coe_star_mul_self hM₀.isHermitian.eigenvectorUnitary,
         Matrix.one_mul, charpoly_diagonal_complex]
+      rfl
     rw [hcp_M₀, charpoly_diagonal_complex, Fintype.prod_prod_type, Fintype.prod_bool]
     rfl
   rw [traceDist_eq_half_traceNorm]
@@ -511,7 +532,7 @@ private lemma traceDist_of_perm {α β : Type*} [Fintype α] [DecidableEq α] [F
   have hsub : Δ₂.submatrix e e = Δ₁ := by
     ext x y; simp [Δ₁, Δ₂, he]
   have hsq : (Δ₂ᴴ * Δ₂).submatrix e e = Δ₁ᴴ * Δ₁ := by
-    rw [← hsub, Matrix.submatrix_mul (he_inj := e.injective) (hf_inj := e.injective) (e.bijective)]
+    rw [← hsub, Matrix.submatrix_mul Δ₂ᴴ Δ₂ e e e e.bijective]
     simp [Matrix.submatrix_conjTranspose]
   have hcp : (Δ₁ᴴ * Δ₁).charpoly = (Δ₂ᴴ * Δ₂).charpoly := by
     rw [← hsq, Matrix.charpoly_reindex e.symm (Δ₂ᴴ * Δ₂)]
@@ -526,7 +547,7 @@ private lemma checkCombine_transpose {α₁ α₂ : Type*} [Fintype α₁] [Deci
   have hout : ∀ b, (W₁.transpose.checkCombine W₂.transpose).out b =
       ((W₁.checkCombine W₂).transpose).out b := by
     intro b
-    apply DensityOp.ext
+    apply densityOp_eq_of_mat
     ext ⟨i₁, i₂⟩ ⟨j₁, j₂⟩
     simp [CQChannel.checkCombine, CQChannel.transpose, DensityOp.transpose,
       DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, Matrix.kroneckerMap_apply]
@@ -543,7 +564,7 @@ private lemma varCombine_transpose {α₁ α₂ : Type*} [Fintype α₁] [Decida
   have hout : ∀ b, (W₁.transpose.varCombine W₂.transpose).out b =
       ((W₁.varCombine W₂).transpose).out b := by
     intro b
-    apply DensityOp.ext
+    apply densityOp_eq_of_mat
     ext ⟨v₁, i₁, i₂⟩ ⟨v₂, j₁, j₂⟩
     simp [CQChannel.varCombine, CQChannel.transpose, DensityOp.transpose,
       DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, CQChannel.ketBraBool,
@@ -556,26 +577,47 @@ private lemma varCombine_transpose {α₁ α₂ : Type*} [Fintype α₁] [Decida
   rw [h1, h2] at hb
   exact hb
 
-private lemma polarChannelTree_transpose_traceDist {α : Type} [Fintype α] [DecidableEq α]
+private lemma polarChannelTree_transpose_perm {α : Type} [Fintype α] [DecidableEq α]
     (W : CQChannel α) : ∀ (n : ℕ) (b : Fin n → Bool),
+    ∃ e : (polarChannelTree W.transpose n b).dim ≃ (polarChannelTree W n b).dim,
+      ∀ c x y, ((polarChannelTree W n b).ch.transpose.out c).mat (e x) (e y) =
+        ((polarChannelTree W.transpose n b).ch.out c).mat x y := by
+  intro n
+  induction n with
+  | zero =>
+    intro b
+    exact ⟨Equiv.refl _, fun _ _ _ ↦ rfl⟩
+  | succ k ih =>
+    intro b
+    obtain ⟨e, he⟩ := ih (Fin.init b)
+    simp only [polarChannelTree]
+    cases hb : b (Fin.last k)
+    · simp only [Bool.false_eq_true, ↓reduceIte, BundledCQChannel.minus]
+      refine ⟨Equiv.prodCongr e e, fun c ⟨x₁, x₂⟩ ⟨y₁, y₂⟩ ↦ ?_⟩
+      simp only [Equiv.prodCongr_apply, Prod.map_apply, CQChannel.checkCombine,
+        CQChannel.transpose, DensityOp.transpose, DensityOp.midpoint, DensityOp.mix,
+        DensityOp.tensor, Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply,
+        Matrix.transpose_apply, smul_eq_mul]
+      simp only [CQChannel.transpose, DensityOp.transpose, Matrix.transpose_apply] at he
+      rw [he false y₁ x₁, he false y₂ x₂, he true y₁ x₁, he true y₂ x₂]
+      cases c <;> simp
+    · simp only [↓reduceIte, BundledCQChannel.plus]
+      refine ⟨Equiv.prodCongr (Equiv.refl Bool) (Equiv.prodCongr e e), fun c ⟨v₁, x₁, x₂⟩ ⟨v₂, y₁, y₂⟩ ↦ ?_⟩
+      simp only [Equiv.prodCongr_apply, Equiv.refl_apply, Prod.map_apply, CQChannel.varCombine,
+        CQChannel.transpose, DensityOp.transpose, DensityOp.midpoint, DensityOp.mix,
+        DensityOp.tensor, CQChannel.ketBraBool, Matrix.add_apply, Matrix.smul_apply,
+        Matrix.kroneckerMap_apply, Matrix.transpose_apply, smul_eq_mul]
+      simp only [CQChannel.transpose, DensityOp.transpose, Matrix.transpose_apply] at he
+      rw [he false y₁ x₁, he false y₂ x₂, he true y₁ x₁, he true y₂ x₂]
+      cases c <;> cases v₁ <;> cases v₂ <;> simp
+
+private lemma polarChannelTree_transpose_traceDist {α : Type} [Fintype α] [DecidableEq α]
+    (W : CQChannel α) (n : ℕ) (b : Fin n → Bool) :
     traceDist ((polarChannelTree W.transpose n b).ch.out false)
       ((polarChannelTree W.transpose n b).ch.out true) =
     traceDist ((polarChannelTree W n b).ch.out false)
       ((polarChannelTree W n b).ch.out true) := by
-  have heq : ∀ (n : ℕ) (b : Fin n → Bool),
-      (polarChannelTree W.transpose n b).ch = (polarChannelTree W n b).ch.transpose := by
-    intro n
-    induction n with
-    | zero => intro b; rfl
-    | succ k ih =>
-      intro b
-      simp only [polarChannelTree]
-      cases b ⟨k, Nat.lt_succ_self k⟩
-      · simp only [ih, checkCombine_transpose]; rfl
-      · simp only [ih, varCombine_transpose]; rfl
-  intro n b
-  have h1 : (polarChannelTree W.transpose n b).ch = (polarChannelTree W n b).ch.transpose := heq n b
-  rw [h1]
+  rw [traceDist_of_perm (polarChannelTree_transpose_perm W n b)]
   exact traceDist_transpose _ _
 
 private lemma polarChannelTree_symmetrize_traceDist {α : Type} [Fintype α] [DecidableEq α]
@@ -592,11 +634,13 @@ private lemma polarChannelTree_symmetrize_traceDist {α : Type} [Fintype α] [De
     | succ k ih =>
       intro p
       simp only [polarChannelTree]
-      have hih := ih (fun i ↦ p i.castSucc)
-      cases p ⟨k, Nat.lt_succ_self k⟩
-      · exact (hih.checkCombine hih).trans (symmetrize_minusChannel_channelEquiv _)
-      · exact (hih.varCombine hih).trans (symmetrize_plusChannel_channelEquiv _)
-  rw [(heq n b).traceDist_eq, traceDist_symmetrize]
+      have hih := ih (Fin.init p)
+      cases hp : p (Fin.last k)
+      · simp only [Bool.false_eq_true, ↓reduceIte, BundledCQChannel.minus]
+        exact (hih.checkCombine hih).trans (symmetrize_minusChannel_channelEquiv _)
+      · simp only [↓reduceIte, BundledCQChannel.plus]
+        exact (hih.varCombine hih).trans (symmetrize_plusChannel_channelEquiv _)
+  rw [CQChannel.ChannelEquiv.traceDist_eq (heq n b), traceDist_symmetrize]
 
 /-- **Complementary–Phase Polarization Duality for Synthetic Channels**:
 For every qubit-input CPTP map `𝒩`, depth `n`, and index `i : Fin (2^n)`,
@@ -620,7 +664,7 @@ theorem synthChannel_complementary_traceDist_eq_phase_fidelityParam
         ((polarChannelTree (phaseChannel 𝒩).dual n b).ch.out true) := by
     rw [← polarChannelTree_transpose_traceDist (ampChannel 𝒩.complementary) n b,
       ← polarChannelTree_symmetrize_traceDist (ampChannel 𝒩.complementary).transpose n b]
-    exact ((phaseChannel_dual_channelEquiv 𝒩).polarChannelTree n b).traceDist_eq.symm
+    exact (CQChannel.ChannelEquiv.traceDist_eq ((phaseChannel_dual_channelEquiv 𝒩).polarChannelTree n b)).symm
   have h3 : traceDist ((polarChannelTree (phaseChannel 𝒩).dual n b).ch.out false)
       ((polarChannelTree (phaseChannel 𝒩).dual n b).ch.out true) =
       traceDist (((polarChannelTree (phaseChannel 𝒩) n (fun k ↦ !(b k))).ch.dual).out false)
@@ -628,7 +672,7 @@ theorem synthChannel_complementary_traceDist_eq_phase_fidelityParam
     have hnot : (fun k ↦ !(!(b k))) = b := funext fun k ↦ Bool.not_not _
     have heq := polarChannelTree_dual_complement_channelEquiv (phaseChannel 𝒩) n (fun k ↦ !(b k))
     rw [hnot] at heq
-    exact heq.traceDist_eq.symm
+    exact (CQChannel.ChannelEquiv.traceDist_eq heq).symm
   have h4 : traceDist (((polarChannelTree (phaseChannel 𝒩) n (fun k ↦ !(b k))).ch.dual).out false)
       (((polarChannelTree (phaseChannel 𝒩) n (fun k ↦ !(b k))).ch.dual).out true) =
       (polarChannelTree (phaseChannel 𝒩) n (fun k ↦ !(b k))).ch.fidelityParam :=
@@ -637,6 +681,7 @@ theorem synthChannel_complementary_traceDist_eq_phase_fidelityParam
       (polarChannelTree (phaseChannel 𝒩) n (fun k ↦ !(b k))).ch.fidelityParam := by
     rw [synthChannel_fidelityParam_eq]
     simp only [dualIndex, Equiv.apply_symm_apply, b]
+    rfl
   rw [h1, h2, h3, h4, h5]
 
 end ExactDuality
@@ -792,7 +837,7 @@ private lemma prefixSubset_succ_of_mem {N : ℕ} (S : Finset (Fin N)) {k : ℕ} 
 /-- **Telescoping Decoupling Lemma**: For any subset `T ⊆ Fin (2^n)`, the uniform average over
 `u : Fin (2^n) → Bool` of `T(fixedSubsetAvgState W n T u, fixedSubsetAvgState W n ∅ u)` is
 bounded by `∑ i ∈ T, (1/2) * T((synthChannel W n i).out false, (synthChannel W n i).out true)`. -/
-theorem avg_fixedSubset_decoupling_le {α : Type*} [Fintype α] [DecidableEq α]
+theorem avg_fixedSubset_decoupling_le {α : Type} [Fintype α] [DecidableEq α]
     (W : CQChannel α) (n : ℕ) (T : Finset (Fin (2 ^ n))) :
     ((2 : ℝ) ^ (2 ^ n))⁻¹ *
       ∑ u : Fin (2 ^ n) → Bool,
@@ -904,7 +949,7 @@ theorem avg_fixedSubset_decoupling_le {α : Type*} [Fintype α] [DecidableEq α]
                (fixedSubsetAvgState W n (insert i S) (Function.update u i (!b))).mat) := by
           intro b
           rw [one_smul, hmid]
-          cases b <;> (ext x y; simp only [Matrix.sub_apply, Matrix.add_apply, Matrix.smul_apply, Complex.real_smul]; ring)
+          cases b <;> (ext x y; simp only [Bool.not_false, Bool.not_true, Matrix.sub_apply, Matrix.add_apply, Matrix.smul_apply, Complex.real_smul]; ring)
         have hupd : Function.update u i (u i) = u := Function.update_eq_self i u
         have hdiff_u : (fixedSubsetAvgState W n (insert i S) u).mat -
             (1 : ℂ) • (fixedSubsetAvgState W n S u).mat =
@@ -929,8 +974,8 @@ theorem avg_fixedSubset_decoupling_le {α : Type*} [Fintype α] [DecidableEq α]
           exact posPartTrace_eq_of_eq _ _ rfl
         rw [htd]
         cases hbi : u i
-        · simp [hbi]
-        · simp [hbi, traceDist_symm]
+        · rw [hbi]
+        · rw [hbi, traceDist_symm]
       simp_rw [hS_succ, hhalf_step]
       rw [← Finset.mul_sum, ← mul_assoc, mul_comm (((2 : ℝ) ^ (2 ^ n))⁻¹), mul_assoc]
       apply mul_le_mul_of_nonneg_left _ (by norm_num)
@@ -1213,16 +1258,8 @@ theorem avg_wiretapSecrecyError_le (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
     rw [traceDist_uniformBlockDiag]
     simp only [Fintype.card_fun, Fintype.card_bool, Fintype.card_coe]
     congr 1; apply Finset.sum_congr rfl; intro m _
-    have hmat1 : (fixedSubsetAvgState (ampChannel 𝒩.complementary) n T
-        (fun i ↦ if h : i ∈ infoSet then m ⟨i, h⟩ else uF i)).mat =
-        (fixedSubsetAvgState (ampChannel 𝒩.complementary) n T
-        (fun i ↦ if h : i ∈ infoSet then m ⟨i, h⟩ else uF i)).mat := rfl
-    have hmat2 : (fixedSubsetAvgState (ampChannel 𝒩.complementary) n ∅ (fun i ↦ if h : i ∈ infoSet then m ⟨i, h⟩ else uF i)).mat =
-        (fixedSubsetAvgState (ampChannel 𝒩.complementary) n ∅ (fun _ ↦ false)).mat := by
-      dsimp only [fixedSubsetAvgState]; congr 2; ext v; simp
-    rcases fixedSubsetAvgState (ampChannel 𝒩.complementary) n ∅ (fun i ↦ if h : i ∈ infoSet then m ⟨i, h⟩ else uF i) with ⟨m₁, p₁, t₁⟩
-    rcases fixedSubsetAvgState (ampChannel 𝒩.complementary) n ∅ (fun _ ↦ false) with ⟨m₂, p₂, t₂⟩
-    dsimp only at hmat2; subst hmat2; rfl
+    refine traceDist_congr rfl ?_
+    dsimp only [fixedSubsetAvgState]; congr 2; ext v; simp
   simp_rw [hsec_eq]
   have hreidx : ((2 : ℝ) ^ (2 ^ n))⁻¹ *
       ∑ uF : Fin (2 ^ n) → Bool,
@@ -1448,7 +1485,7 @@ private lemma cosetPolarCode_avgBlockError_nonneg {α : Type*} [Fintype α] [Dec
       have hsq : (productState W n (C.encode m)).mat =
           (productState W n (C.encode m)).sqrtMat * (productState W n (C.encode m)).sqrtMat :=
         (productState W n (C.encode m)).sqrtMat_mul_self.symm
-      rw [htr, hsq, ← Matrix.mul_assoc, Matrix.trace_mul_cycle]
+      rw [htr, hsq, Matrix.trace_mul_cycle]
       have hpsd := (C.povm_posSemidef m').mul_mul_conjTranspose_same (productState W n (C.encode m)).sqrtMat
       have hHerm : ((productState W n (C.encode m)).sqrtMat * C.povm m' *
           ((productState W n (C.encode m)).sqrtMat)ᴴ).PosSemidef := by
