@@ -82,21 +82,29 @@ private lemma symCapacity_eq {d : Type*} [Fintype d] [DecidableEq d] (W : CQChan
 private lemma symCoherentInfo_eq {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap Bool d) :
     symCoherentInfo 𝒩 = PolarCodes.symCoherentInfo (toPolarCPTPMap 𝒩) := by
   unfold symCoherentInfo PolarCodes.symCoherentInfo
+  have hm : (((Fintype.card Bool : ℝ)⁻¹ : ℂ) • (1 : Matrix Bool Bool ℂ)) =
+      (PolarCodes.maxMixedState Bool).mat := by
+    ext a b
+    simp only [PolarCodes.maxMixedState, Matrix.smul_apply, Matrix.one_apply, smul_eq_mul,
+      Complex.ofReal_inv, Complex.ofReal_natCast]
   have h1 : toPolarDensityOp (𝒩.apply (maxMixedState Bool)) =
       (toPolarCPTPMap 𝒩).apply (PolarCodes.maxMixedState Bool) :=
     toPolarDensityOp_eq_of_mat (by
       ext i j
-      simp only [CPTPMap.apply, PolarCodes.CPTPMap.apply, PolarCodes.CPTPMap.toLinearMap,
-        LinearMap.coe_mk, AddHom.coe_mk, partialTrace₂Mat, PolarCodes.partialTrace₂Mat,
-        maxMixedState, PolarCodes.maxMixedState, toPolarCPTPMap, Matrix.of_apply])
+      change ∑ k : 𝒩.env, (𝒩.isom * (((Fintype.card Bool : ℝ)⁻¹ : ℂ) • (1 : Matrix Bool Bool ℂ)) * 𝒩.isomᴴ) (i, k) (j, k) =
+        ∑ k : 𝒩.env, (𝒩.isom * (PolarCodes.maxMixedState Bool).mat * 𝒩.isomᴴ) (i, k) (j, k)
+      rw [hm])
   have h2 : toPolarDensityOp (𝒩.complementary.apply (maxMixedState Bool)) =
       (toPolarCPTPMap 𝒩).complementary.apply (PolarCodes.maxMixedState Bool) :=
     toPolarDensityOp_eq_of_mat (by
       ext i j
-      simp only [CPTPMap.apply, PolarCodes.CPTPMap.apply, PolarCodes.CPTPMap.toLinearMap,
-        LinearMap.coe_mk, AddHom.coe_mk, partialTrace₂Mat, PolarCodes.partialTrace₂Mat,
-        maxMixedState, PolarCodes.maxMixedState, toPolarCPTPMap,
-        CPTPMap.complementary, PolarCodes.CPTPMap.complementary, Matrix.of_apply])
+      change ∑ k : d, ((Matrix.of fun p a ↦ 𝒩.isom (p.2, p.1) a) *
+          (((Fintype.card Bool : ℝ)⁻¹ : ℂ) • (1 : Matrix Bool Bool ℂ)) *
+          (Matrix.of fun p a ↦ 𝒩.isom (p.2, p.1) a)ᴴ) (i, k) (j, k) =
+        ∑ k : d, ((Matrix.of fun p a ↦ 𝒩.isom (p.2, p.1) a) *
+          (PolarCodes.maxMixedState Bool).mat *
+          (Matrix.of fun p a ↦ 𝒩.isom (p.2, p.1) a)ᴴ) (i, k) (j, k)
+      rw [hm])
   rw [← h1, ← h2]
   rfl
 
