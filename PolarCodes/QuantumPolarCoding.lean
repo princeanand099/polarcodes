@@ -154,7 +154,6 @@ lemma condEntropy_symmetrize {α : Type*} [Fintype α] [DecidableEq α] (W : CQC
 lemma symmetrize_minusChannel_channelEquiv {α : Type u} [Fintype α] [DecidableEq α]
     (W : CQChannel α) :
     W.symmetrize.minusChannel.ChannelEquiv W.minusChannel.symmetrize := by
-  -- Basis permutation on `(Bool × α) × (Bool × α) ≃ ULift Bool × (Bool × (α × α))`
   let e : (ULift.{u} Bool × (Bool × (α × α))) ≃ ((Bool × α) × (Bool × α)) :=
     { toFun := fun ⟨⟨w₂⟩, w, x₁, x₂⟩ ↦ ((xor w w₂, x₁), (w₂, x₂))
       invFun := fun ⟨(w₁, x₁), (w₂, x₂)⟩ ↦ (ULift.up w₂, xor w₁ w₂, x₁, x₂)
@@ -488,8 +487,7 @@ theorem degradable_assistance_subset_unpolarized {d : Type} [Fintype d] [Decidab
   simp only [Finset.mem_filter, Finset.mem_univ, true_and] at hi
   rcases hi with ⟨hnotGA, hnotGP⟩
   by_cases hBA : i ∈ veryNoisySet (ampChannel 𝒩) n δ
-  · -- If `i ∈ ℬ_N(W_A)`, then `dualIndex n i` cannot be in `ℬ_N(W_P)`, so it is in `𝒰_N(W_P)`
-    apply Finset.mem_union_right
+  · apply Finset.mem_union_right
     rw [Finset.mem_image]
     refine ⟨dualIndex n i, ?_, dualIndex_involutive n i⟩
     simp only [unpolarizedSet, Finset.mem_sdiff, Finset.mem_univ, true_and, Finset.mem_union,
@@ -530,57 +528,65 @@ theorem degradable_assistance_subset_unpolarized {d : Type} [Fintype d] [Decidab
       not_or]
     exact ⟨hnotGA, hBA⟩
 
-/-! ### 5. Single-Block CSS / Private Polar Code and Full Corollary 5.5 -/
+/-! ### 5. Coupled Amplitude/Phase Polar Code Pair and Corollary 5.5 -/
 
-/-- A single-block Renes–Wilde CSS / private polar code of blocklength `N = 2^n` for a
-qubit-input quantum channel `𝒩 : CPTPMap Bool d`, bundling the amplitude QSC polar code,
-the dual-indexed phase QSC polar code on the shared information set, and the entanglement /
-secret-key assistance set `ℰ`. -/
+/-- A Renes–Wilde amplitude/phase c-q polar code pair of blocklength `N = 2^n` and polarization
+threshold `thresh` for a qubit-input quantum channel `𝒩 : CPTPMap Bool d`, bundling the amplitude
+QSC polar code, the dual-indexed phase QSC polar code on the aligned information set, and the
+structurally pinned entanglement / secret-key assistance index set
+`ℰ = {i : i ∉ 𝒢_N(W_A, thresh) ∧ dualIndex n i ∉ 𝒢_N(W_P, thresh)}`. -/
 structure CSSPrivatePolarCode {d : Type} [Fintype d] [DecidableEq d]
-    (𝒩 : CPTPMap.{0} Bool d) (n : ℕ) where
+    (𝒩 : CPTPMap.{0} Bool d) (n : ℕ) (thresh : ℝ) where
   ampCode : CosetPolarCode (ampChannel 𝒩) n
   phaseCode : CosetPolarCode (phaseChannel 𝒩) n
   infoSet_align : phaseCode.infoSet = ampCode.infoSet.image (dualIndex n)
   assistanceSet : Finset (Fin (2 ^ n))
+  assistanceSet_spec : assistanceSet =
+    Finset.univ.filter (fun i : Fin (2 ^ n) ↦
+      i ∉ goodSet (ampChannel 𝒩) n thresh ∧
+      dualIndex n i ∉ goodSet (phaseChannel 𝒩) n thresh)
 
-/-- Information rate `|𝒜| / 2^n` of a CSS / private polar code. -/
+/-- Information rate `|𝒜| / 2^n` of a CSS / private polar code pair. -/
 noncomputable def CSSPrivatePolarCode.rate {d : Type} [Fintype d] [DecidableEq d]
-    {𝒩 : CPTPMap.{0} Bool d} {n : ℕ} (C : CSSPrivatePolarCode 𝒩 n) : ℝ :=
+    {𝒩 : CPTPMap.{0} Bool d} {n : ℕ} {thresh : ℝ} (C : CSSPrivatePolarCode 𝒩 n thresh) : ℝ :=
   C.ampCode.rate
 
 /-- Entanglement / secret-key assistance rate `|ℰ| / 2^n`. -/
 noncomputable def CSSPrivatePolarCode.assistanceRate {d : Type} [Fintype d] [DecidableEq d]
-    {𝒩 : CPTPMap.{0} Bool d} {n : ℕ} (C : CSSPrivatePolarCode 𝒩 n) : ℝ :=
+    {𝒩 : CPTPMap.{0} Bool d} {n : ℕ} {thresh : ℝ} (C : CSSPrivatePolarCode 𝒩 n thresh) : ℝ :=
   (C.assistanceSet.card : ℝ) / (2 : ℝ) ^ n
 
-/-- Combined trace-distance decoding + secrecy error bound `P_e(amp) + P_e(phase)`. -/
-noncomputable def CSSPrivatePolarCode.combinedError {d : Type} [Fintype d] [DecidableEq d]
-    {𝒩 : CPTPMap.{0} Bool d} {n : ℕ} (C : CSSPrivatePolarCode 𝒩 n) : ℝ :=
+/-- Sum of amplitude and phase c-q QSC block errors `P_e(amp) + P_e(phase)`. -/
+noncomputable def CSSPrivatePolarCode.ampPhaseErrorSum {d : Type} [Fintype d] [DecidableEq d]
+    {𝒩 : CPTPMap.{0} Bool d} {n : ℕ} {thresh : ℝ} (C : CSSPrivatePolarCode 𝒩 n thresh) : ℝ :=
   C.ampCode.avgBlockError + C.phaseCode.avgBlockError
 
-/-- **Corollary 5.5 (Full Quantum & Private Polar Coding — Renes–Wilde [10] Reduction)**:
+/-- **Corollary 5.5 (Renes–Wilde Amplitude/Phase C-Q Polarization Reduction)**:
 There exist universal constants `μ > 0` and `C₀ > 0` such that for every finite-dimensional
 qubit-input quantum channel `𝒩 : CPTPMap Bool d`, every gap `ε ∈ (0, 1)`, and every depth `n`
 with blocklength `N = 2^n ≥ C₀ (1 / ε)^μ`:
-1. There exists a single-block CSS / private polar code `C : CSSPrivatePolarCode 𝒩 n` of
-   blocklength `N = 2^n` achieving rate `C.rate ≥ I_sym(𝒩) - ε / 2`.
-2. Its amplitude decoding error, phase / secrecy error, and combined error satisfy
+1. There exists a coupled amplitude/phase polar code pair `C : CSSPrivatePolarCode 𝒩 n thresh`
+   of blocklength `N = 2^n` achieving rate `C.rate ≥ I_sym(𝒩) - ε / 2`.
+2. Its amplitude c-q QSC error, phase c-q QSC error, and their sum satisfy
    `C.ampCode.avgBlockError ≤ 2^{-N^{0.49}}`, `C.phaseCode.avgBlockError ≤ 2^{-N^{0.49}}`,
-   and `C.combinedError ≤ 2 · 2^{-N^{0.49}}`.
-3. The combined unpolarized fraction of `(W_A, W_P)` is at most `ε / 2`.
-4. If `𝒩` is degradable (`𝒩.IsDegradable`), the pre-shared entanglement / secret-key assistance
-   rate vanishes: `C.assistanceRate ≤ ε / 2`. -/
+   and `C.ampPhaseErrorSum ≤ 2 · 2^{-N^{0.49}}`.
+3. The unpolarized fractions of `W_A` and `W_P` are each at most `ε / 4` (combined `≤ ε / 2`).
+4. If `𝒩` is degradable (`𝒩.IsDegradable`), the pinned assistance-set fraction vanishes:
+   `C.assistanceRate ≤ ε / 2`.
+
+Note: Coherent CSS quantum encoder/decoder CPTP maps and wiretap Eve trace-distance secrecy
+bounds from Renes–Wilde [10] are external to this c-q polarization reduction. -/
 theorem corollary_5_5_quantum_private_polar_coding :
     ∃ (μ C₀ : ℝ), 0 < μ ∧ 0 < C₀ ∧
       ∀ {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap.{0} Bool d)
         {ε : ℝ}, 0 < ε → ε < 1 →
         ∀ (n : ℕ), C₀ * (1 / ε) ^ μ ≤ (2 : ℝ) ^ n →
           let thresh : ℝ := (2 : ℝ) ^ (-(200 : ℝ) * ((2 : ℝ) ^ n) ^ (49047 / 100000 : ℝ))
-          ∃ C : CSSPrivatePolarCode 𝒩 n,
+          ∃ C : CSSPrivatePolarCode 𝒩 n thresh,
             symCoherentInfo 𝒩 - ε / 2 ≤ C.rate ∧
             C.ampCode.avgBlockError ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) ∧
             C.phaseCode.avgBlockError ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) ∧
-            C.combinedError ≤ 2 * (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) ∧
+            C.ampPhaseErrorSum ≤ 2 * (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) ∧
             ((unpolarizedSet (ampChannel 𝒩) n thresh).card : ℝ) / (2 : ℝ) ^ n ≤ ε / 4 ∧
             ((unpolarizedSet (phaseChannel 𝒩) n thresh).card : ℝ) / (2 : ℝ) ^ n ≤ ε / 4 ∧
             (𝒩.IsDegradable → C.assistanceRate ≤ ε / 2) := by
@@ -610,13 +616,11 @@ theorem corollary_5_5_quantum_private_polar_coding :
       rw [heq, Real.mul_rpow (by norm_num) (by positivity)]
     rw [h8, ← mul_assoc]
     exact le_trans (mul_le_mul_of_nonneg_right (le_max_left _ _) (by positivity)) hn
-  -- Apply Theorem 1.1 with `ε' = ε / 8` to `W_A`, `W_A⊥`, `W_P`, `W_P⊥`
   have hWA := hpolar (ampChannel 𝒩) hε8_pos hε8_lt1 n hn_eps8
   have hWAd := hpolar (ampChannel 𝒩).dual hε8_pos hε8_lt1 n hn_eps8
   have hWP := hpolar (phaseChannel 𝒩) hε8_pos hε8_lt1 n hn_eps8
   have hWPd := hpolar (phaseChannel 𝒩).dual hε8_pos hε8_lt1 n hn_eps8
   rw [← goodSet_card_eq_treeProb] at hWA hWAd hWP hWPd
-  -- Show `thresh ≤ 1 / 4` (since `2^n ≥ 2` implies `200 * (2^n)^0.49047 ≥ 200 ≥ 2`)
   have hthresh_le : thresh ≤ 1 / 4 := by
     have hpow2 : (1 : ℝ) ≤ ((2 : ℝ) ^ n) ^ (49047 / 100000 : ℝ) :=
       Real.one_le_rpow (by linarith) (by norm_num)
@@ -630,7 +634,6 @@ theorem corollary_5_5_quantum_private_polar_coding :
   have hU_P : ((unpolarizedSet (phaseChannel 𝒩) n thresh).card : ℝ) / (2 : ℝ) ^ n ≤ ε / 4 := by
     have := dual_unpolarized_fraction_le (phaseChannel 𝒩) n hthresh_le hWP hWPd
     linarith
-  -- Shared information set `𝒜 = 𝒢_N(W_A) ∩ {i : dualIndex n i ∈ 𝒢_N(W_P)}`
   let infoA : Finset (Fin (2 ^ n)) :=
     (goodSet (ampChannel 𝒩) n thresh).filter (fun i ↦ dualIndex n i ∈ goodSet (phaseChannel 𝒩) n thresh)
   let infoP : Finset (Fin (2 ^ n)) := infoA.image (dualIndex n)
@@ -640,10 +643,9 @@ theorem corollary_5_5_quantum_private_polar_coding :
   obtain ⟨frozenA, hwgA⟩ := wilde_guha_qsc_bound (ampChannel 𝒩) n infoA
   obtain ⟨frozenP, hwgP⟩ := wilde_guha_qsc_bound (phaseChannel 𝒩) n infoP
   refine ⟨⟨qscPolarCode (ampChannel 𝒩) n infoA frozenA,
-           qscPolarCode (phaseChannel 𝒩) n infoP frozenP, rfl, assistSet⟩,
+           qscPolarCode (phaseChannel 𝒩) n infoP frozenP, rfl, assistSet, rfl⟩,
           ?_, ?_, ?_, ?_, hU_A, hU_P, ?_⟩
-  · -- Rate bound: `|infoA| / 2^n ≥ I(W_A) + I(W_P) - 1 - ε/4 ≥ I_sym(𝒩) - ε/2`
-    let gP_dual : Finset (Fin (2 ^ n)) :=
+  · let gP_dual : Finset (Fin (2 ^ n)) :=
       (goodSet (phaseChannel 𝒩) n thresh).image (dualIndex n)
     have hinfoA_eq : infoA = goodSet (ampChannel 𝒩) n thresh ∩ gP_dual := by
       ext i
@@ -677,8 +679,7 @@ theorem corollary_5_5_quantum_private_polar_coding :
     have hcap := amp_phase_symCapacity_sum 𝒩
     change symCoherentInfo 𝒩 - ε / 2 ≤ (infoA.card : ℝ) / (2 : ℝ) ^ n
     linarith
-  · -- Amplitude QSC error bound
-    have hthresh_nn : 0 ≤ thresh := Real.rpow_nonneg (by norm_num) _
+  · have hthresh_nn : 0 ≤ thresh := Real.rpow_nonneg (by norm_num) _
     have hsum_le : ∑ i ∈ infoA, (1 / 2 : ℝ) * (synthChannel (ampChannel 𝒩) n i).fidelityParam ≤
         (2 : ℝ) ^ n * thresh := by
       have h1 : ∑ i ∈ infoA, (1 / 2 : ℝ) * (synthChannel (ampChannel 𝒩) n i).fidelityParam ≤
@@ -698,8 +699,7 @@ theorem corollary_5_5_quantum_private_polar_coding :
       _ ≤ 2 * Real.sqrt ((2 : ℝ) ^ n * thresh) :=
           mul_le_mul_of_nonneg_left (Real.sqrt_le_sqrt hsum_le) (by norm_num)
       _ ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) := polar_error_exponent_bound hn1
-  · -- Phase / secrecy QSC error bound
-    have hthresh_nn : 0 ≤ thresh := Real.rpow_nonneg (by norm_num) _
+  · have hthresh_nn : 0 ≤ thresh := Real.rpow_nonneg (by norm_num) _
     have hsum_le : ∑ j ∈ infoP, (1 / 2 : ℝ) * (synthChannel (phaseChannel 𝒩) n j).fidelityParam ≤
         (2 : ℝ) ^ n * thresh := by
       have h1 : ∑ j ∈ infoP, (1 / 2 : ℝ) * (synthChannel (phaseChannel 𝒩) n j).fidelityParam ≤
@@ -721,8 +721,7 @@ theorem corollary_5_5_quantum_private_polar_coding :
       _ ≤ 2 * Real.sqrt ((2 : ℝ) ^ n * thresh) :=
           mul_le_mul_of_nonneg_left (Real.sqrt_le_sqrt hsum_le) (by norm_num)
       _ ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) := polar_error_exponent_bound hn1
-  · -- Combined error bound
-    unfold CSSPrivatePolarCode.combinedError
+  · unfold CSSPrivatePolarCode.ampPhaseErrorSum
     dsimp only
     have hthresh_nn : 0 ≤ thresh := Real.rpow_nonneg (by norm_num) _
     have hA_err : (qscPolarCode (ampChannel 𝒩) n infoA frozenA).avgBlockError ≤
@@ -761,8 +760,7 @@ theorem corollary_5_5_quantum_private_polar_coding :
       exact (hwgP.trans (mul_le_mul_of_nonneg_left (Real.sqrt_le_sqrt hsum_le) (by norm_num))).trans
         (polar_error_exponent_bound hn1)
     linarith
-  · -- Vanishing assistance rate for degradable channels
-    intro hdeg
+  · intro hdeg
     unfold CSSPrivatePolarCode.assistanceRate
     dsimp only
     have hsub := degradable_assistance_subset_unpolarized 𝒩 hdeg n hthresh_le
