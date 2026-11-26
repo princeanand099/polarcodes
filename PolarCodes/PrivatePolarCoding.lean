@@ -663,7 +663,7 @@ noncomputable def fixedSubsetAvgState {α : Type*} [Fintype α] [DecidableEq α]
           right_inv := fun w ↦ funext fun ⟨j, hj⟩ ↦ by simp [hj] }
       rw [← Fintype.card_subtype, Fintype.card_congr e, Fintype.card_fun, Fintype.card_bool]
       congr 1
-      rw [Fintype.card_subtype_compl, Fintype.card_fin]
+      rw [Fintype.card_subtype_compl, Fintype.card_coe, Fintype.card_fin]
     rw [hcard]
     push_cast
     exact inv_mul_cancel₀ (pow_ne_zero _ (by norm_num))
@@ -729,7 +729,7 @@ private lemma prefixSubset_succ_of_notMem {N : ℕ} (S : Finset (Fin N)) {k : �
   constructor
   · rintro ⟨hjS, hle⟩
     refine ⟨hjS, lt_of_le_of_ne hle fun heq ↦ hnot ?_⟩
-    convert hjS; exact Fin.ext heq.symm
+    rw [← Fin.ext heq]; exact hjS
   · rintro ⟨hjS, hlt⟩; exact ⟨hjS, le_of_lt hlt⟩
 
 private lemma prefixSubset_succ_of_mem {N : ℕ} (S : Finset (Fin N)) {k : ℕ} (hk : k < N)
@@ -863,28 +863,35 @@ theorem avg_fixedSubset_decoupling_le {α : Type*} [Fintype α] [DecidableEq α]
           rw [one_smul, hmid]
           cases b <;> (ext x y; simp; ring)
         have hupd : Function.update u i (u i) = u := Function.update_eq_self i u
-        rw [← hupd]
-        set b := u i
+        have hdiff_u : (fixedSubsetAvgState W n (insert i S) u).mat -
+            (1 : ℂ) • (fixedSubsetAvgState W n S u).mat =
+            ((1 / 2 : ℝ) : ℂ) •
+              ((fixedSubsetAvgState W n (insert i S) (Function.update u i (u i))).mat -
+               (fixedSubsetAvgState W n (insert i S) (Function.update u i (!(u i)))).mat) := by
+          conv_lhs => rw [← hupd]
+          exact hdiff_eq (u i)
         rw [traceDist_eq_hockeyStick_one, hockeyStick_eq_posPartTrace]
-        have hH := ((fixedSubsetAvgState W n (insert i S) (Function.update u i b)).isHermitian.sub
-          (fixedSubsetAvgState W n (insert i S) (Function.update u i (!b))).isHermitian)
-        have hHc : (((1 / 2 : ℝ) : ℂ) • ((fixedSubsetAvgState W n (insert i S) (Function.update u i b)).mat -
-            (fixedSubsetAvgState W n (insert i S) (Function.update u i (!b))).mat)).IsHermitian := by
+        have hH := ((fixedSubsetAvgState W n (insert i S) (Function.update u i (u i))).isHermitian.sub
+          (fixedSubsetAvgState W n (insert i S) (Function.update u i (!(u i)))).isHermitian)
+        have hHc : (((1 / 2 : ℝ) : ℂ) •
+            ((fixedSubsetAvgState W n (insert i S) (Function.update u i (u i))).mat -
+             (fixedSubsetAvgState W n (insert i S) (Function.update u i (!(u i)))).mat)).IsHermitian := by
           rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal, hH.eq]
-        rw [posPartTrace_eq_of_eq _ hHc (hdiff_eq b), posPartTrace_smul_nonneg_aux (by norm_num) hH]
+        rw [posPartTrace_eq_of_eq _ hHc hdiff_u, posPartTrace_smul_nonneg_aux (by norm_num) hH]
         congr 1
         have htd : posPartTrace hH = traceDist
-            (fixedSubsetAvgState W n (insert i S) (Function.update u i b))
-            (fixedSubsetAvgState W n (insert i S) (Function.update u i (!b))) := by
+            (fixedSubsetAvgState W n (insert i S) (Function.update u i (u i)))
+            (fixedSubsetAvgState W n (insert i S) (Function.update u i (!(u i)))) := by
           rw [traceDist_eq_hockeyStick_one, hockeyStick_eq_posPartTrace]
           exact posPartTrace_eq_of_eq _ _ (by simp)
         rw [htd]
-        cases b
-        · rfl
-        · exact traceDist_symm _ _
+        cases hbi : u i
+        · simp [hbi]
+        · simp [hbi, traceDist_symm]
       simp_rw [hS_succ, hhalf_step]
       rw [← Finset.mul_sum, ← mul_assoc, mul_comm (((2 : ℝ) ^ (2 ^ n))⁻¹), mul_assoc]
       apply mul_le_mul_of_nonneg_left _ (by norm_num)
+      -- Now bound the average over `u` of `traceDist (τ_0(u)) (τ_1(u))` by `traceDist (synthChannel W n i)`
       let R : Finset (Fin i.val) := Finset.univ.filter (fun j : Fin i.val ↦ ⟨j.val, lt_trans j.isLt i.isLt⟩ ∉ S)
       have hconv_u : ∀ u : Fin (2 ^ n) → Bool,
           traceDist
@@ -899,13 +906,20 @@ theorem avg_fixedSubset_decoupling_le {α : Type*} [Fintype α] [DecidableEq α]
                   if h : j ∈ R then q ⟨j, h⟩ else u ⟨j.val, lt_trans j.isLt i.isLt⟩) true) := by
         intro u
         have hcard_R : R.card + S.card = i.val := by
-          have hS_sub : S.card = (Finset.univ.filter (fun j : Fin i.val ↦ ⟨j.val, lt_trans j.isLt i.isLt⟩ ∈ S)).card := by
-            apply Finset.card_bij (fun x hx ↦ (⟨x.val, (Finset.mem_filter.mp hx).2⟩ : Fin i.val))
-            · intro x hx; simp [Finset.mem_filter, hx]
-            · intro x₁ _ x₂ _ h; exact Fin.ext (congr_arg Fin.val h)
+          let S_sub : Finset (Fin i.val) := Finset.univ.filter (fun j : Fin i.val ↦ ⟨j.val, lt_trans j.isLt i.isLt⟩ ∈ S)
+          have hS_sub : S.card = S_sub.card := by
+            apply Finset.card_bij (fun x hx ↦ (⟨x.val, (Finset.mem_filter.mp (show x ∈ prefixSubset T k from hx)).2⟩ : Fin i.val))
+            · intro x hx; simp only [S_sub, Finset.mem_filter, Finset.mem_univ, true_and]; exact hx
+            · intro x₁ _ x₂ _ h; exact Fin.ext (congr_arg (Fin.val : Fin i.val → ℕ) h)
             · intro j hj
               refine ⟨⟨j.val, lt_trans j.isLt i.isLt⟩, (Finset.mem_filter.mp hj).2, rfl⟩
-          rw [hS_sub, Finset.filter_card_add_filter_neg_card_eq_card, Finset.card_univ, Fintype.card_fin]
+          have hdisj : Disjoint R S_sub := by
+            rw [Finset.disjoint_left]; intro j hjR hjS
+            exact (Finset.mem_filter.mp hjR).2 (Finset.mem_filter.mp hjS).2
+          have hunion : R ∪ S_sub = Finset.univ := by
+            ext j; simp only [Finset.mem_union, Finset.mem_univ, iff_true, R, S_sub, Finset.mem_filter, true_and]
+            exact em' _
+          rw [hS_sub, ← Finset.card_union_of_disjoint hdisj, hunion, Finset.card_univ, Fintype.card_fin]
         have havg_mat : ∀ b : Bool,
             (fixedSubsetAvgState W n (insert i S) (Function.update u i b)).mat =
               ((Fintype.card (R → Bool) : ℂ)⁻¹) •
@@ -914,7 +928,7 @@ theorem avg_fixedSubset_decoupling_le {α : Type*} [Fintype α] [DecidableEq α]
                     if h : j ∈ R then q ⟨j, h⟩ else u ⟨j.val, lt_trans j.isLt i.isLt⟩) b).mat := by
           intro b
           simp only [fixedSubsetAvgState, condSynthState, synthBlockMat, Fintype.card_fun,
-            Fintype.card_bool, Fintype.card_coe]
+            Fintype.card_bool, Fintype.card_coe, Nat.cast_pow, Nat.cast_ofNat]
           rw [← Finset.smul_sum, smul_smul]
           have hcard_ins : (insert i S).card = S.card + 1 := Finset.card_insert_of_notMem hiS
           have hexp : 2 ^ n - (insert i S).card = R.card + (2 ^ n - 1 - i.val) := by
@@ -963,6 +977,7 @@ theorem avg_fixedSubset_decoupling_le {α : Type*} [Fintype α] [DecidableEq α]
             exact h1j.symm.trans h2j
         simpa [Fintype.card_fun, Fintype.card_bool, Fintype.card_coe] using
           traceDist_uniformAvg_le _ _ _ _ (havg_mat false) (havg_mat true)
+      -- Average `hconv_u` over `u : Fin (2^n) → Bool`: each `p : Fin i.val → Bool` appears equally often!
       have havg_p : ((2 : ℝ) ^ (2 ^ n))⁻¹ *
           ∑ u : Fin (2 ^ n) → Bool,
             ((2 : ℝ) ^ R.card)⁻¹ *
@@ -983,16 +998,20 @@ theorem avg_fixedSubset_decoupling_le {α : Type*} [Fintype α] [DecidableEq α]
                 if h : j ∈ R then uq.2 ⟨j, h⟩ else uq.1 ⟨j.val, lt_trans j.isLt i.isLt⟩) = p)).card =
             2 ^ (2 ^ n + R.card - i.val) := by
           intro p
-          let A : Finset (Fin (2 ^ n)) := S
-          have hA_card : A.card = i.val - R.card := by
-            have hcard_R : R.card + S.card = i.val := by
-              have hS_sub : S.card = (Finset.univ.filter (fun j : Fin i.val ↦ ⟨j.val, lt_trans j.isLt i.isLt⟩ ∈ S)).card := by
-                apply Finset.card_bij (fun x hx ↦ (⟨x.val, (Finset.mem_filter.mp hx).2⟩ : Fin i.val))
-                · intro x hx; simp [Finset.mem_filter, hx]
-                · intro x₁ _ x₂ _ h; exact Fin.ext (congr_arg Fin.val h)
-                · intro j hj; refine ⟨⟨j.val, lt_trans j.isLt i.isLt⟩, (Finset.mem_filter.mp hj).2, rfl⟩
-              rw [hS_sub, Finset.filter_card_add_filter_neg_card_eq_card, Finset.card_univ, Fintype.card_fin]
-            omega
+          have hcard_R2 : R.card + S.card = i.val := by
+            let S_sub : Finset (Fin i.val) := Finset.univ.filter (fun j : Fin i.val ↦ ⟨j.val, lt_trans j.isLt i.isLt⟩ ∈ S)
+            have hS_sub : S.card = S_sub.card := by
+              apply Finset.card_bij (fun x hx ↦ (⟨x.val, (Finset.mem_filter.mp (show x ∈ prefixSubset T k from hx)).2⟩ : Fin i.val))
+              · intro x hx; simp only [S_sub, Finset.mem_filter, Finset.mem_univ, true_and]; exact hx
+              · intro x₁ _ x₂ _ h; exact Fin.ext (congr_arg (Fin.val : Fin i.val → ℕ) h)
+              · intro j hj; refine ⟨⟨j.val, lt_trans j.isLt i.isLt⟩, (Finset.mem_filter.mp hj).2, rfl⟩
+            have hdisj : Disjoint R S_sub := by
+              rw [Finset.disjoint_left]; intro j hjR hjS
+              exact (Finset.mem_filter.mp hjR).2 (Finset.mem_filter.mp hjS).2
+            have hunion : R ∪ S_sub = Finset.univ := by
+              ext j; simp only [Finset.mem_union, Finset.mem_univ, iff_true, R, S_sub, Finset.mem_filter, true_and]
+              exact em' _
+            rw [hS_sub, ← Finset.card_union_of_disjoint hdisj, hunion, Finset.card_univ, Fintype.card_fin]
           let e : {uq : (Fin (2 ^ n) → Bool) × (R → Bool) //
               (fun j : Fin i.val ↦
                 if h : j ∈ R then uq.2 ⟨j, h⟩ else uq.1 ⟨j.val, lt_trans j.isLt i.isLt⟩) = p} ≃
@@ -1025,17 +1044,18 @@ theorem avg_fixedSubset_decoupling_le {α : Type*} [Fintype α] [DecidableEq α]
                   exact hv.symm
               right_inv := fun w ↦ funext fun ⟨x, hx⟩ ↦ by simp [hx] }
           rw [← Fintype.card_subtype, Fintype.card_congr e, Fintype.card_fun, Fintype.card_bool,
-            Fintype.card_subtype_compl, Fintype.card_fin]
+            Fintype.card_subtype_compl, Fintype.card_coe, Fintype.card_fin]
           congr 1
-          have := i.isLt; have := Finset.card_le_univ R; rw [Fintype.card_fin] at this
+          have := i.isLt
           omega
         have hsum_eq : ∑ u : Fin (2 ^ n) → Bool, ∑ q : R → Bool,
             F (fun j : Fin i.val ↦ if h : j ∈ R then q ⟨j, h⟩ else u ⟨j.val, lt_trans j.isLt i.isLt⟩) =
             (2 : ℝ) ^ (2 ^ n + R.card - i.val) * ∑ p : Fin i.val → Bool, F p := by
           rw [← Fintype.sum_prod_type', Finset.mul_sum]
-          rw [Finset.sum_fiberwise_of_maps_to (g := fun uq : (Fin (2 ^ n) → Bool) × (R → Bool) ↦
-            fun j : Fin i.val ↦ if h : j ∈ R then uq.2 ⟨j, h⟩ else uq.1 ⟨j.val, lt_trans j.isLt i.isLt⟩)
-            (t := Finset.univ) (fun _ _ ↦ Finset.mem_univ _)]
+          rw [← Finset.sum_fiberwise_of_maps_to (s := Finset.univ) (t := Finset.univ)
+            (g := fun uq : (Fin (2 ^ n) → Bool) × (R → Bool) ↦
+              fun j : Fin i.val ↦ if h : j ∈ R then uq.2 ⟨j, h⟩ else uq.1 ⟨j.val, lt_trans j.isLt i.isLt⟩)
+            (fun _ _ ↦ Finset.mem_univ _)]
           apply Finset.sum_congr rfl; intro p _
           have hcongr : ∑ x ∈ Finset.univ.filter (fun uq : (Fin (2 ^ n) → Bool) × (R → Bool) ↦
               (fun j : Fin i.val ↦ if h : j ∈ R then uq.2 ⟨j, h⟩ else uq.1 ⟨j.val, lt_trans j.isLt i.isLt⟩) = p),
@@ -1069,8 +1089,9 @@ theorem avg_fixedSubset_decoupling_le {α : Type*} [Fintype α] [DecidableEq α]
         have hout : ∀ b : Bool, (synthChannel W n i).out b =
             uniformBlockDiag (fun p : Fin i.val → Bool ↦ condSynthState W n i p b) := by
           intro b
-          apply DensityOp.ext
-          ext ⟨p₁, x₁⟩ ⟨p₂, x₂⟩
+          have hmat : ((synthChannel W n i).out b).mat =
+              (uniformBlockDiag (fun p : Fin i.val → Bool ↦ condSynthState W n i p b)).mat := by
+            ext ⟨p₁, x₁⟩ ⟨p₂, x₂⟩
           simp only [synthChannel, synthState, uniformBlockDiag, condSynthState, Matrix.of_apply,
             Matrix.smul_apply, smul_eq_mul, Fintype.card_fun, Fintype.card_bool, Fintype.card_fin]
           split_ifs with hp
@@ -1081,6 +1102,9 @@ theorem avg_fixedSubset_decoupling_le {α : Type*} [Fintype α] [DecidableEq α]
               rw [hexp, pow_add, mul_inv, mul_comm]
             rw [hpow]; push_cast; ring
           · rfl
+          rcases (synthChannel W n i).out b with ⟨m₁, p₁, t₁⟩
+          rcases uniformBlockDiag (fun p : Fin i.val → Bool ↦ condSynthState W n i p b) with ⟨m₂, p₂, t₂⟩
+          dsimp only at hmat; subst hmat; rfl
         rw [hout false, hout true, traceDist_uniformBlockDiag]
         simp [Fintype.card_fun, Fintype.card_bool, Fintype.card_fin]
       rw [hsynth_eq, ← havg_p]
@@ -1100,14 +1124,19 @@ theorem avg_fixedSubset_decoupling_le {α : Type*} [Fintype α] [DecidableEq α]
           if i ∈ T then
             (1 / 2) * traceDist ((synthChannel W n i).out false) ((synthChannel W n i).out true)
           else 0 := by
-        rw [← Fin.sum_univ_eq_sum_range (fun k ↦ if h : k < 2 ^ n then
-          ((2 : ℝ) ^ (2 ^ n))⁻¹ * ∑ u : Fin (2 ^ n) → Bool,
-            traceDist (fixedSubsetAvgState W n (prefixSubset T (k + 1)) u)
-              (fixedSubsetAvgState W n (prefixSubset T k) u) else 0)]
-        · apply Finset.sum_le_sum; intro i _
-          simp only [i.isLt, ↓reduceDIte]
-          exact hstep i.val i.isLt
-        · exact Finset.sum_congr rfl fun k hk ↦ by simp [Finset.mem_range.mp hk]
+        have hrange : ∑ k ∈ Finset.range (2 ^ n),
+              ((2 : ℝ) ^ (2 ^ n))⁻¹ * ∑ u : Fin (2 ^ n) → Bool,
+                traceDist (fixedSubsetAvgState W n (prefixSubset T (k + 1)) u)
+                  (fixedSubsetAvgState W n (prefixSubset T k) u) =
+            ∑ k ∈ Finset.range (2 ^ n), if h : k < 2 ^ n then
+              ((2 : ℝ) ^ (2 ^ n))⁻¹ * ∑ u : Fin (2 ^ n) → Bool,
+                traceDist (fixedSubsetAvgState W n (prefixSubset T (k + 1)) u)
+                  (fixedSubsetAvgState W n (prefixSubset T k) u) else 0 :=
+          Finset.sum_congr rfl fun k hk ↦ by simp [Finset.mem_range.mp hk]
+        rw [hrange, ← Fin.sum_univ_eq_sum_range]
+        apply Finset.sum_le_sum; intro i _
+        simp only [i.isLt, ↓reduceDIte]
+        exact hstep i.val i.isLt
     _ = ∑ i ∈ T, (1 / 2) * traceDist ((synthChannel W n i).out false) ((synthChannel W n i).out true) := by
         rw [← Finset.sum_filter, Finset.filter_mem_eq_inter, Finset.univ_inter]
 
@@ -1142,7 +1171,12 @@ theorem avg_wiretapSecrecyError_le (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
     simp only [Fintype.card_fun, Fintype.card_bool, Fintype.card_coe]
     congr 1; apply Finset.sum_congr rfl; intro m _
     congr 1
-    apply DensityOp.ext; simp [fixedSubsetAvgState]
+    have hmat : (fixedSubsetAvgState (ampChannel 𝒩.complementary) n ∅ (fun i ↦ if h : i ∈ infoSet then m ⟨i, h⟩ else uF i)).mat =
+        (fixedSubsetAvgState (ampChannel 𝒩.complementary) n ∅ (fun _ ↦ false)).mat := by
+      dsimp only [fixedSubsetAvgState]; congr 2; ext v; simp
+    rcases fixedSubsetAvgState (ampChannel 𝒩.complementary) n ∅ (fun i ↦ if h : i ∈ infoSet then m ⟨i, h⟩ else uF i) with ⟨m₁, p₁, t₁⟩
+    rcases fixedSubsetAvgState (ampChannel 𝒩.complementary) n ∅ (fun _ ↦ false) with ⟨m₂, p₂, t₂⟩
+    dsimp only at hmat; subst hmat; rfl
   simp_rw [hsec_eq]
   have hreidx : ((2 : ℝ) ^ (2 ^ n))⁻¹ *
       ∑ uF : Fin (2 ^ n) → Bool,
@@ -1353,13 +1387,38 @@ noncomputable def OperationalPrivatePolarCode.eveSecrecyError {𝒩 : CPTPMap.{0
     (C : OperationalPrivatePolarCode 𝒩 n) : ℝ :=
   wiretapSecrecyError 𝒩 n C.infoSet C.randSet C.assistSet C.publicFrozen
 
+private lemma cosetPolarCode_avgBlockError_nonneg {α : Type*} [Fintype α] [DecidableEq α]
+    {W : CQChannel α} {n : ℕ} (C : CosetPolarCode W n) : 0 ≤ C.avgBlockError := by
+  unfold CosetPolarCode.avgBlockError
+  apply mul_nonneg (by positivity)
+  apply Finset.sum_nonneg; intro m _
+  have hle : ((C.povm m * (productState W n (C.encode m)).mat).trace).re ≤ 1 := by
+    have hsum1 : ∑ m', ((C.povm m' * (productState W n (C.encode m)).mat).trace).re = 1 := by
+      rw [← Complex.re_sum, ← Matrix.trace_sum, ← Finset.sum_mul, C.povm_sum_one, Matrix.one_mul,
+        (productState W n (C.encode m)).trace_one, Complex.one_re]
+    have hnn : ∀ m', 0 ≤ ((C.povm m' * (productState W n (C.encode m)).mat).trace).re := by
+      intro m'
+      have htr := Matrix.trace_mul_comm (C.povm m') (productState W n (C.encode m)).mat
+      have hsq : (productState W n (C.encode m)).mat =
+          (productState W n (C.encode m)).sqrtMat * (productState W n (C.encode m)).sqrtMat :=
+        (productState W n (C.encode m)).sqrtMat_mul_self.symm
+      rw [htr, hsq, Matrix.mul_assoc, Matrix.trace_mul_cycle]
+      have hpsd := (C.povm_posSemidef m').mul_mul_conjTranspose_same (productState W n (C.encode m)).sqrtMat
+      have hHerm : ((productState W n (C.encode m)).sqrtMat * C.povm m' *
+          ((productState W n (C.encode m)).sqrtMat)ᴴ).PosSemidef := by
+        simpa [Matrix.star_eq_conjTranspose, (productState W n (C.encode m)).sqrtMat_isHermitian.eq] using hpsd
+      rw [hHerm.isHermitian.trace_eq_sum_eigenvalues, Complex.re_sum]
+      exact Finset.sum_nonneg fun a _ ↦ by simpa using hHerm.eigenvalues_nonneg a
+    have hm_le := Finset.single_le_sum (fun m' _ ↦ hnn m') (Finset.mem_univ m)
+    linarith
+  linarith
+
 lemma OperationalPrivatePolarCode.bobDecodingError_nonneg {𝒩 : CPTPMap.{0} Bool d} {n : ℕ}
     (C : OperationalPrivatePolarCode 𝒩 n) : 0 ≤ C.bobDecodingError := by
   unfold OperationalPrivatePolarCode.bobDecodingError wiretapBobError
   apply mul_nonneg (by positivity)
   apply Finset.sum_nonneg; intro k _
-  exact (qscPolarCode (ampChannel 𝒩) n (C.infoSet ∪ C.randSet)
-    (bobEffectiveFrozen C.assistSet C.publicFrozen k)).avgBlockError_nonneg
+  exact cosetPolarCode_avgBlockError_nonneg _
 
 lemma OperationalPrivatePolarCode.eveSecrecyError_nonneg {𝒩 : CPTPMap.{0} Bool d} {n : ℕ}
     (C : OperationalPrivatePolarCode 𝒩 n) : 0 ≤ C.eveSecrecyError :=
