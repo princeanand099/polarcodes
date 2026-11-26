@@ -47,7 +47,7 @@ theorem prop_2_2_D1 (W : CQChannel d) :
     congr
   rw [h0] at hdeph
   have h4 := (lemma_4_1_gram_dephasing (W.out false) (W.out true)
-    (fun _ : Unit ↦ (1 : ℂ)) (fun _ : Unit ↦ (1 : ℂ)) (by simp) (by simp)).2.2.2
+    (fun _ : Unit ↦ (1 : ℂ)) (fun _ : Unit ↦ (1 : ℂ)) (by simp) (by simp)).2.2.2.1
   rw [← hdeph, h4]
   ring
 

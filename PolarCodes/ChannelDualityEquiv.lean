@@ -475,11 +475,13 @@ theorem prop_2_2_D2_check_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Deci
     (W_prod.channelEquiv_tensorMaxMixed (ULift.{u} Bool))).trans hstep2b.toChannelEquiv
 
 set_option maxHeartbeats 600000 in
-/-- **Proposition 2.2 (D2, Variable-Node Channel-Level Duality)**:
-`(W₁ ⊛ W₂)⊥ ≃ W₁⊥ ⊠ W₂⊥` as reversible CPTP-equivalent c-q channels. -/
-theorem prop_2_2_D2_var_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [DecidableEq d₁]
+/-- **Proposition 2.2 (D2, Variable-Node Isometric Duality)**:
+`(W₁ ⊛ W₂)⊥ ≃_iso W₁⊥ ⊠ W₂⊥` via an output-space isometry `CQChannel.IsoEquiv`.
+(The other three (D2)–(D3) dualities hold up to reversible CPTP equivalence `CQChannel.ChannelEquiv`
+and cannot hold up to `IsoEquiv` in general due to output-state rank/entropy differences.) -/
+theorem prop_2_2_D2_var_isoEquiv {d₁ d₂ : Type u} [Fintype d₁] [DecidableEq d₁]
     [Fintype d₂] [DecidableEq d₂] (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
-    (W₁.varCombine W₂).dual.ChannelEquiv (W₁.dual.checkCombine W₂.dual) := by
+    (W₁.varCombine W₂).dual.IsoEquiv (W₁.dual.checkCombine W₂.dual) := by
   set ρ₀ := W₁.out false
   set ρ₁ := W₁.out true
   set σ₀ := W₂.out false
@@ -601,7 +603,7 @@ theorem prop_2_2_D2_var_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Decida
     · intro v _ hne; apply Finset.sum_eq_zero; intro k₁ _; apply Finset.sum_eq_zero; intro k₂ _
       simp [Ne.symm hne]
     · intro h; exact absurd (Finset.mem_univ v₁) h
-  have hstep1 := (dual_isoEquiv_of_purification (W₁.varCombine W₂) A₀ A₁ hA₀ hA₁).toChannelEquiv
+  have hstep1 := dual_isoEquiv_of_purification (W₁.varCombine W₂) A₀ A₁ hA₀ hA₁
   let P : Matrix ((Bool × d₁) × (Bool × d₂)) (Bool × (Bool × (d₁ × d₂))) ℂ :=
     Matrix.of fun ((a, r), (c, s)) (u, v, r', s') ↦
       if a = xor u v ∧ c = u ∧ r = r' ∧ s = s' then 1 else 0
@@ -832,7 +834,14 @@ theorem prop_2_2_D2_var_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [Decida
     cases b <;>
       simpa [Matrix.one_mul, Matrix.conjTranspose_one, Matrix.mul_one,
         Matrix.conjTranspose_mul, Matrix.mul_assoc] using hfactor_b
-  exact hstep1.trans hstep2.toChannelEquiv
+  exact hstep1.trans hstep2
+
+/-- **Proposition 2.2 (D2, Variable-Node Channel-Level Duality)**:
+`(W₁ ⊛ W₂)⊥ ≃ W₁⊥ ⊠ W₂⊥` as reversible CPTP-equivalent c-q channels. -/
+theorem prop_2_2_D2_var_channelEquiv {d₁ d₂ : Type u} [Fintype d₁] [DecidableEq d₁]
+    [Fintype d₂] [DecidableEq d₂] (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
+    (W₁.varCombine W₂).dual.ChannelEquiv (W₁.dual.checkCombine W₂.dual) :=
+  (prop_2_2_D2_var_isoEquiv W₁ W₂).toChannelEquiv
 
 /-- **Proposition 2.2 (D2, Full Channel-Level Polarization Duality)**:
 For all finite-dimensional binary-input c-q channels `W₁, W₂`:
