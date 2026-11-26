@@ -68,7 +68,6 @@ lemma idQubitChannel_isDegradable : idQubitChannel.IsDegradable := by
               cases a <;> cases b <;> simp }, ?_⟩
   intro ρ
   ext ⟨⟩ ⟨⟩
-  have htr : (CPTPMap.apply idQubitChannel ρ).trace_one = ρ.trace_one := rfl
   change ∑ b : Bool, _ = ∑ b : Bool, _
   simp only [idQubitChannel, CPTPMap.apply, CPTPMap.toLinearMap, CPTPMap.complementary,
     partialTrace₂Mat, LinearMap.coe_mk, AddHom.coe_mk, Matrix.mul_apply,
@@ -89,19 +88,20 @@ example :
   have h1 := h noiselessChannel (by norm_num) (by norm_num) n hn
   rwa [noiselessChannel_symCapacity] at h1
 
-/-- Non-vacuity witness: Theorem 1.1 coding-theoretic polar code instantiates on
+/-- Non-vacuity witness: Theorem 1.1 coding-theoretic QSC polar code instantiates on
 `noiselessChannel` (with `symCapacity = 1 > 0`). -/
 example :
     ∃ (μ C₀ : ℝ), 0 < μ ∧ 0 < C₀ ∧
       ∀ (n : ℕ), C₀ * (1 / (1 / 2 : ℝ)) ^ μ ≤ (2 : ℝ) ^ n →
-        ∃ C : CosetPolarCode noiselessChannel n,
+        ∃ (infoSet : Finset (Fin (2 ^ n))) (frozen : Fin (2 ^ n) → Bool),
+          let C := qscPolarCode noiselessChannel n infoSet frozen
           1 - (1 / 2 : ℝ) ≤ C.rate ∧
           C.avgBlockError ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) := by
   rcases theorem_1_1_coding_poly_blocklength.{0} with ⟨μ, C₀, hμ, hC₀, h⟩
   refine ⟨μ, C₀, hμ, hC₀, fun n hn ↦ ?_⟩
-  obtain ⟨C, hrate, herr⟩ := h noiselessChannel (by norm_num) (by norm_num) n hn
+  obtain ⟨infoSet, frozen, hrate, herr⟩ := h noiselessChannel (by norm_num) (by norm_num) n hn
   rw [noiselessChannel_symCapacity] at hrate
-  exact ⟨C, hrate, herr⟩
+  exact ⟨infoSet, frozen, hrate, herr⟩
 
 /-- Non-vacuity witness: Corollary 5.5 instantiates on the degradable qubit identity channel
 `idQubitChannel`, yielding vanishing pinned assistance rate `≤ ε / 2`. -/

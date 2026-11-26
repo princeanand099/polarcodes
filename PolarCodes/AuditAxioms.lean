@@ -8,7 +8,7 @@ import PolarCodes
 /-!
 # Axiom Audit for `PolarCodes`
 
-Verifies via `#print axioms` that all 64 exported theorems depend exclusively on Lean 4's
+Verifies via `#print axioms` that all 68 exported theorems depend exclusively on Lean 4's
 standard axioms (`propext`, `Classical.choice`, `Quot.sound`) with zero custom axioms and
 zero `sorryAx`.
 -/
@@ -29,6 +29,7 @@ zero `sorryAx`.
 #print axioms PolarCodes.prop_2_2_D1
 #print axioms PolarCodes.prop_2_2_D2
 #print axioms PolarCodes.prop_2_2_D3
+#print axioms PolarCodes.prop_2_2_D2_var_isoEquiv
 #print axioms PolarCodes.prop_2_2_D2_channelEquiv
 #print axioms PolarCodes.prop_2_2_D3_channelEquiv
 
@@ -42,6 +43,8 @@ zero `sorryAx`.
 #print axioms PolarCodes.convexOn_gc
 #print axioms PolarCodes.relEntropy_frenkel_integral
 #print axioms PolarCodes.relEntropy_hockeyStick_integral
+#print axioms PolarCodes.relEntropy_frenkel_integral_of_suppSubset
+#print axioms PolarCodes.relEntropy_hockeyStick_integral_of_suppSubset
 #print axioms PolarCodes.relEntropy_cptp_le
 #print axioms PolarCodes.condEntropy_cptp_ge
 #print axioms PolarCodes.lemma_3_2_hockeyStick_measure
@@ -52,8 +55,6 @@ zero `sorryAx`.
 #print axioms PolarCodes.theorem_1_3_equatorial_equality
 #print axioms PolarCodes.theorem_1_3_dephasing_sdpi_relEntropy
 #print axioms PolarCodes.theorem_1_3_equatorial_equality_relEntropy
-#print axioms PolarCodes.theorem_1_3_dephasing_sdpi_relEntropy_finite
-#print axioms PolarCodes.theorem_1_3_equatorial_equality_relEntropy_finite
 
 -- Section 4: Gram dephasing, Hybrid Q-MGL, Four-branch purification, General Q-MGL
 #print axioms PolarCodes.lemma_4_1_gram_dephasing

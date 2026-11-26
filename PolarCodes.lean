@@ -33,6 +33,7 @@ import PolarCodes.QuantumPolarCoding
 import PolarCodes.QuantumPolarCodingBase
 import PolarCodes.QuantumProps
 import PolarCodes.QuantumStates
+import PolarCodes.RankDeficientFrenkel
 import PolarCodes.Refinements
 import PolarCodes.SanityChecks
 import PolarCodes.ScalarSupplements
@@ -42,7 +43,7 @@ import PolarCodes.SplittingBounds
 /-!
 # Polynomial-Blocklength Quantum Polar Codes
 
-Root library module importing all 35 modules of the Lean 4 formalization of
+Root library module importing all 36 modules of the Lean 4 formalization of
 *Polynomial-Blocklength Quantum Polar Codes via Nonlinear Dephasing Contraction*
 (Prince Anand, 2026).
 -/
