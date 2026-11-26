@@ -497,7 +497,7 @@ theorem prop_2_2_D2_var_isoEquiv {d₁ d₂ : Type u} [Fintype d₁] [DecidableE
       if v = v' then
         ((Real.sqrt 2 : ℂ)⁻¹) *
           (if v = false then ρ₀.sqrtMat i₁ j₁ * σ₀.sqrtMat i₂ j₂
-           else ρ₁.sqrtMat i₁ j₁ * σ₀.sqrtMat i₂ j₂)
+           else ρ₁.sqrtMat i₁ j₁ * σ₁.sqrtMat i₂ j₂)
       else 0
   let A₁ : Matrix (Bool × (d₁ × d₂)) (Bool × (d₁ × d₂)) ℂ :=
     Matrix.of fun (v, i₁, i₂) (v', j₁, j₂) ↦
@@ -643,8 +643,8 @@ theorem prop_2_2_D2_var_isoEquiv {d₁ d₂ : Type u} [Fintype d₁] [DecidableE
           exact h (by rw [hv])
         simp [h2]
       · simp [h1]
-  have hstep2 : CQChannel.IsoEquiv
-      ({ out := fun b ↦
+  have hstep2 : ∀ b : Bool,
+      P * (({ out := fun b ↦
           match b with
           | false =>
             { mat :=
@@ -705,9 +705,8 @@ theorem prop_2_2_D2_var_isoEquiv {d₁ d₂ : Type u} [Fintype d₁] [DecidableE
                        simp only [star_star]; rw [← hmul2]; ring))
                 rw [hMM, Matrix.trace_add, Matrix.trace_smul, Matrix.trace_smul,
                     ((W₁.varCombine W₂).out false).trace_one, ((W₁.varCombine W₂).out true).trace_one]
-                simp [smul_eq_mul]; ring } } : CQChannel (Bool × (Bool × (d₁ × d₂))))
-      (W₁.dual.checkCombine W₂.dual) := by
-    refine ⟨(Bool × d₁) × (Bool × d₂), inferInstance, inferInstance, P, 1, hP_iso, by simp, ?_⟩
+                simp [smul_eq_mul]; ring } } : CQChannel (Bool × (Bool × (d₁ × d₂)))).out b).mat * Pᴴ =
+      ((W₁.dual.checkCombine W₂.dual).out b).mat := by
     have hPM : ∀ b : Bool,
         P * (Matrix.of fun (p : Bool × (Bool × (d₁ × d₂))) (x : Bool × (d₁ × d₂)) ↦
           ((Real.sqrt 2 : ℂ)⁻¹) * (if p.1 = false then A₀ᴴ p.2 x else if b = false then A₁ᴴ p.2 x else -A₁ᴴ p.2 x)) =
@@ -834,7 +833,45 @@ theorem prop_2_2_D2_var_isoEquiv {d₁ d₂ : Type u} [Fintype d₁] [DecidableE
     cases b <;>
       simpa [Matrix.one_mul, Matrix.conjTranspose_one, Matrix.mul_one,
         Matrix.conjTranspose_mul, Matrix.mul_assoc] using hfactor_b
-  exact hstep1.trans hstep2
+  have hP_right : P * Pᴴ = 1 := by
+    ext ⟨⟨a₁, r₁⟩, ⟨c₁, s₁⟩⟩ ⟨⟨a₂, r₂⟩, ⟨c₂, s₂⟩⟩
+    simp only [P, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+      Fintype.sum_prod_type, Matrix.one_apply]
+    rw [Finset.sum_eq_single c₁]
+    · rw [Finset.sum_eq_single (xor a₁ c₁)]
+      · rw [Finset.sum_eq_single r₁]
+        · rw [Finset.sum_eq_single s₁]
+          · have hxor : xor c₁ (xor a₁ c₁) = a₁ := by cases a₁ <;> cases c₁ <;> rfl
+            by_cases h : ((a₁, r₁), (c₁, s₁)) = ((a₂, r₂), (c₂, s₂))
+            · rcases Prod.mk.inj h with ⟨h1, h2⟩
+              rcases Prod.mk.inj h1 with ⟨rfl, rfl⟩
+              rcases Prod.mk.inj h2 with ⟨rfl, rfl⟩
+              simp [hxor]
+            · simp only [h, ↓reduceIte, hxor, and_self, one_mul]
+              have hne : ¬ (a₂ = a₁ ∧ c₂ = c₁ ∧ r₂ = r₁ ∧ s₂ = s₁) := by
+                rintro ⟨rfl, rfl, rfl, rfl⟩; exact h rfl
+              simp [hne]
+          · intro s _ hne; simp [Ne.symm hne]
+          · intro h; exact absurd (Finset.mem_univ s₁) h
+        · intro r _ hne; apply Finset.sum_eq_zero; intro s _; simp [Ne.symm hne]
+        · intro h; exact absurd (Finset.mem_univ r₁) h
+      · intro v _ hne; apply Finset.sum_eq_zero; intro r _; apply Finset.sum_eq_zero; intro s _
+        have hne' : ¬ (a₁ = xor c₁ v) := fun h ↦ hne (by rw [h]; cases c₁ <;> cases v <;> rfl)
+        simp [hne']
+      · intro h; exact absurd (Finset.mem_univ (xor a₁ c₁)) h
+    · intro u _ hne; apply Finset.sum_eq_zero; intro v _; apply Finset.sum_eq_zero; intro r _
+      apply Finset.sum_eq_zero; intro s _; simp [Ne.symm hne]
+    · intro h; exact absurd (Finset.mem_univ c₁) h
+  rcases hstep1 with ⟨γ, hfin, hdec, V₁, V₂, hV₁, hV₂, hmat₁⟩
+  refine ⟨γ, hfin, hdec, V₁, V₂ * Pᴴ, hV₁, ?_, fun b ↦ ?_⟩
+  · calc (V₂ * Pᴴ)ᴴ * (V₂ * Pᴴ) = P * (V₂ᴴ * V₂) * Pᴴ := by
+            simp only [Matrix.conjTranspose_mul, Matrix.conjTranspose_conjTranspose, Matrix.mul_assoc]
+      _ = P * Pᴴ := by rw [hV₂, Matrix.mul_one]
+      _ = 1 := hP_right
+  · rw [hmat₁ b, ← hstep2 b]
+    calc V₂ * _ * V₂ᴴ = V₂ * ((Pᴴ * P) * _ * (Pᴴ * P)) * V₂ᴴ := by rw [hP_iso, Matrix.one_mul, Matrix.mul_one]
+      _ = (V₂ * Pᴴ) * (P * _ * Pᴴ) * (V₂ * Pᴴ)ᴴ := by
+            simp only [Matrix.conjTranspose_mul, Matrix.conjTranspose_conjTranspose, Matrix.mul_assoc]
 
 /-- **Proposition 2.2 (D2, Variable-Node Channel-Level Duality)**:
 `(W₁ ⊛ W₂)⊥ ≃ W₁⊥ ⊠ W₂⊥` as reversible CPTP-equivalent c-q channels. -/
