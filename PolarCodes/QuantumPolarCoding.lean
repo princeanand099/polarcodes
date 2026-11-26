@@ -85,14 +85,15 @@ lemma polarChannelTree_transpose_condEntropy {α : Type u} [Fintype α] [Decidab
         refine ⟨e.prodCongr e, fun z ⟨x₁, x₂⟩ ⟨y₁, y₂⟩ ↦ ?_⟩
         simp only [BundledCQChannel.minus, CQChannel.minusChannel, CQChannel.checkCombine,
           DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, Matrix.add_apply, Matrix.smul_apply,
-          Matrix.kroneckerMap_apply, Equiv.prodCongr_apply, Prod.map_apply]
+          Matrix.kroneckerMap_apply]
+        dsimp only [Equiv.prodCongr, Prod.map]
         rw [he, he, he, he]
       · rw [polarChannelTree_snoc_true, polarChannelTree_snoc_true]
         refine ⟨(Equiv.refl Bool).prodCongr (e.prodCongr e), fun z ⟨w₁, x₁, x₂⟩ ⟨w₂, y₁, y₂⟩ ↦ ?_⟩
         simp only [BundledCQChannel.plus, CQChannel.plusChannel, CQChannel.varCombine,
           DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, CQChannel.ketBraBool,
-          Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Matrix.of_apply,
-          Equiv.prodCongr_apply, Equiv.refl_apply, Prod.map_apply]
+          Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Matrix.of_apply]
+        dsimp only [Equiv.prodCongr, Equiv.refl, Prod.map]
         cases w₁ <;> cases w₂ <;> simp only [↓reduceIte, Bool.true_eq_false, Bool.false_eq_true,
           and_self, and_false, false_and, one_mul, zero_mul, add_zero, zero_add, smul_zero] <;>
           try rw [he, he]
@@ -394,21 +395,8 @@ theorem phaseChannel_dual_channelEquiv {d : Type} [Fintype d] [DecidableEq d]
       rw [Finset.sum_eq_single e]
       · simp only [↓reduceIte, Fintype.sum_bool, A₀, A₁, Matrix.conjTranspose_apply,
           choiFactor, pauliZTensorI, Matrix.diagonal_mul, Matrix.of_apply, star_mul', hstar2]
-        have h3 : ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) +
-            ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) =
-            ((Real.sqrt 2 : ℂ)⁻¹) := by
-          calc ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) +
-                ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)
-              = (((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) +
-                 ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) * ((Real.sqrt 2 : ℂ)⁻¹) := by ring
-            _ = (1 / 2 + 1 / 2) * ((Real.sqrt 2 : ℂ)⁻¹) := by rw [hmul2]
-            _ = ((Real.sqrt 2 : ℂ)⁻¹) := by ring
-        have h3' : ((Real.sqrt 2 : ℂ)⁻¹) ^ 3 * 2 = ((Real.sqrt 2 : ℂ)⁻¹) := by
-          linear_combination h3
-        have h4 : ∀ z : ℂ, ((Real.sqrt 2 : ℂ)⁻¹) ^ 3 * z * 2 = ((Real.sqrt 2 : ℂ)⁻¹) * z :=
-          fun z ↦ by linear_combination z * h3'
         cases b <;> cases u <;> cases a <;> simp <;>
-          (first | exact h4 _ | ring)
+          simp only [pow_succ, pow_one, hmul2] <;> ring
       · intro e' _ hne; apply Finset.sum_eq_zero; intro v _; simp [Ne.symm hne]
       · intro h; exact absurd (Finset.mem_univ e) h
     have hamp_comp : ∀ (a : Bool) (e₁ e₂ : 𝒩.env),
