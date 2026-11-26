@@ -283,7 +283,9 @@ lemma traceDist_pureState_eq {α : Type*} [Fintype α] [DecidableEq α]
     set c : ℂ := ∑ a : α, star (u a) * v a
     by_cases hc : c = 0
     · rw [hc, norm_zero]; exact rootFidelity_nonneg _ _
-    · -- Compute `rootFidelity P₀ P₁` directly via `P₀.mat * P₁.mat * P₀.mat = ‖c‖² • P₀.mat`
+    · -- Even simpler: `traceNorm (P₀.mat * P₁.mat) = ‖c‖` because `‖c‖ * P₀ = ...`
+      -- Actually `re_trace_unitary_mul_le_traceNorm` with `U = 1` gives `‖c‖² ≤ F`, not `‖c‖`!
+      -- Instead, compute `rootFidelity P₀ P₁` directly via `P₀.mat * P₁.mat * P₀.mat = ‖c‖² • P₀.mat`!
       have hprod : P₀.sqrtMat * P₁.mat * P₀.sqrtMat = ((‖c‖ ^ 2 : ℝ) : ℂ) • P₀.mat := by
         rw [hsq0]
         ext i j
@@ -301,7 +303,7 @@ lemma traceDist_pureState_eq {α : Type*} [Fintype α] [DecidableEq α]
                 conv_rhs => rw [Finset.sum_comm]
                 apply Finset.sum_congr rfl; intro k _
                 apply Finset.sum_congr rfl; intro l _; ring
-      -- Eigenvalues of `‖c‖² • P₀.mat`: trace of `√(‖c‖² • P₀)` = `‖c‖ * Tr(√P₀) = ‖c‖ * Tr(P₀) = ‖c‖`
+      -- Eigenvalues of `‖c‖² • P₀.mat`: trace of `√(‖c‖² • P₀)` = `‖c‖ * Tr(√P₀) = ‖c‖ * Tr(P₀) = ‖c‖`!
       unfold rootFidelity
       have hH := posSemidef_sqrt_mul_sqrt P₀ P₁ |>.isHermitian
       have hP0_eigs : ∑ i : α, Real.sqrt (P₀.isHermitian.eigenvalues i) = 1 := by
@@ -376,6 +378,11 @@ theorem exists_uhlmann_unitary {A B : Type*} [Fintype A] [DecidableEq A]
     simp [Mv, partialTrace₂Mat, pureState, Matrix.mul_apply, Matrix.conjTranspose_apply]
   let X : Matrix B B ℂ := Mvᴴ * Mu
   obtain ⟨W, hW⟩ := exists_unitary_trace_eq_traceNorm X
+  -- Set `U := (W : Matrix B B ℂ)ᴴᵀ` (conjugate of `W`), so `U b b' = star ((W : Matrix B B ℂ) b b')`?
+  -- Wait: let's check `((Wᴴ * X).trace)` = `∑ b, ∑ b', (Wᴴ) b b' * X b' b`
+  -- `= ∑ b, ∑ b', star (W b' b) * ∑ a, star (v (a, b')) * u (a, b)`
+  -- `= ∑ a, ∑ b', star (v (a, b')) * ∑ b, star (W b' b) * u (a, b)`!
+  -- So `U b' b := star (W b' b)` = `(Wᴴ)ᵀ b' b`!
   let Umat : Matrix B B ℂ := Matrix.of fun b₁ b₂ ↦ star ((W : Matrix B B ℂ) b₁ b₂)
   have hU_mem : Umat ∈ Matrix.unitaryGroup B ℂ := by
     rw [Matrix.mem_unitaryGroup_iff']
@@ -1820,7 +1827,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
         · rw [Finset.sum_eq_single m₁']
           · rw [Finset.sum_eq_single e₁]
             · rw [Finset.sum_eq_single anc₁]
-              · simp [Prod.mk.injEq, eq_comm]
+              · simp only [Prod.mk.injEq]; congr 1; apply propext; tauto
               · intro anc _ hne; simp [hne]
               · intro h; exact absurd (Finset.mem_univ anc₁) h
             · intro e _ hne; apply Finset.sum_eq_zero; intro anc _; simp [hne]
@@ -1834,11 +1841,11 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
     apply densityOp_eq_of_mat
     ext ⟨m₁, m₁'⟩ ⟨m₂, m₂'⟩
     rw [CPTPMap.apply_pureState]
-    simp only [ptraceEA, maxEntangledState, pureState, Matrix.of_apply, B_tot, Anc, Fintype.sum_prod_type]
+    simp only [ptraceEA, maxEntangledState, pureState, Matrix.of_apply, B_tot, Fintype.sum_prod_type]
     have hs : ∀ (m m' : M) (e : E) (anc : Anc),
-        ∑ p₁ : M, ∑ p₂ : E, ∑ q₁ : M, ∑ q₂ : Y, ∑ q₃ : A, ∑ q₄ : R, ∑ q₅ : E,
-          (if m = p₁ ∧ m' = q₁ ∧ e = p₂ ∧ anc = (q₂, q₃, q₄, q₅) then (1 : ℂ) else 0) *
-          ψ_target ((p₁, p₂), (q₁, (q₂, q₃, q₄, q₅))) =
+        ∑ p₁ : M, ∑ p₂ : E, ∑ q₁ : M, ∑ q₂ : Anc,
+          (if m = p₁ ∧ m' = q₁ ∧ e = p₂ ∧ anc = q₂ then (1 : ℂ) else 0) *
+          ψ_target ((p₁, p₂), (q₁, q₂)) =
         ψ_target ((m, e), (m', anc)) := by
       intro m m' e anc
       have heq : (∑ p : (M × E) × B_tot,
@@ -1851,22 +1858,29 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
           rintro ⟨h1, h2, h3, h4⟩
           exact hne (Prod.ext (Prod.ext h1.symm h3.symm) (Prod.ext h2.symm h4.symm))
         · intro h; exact absurd (Finset.mem_univ _) h
-      simpa [B_tot, Anc, Fintype.sum_prod_type] using heq
-    have hL1 : ∑ e : E, ∑ y : Y, ∑ a : A, ∑ r : R, ∑ e' : E,
-        (∑ p₁ : M, ∑ p₂ : E, ∑ q₁ : M, ∑ q₂ : Y, ∑ q₃ : A, ∑ q₄ : R, ∑ q₅ : E,
-          (if m₁ = p₁ ∧ m₁' = q₁ ∧ e = p₂ ∧ (y, a, r, e') = (q₂, q₃, q₄, q₅) then (1 : ℂ) else 0) *
-          ψ_target ((p₁, p₂), (q₁, (q₂, q₃, q₄, q₅)))) *
-        star (∑ p₁ : M, ∑ p₂ : E, ∑ q₁ : M, ∑ q₂ : Y, ∑ q₃ : A, ∑ q₄ : R, ∑ q₅ : E,
-          (if m₂ = p₁ ∧ m₂' = q₁ ∧ e = p₂ ∧ (y, a, r, e') = (q₂, q₃, q₄, q₅) then (1 : ℂ) else 0) *
-          ψ_target ((p₁, p₂), (q₁, (q₂, q₃, q₄, q₅)))) =
+      simpa [B_tot, Fintype.sum_prod_type] using heq
+    have hL1 : ∑ e : E, ∑ anc : Anc,
+        (∑ p₁ : M, ∑ p₂ : E, ∑ q₁ : M, ∑ q₂ : Anc,
+          (if m₁ = p₁ ∧ m₁' = q₁ ∧ e = p₂ ∧ anc = q₂ then (1 : ℂ) else 0) *
+          ψ_target ((p₁, p₂), (q₁, q₂))) *
+        star (∑ p₁ : M, ∑ p₂ : E, ∑ q₁ : M, ∑ q₂ : Anc,
+          (if m₂ = p₁ ∧ m₂' = q₁ ∧ e = p₂ ∧ anc = q₂ then (1 : ℂ) else 0) *
+          ψ_target ((p₁, p₂), (q₁, q₂))) =
         ∑ e : E, ∑ y : Y, ∑ a : A, ∑ r : R, ∑ e' : E,
           ψ_target ((m₁, e), (m₁', (y, a, r, e'))) * star (ψ_target ((m₂, e), (m₂', (y, a, r, e')))) := by
       apply Finset.sum_congr rfl; intro e _
-      apply Finset.sum_congr rfl; intro y _
-      apply Finset.sum_congr rfl; intro a _
-      apply Finset.sum_congr rfl; intro r _
-      apply Finset.sum_congr rfl; intro e' _
-      rw [hs m₁ m₁' e (y, a, r, e'), hs m₂ m₂' e (y, a, r, e')]
+      have h_anc : ∑ anc : Anc,
+          (∑ p₁ : M, ∑ p₂ : E, ∑ q₁ : M, ∑ q₂ : Anc,
+            (if m₁ = p₁ ∧ m₁' = q₁ ∧ e = p₂ ∧ anc = q₂ then (1 : ℂ) else 0) *
+            ψ_target ((p₁, p₂), (q₁, q₂))) *
+          star (∑ p₁ : M, ∑ p₂ : E, ∑ q₁ : M, ∑ q₂ : Anc,
+            (if m₂ = p₁ ∧ m₂' = q₁ ∧ e = p₂ ∧ anc = q₂ then (1 : ℂ) else 0) *
+            ψ_target ((p₁, p₂), (q₁, q₂))) =
+          ∑ anc : Anc, ψ_target ((m₁, e), (m₁', anc)) * star (ψ_target ((m₂, e), (m₂', anc))) := by
+        apply Finset.sum_congr rfl; intro anc _
+        rw [hs m₁ m₁' e anc, hs m₂ m₂' e anc]
+      rw [h_anc]
+      simp only [Anc, Fintype.sum_prod_type]
     rw [hL1]
     have h1 : ∀ e : E,
         ∑ y : Y, ∑ a : A, ∑ r : R, ∑ e' : E,
@@ -1957,7 +1971,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
                 rw [hx_sum, ← hν_eq]; ring
               · intro a' _ hne; simp [hne]
               · intro h; exact absurd (Finset.mem_univ a₁) h
-            · intro a₂ _ hne; simp [maxEntangledVec, hne]
+            · intro a₂ _ hne; simp [maxEntangledVec, Ne.symm hne]
             · intro h; exact absurd (Finset.mem_univ a₁) h
           simp_rw [ha_coll]
           simp only [ψ_Z_dec, ψ_Z, ψ_ch, Fintype.sum_prod_type]
@@ -2019,11 +2033,27 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
       change ∑ x : Anc × ((E × Unit) × Unit),
         (∑ p : M × ((M × A) × A), (CPTPMap.tensorIdLeft M fullBob).isom ((m₁, m₁'), x) p * initVec p) *
         star (∑ p : M × ((M × A) × A), (CPTPMap.tensorIdLeft M fullBob).isom ((m₂, m₂'), x) p * initVec p) = _
-      simp only [Fintype.sum_prod_type, Fintype.sum_unique]
-      rw [Finset.sum_comm]
-      apply Finset.sum_congr rfl; intro e _
-      apply Finset.sum_congr rfl; intro anc _
-      rw [hamp_eq m₁ m₁' anc e, hamp_eq m₂ m₂' anc e]
+      rw [Fintype.sum_prod_type]
+      have hunit : ∀ anc : Anc,
+          ∑ u : (E × Unit) × Unit,
+            (∑ p : M × ((M × A) × A),
+              (CPTPMap.tensorIdLeft M fullBob).isom ((m₁, m₁'), (anc, u)) p * initVec p) *
+            star (∑ p : M × ((M × A) × A),
+              (CPTPMap.tensorIdLeft M fullBob).isom ((m₂, m₂'), (anc, u)) p * initVec p) =
+          ∑ e : E, ψ_Z_dec ((m₁, e), (m₁', anc)) * star (ψ_Z_dec ((m₂, e), (m₂', anc))) := by
+        intro anc
+        rw [Fintype.sum_prod_type]
+        simp_rw [Fintype.sum_unique]
+        rw [Fintype.sum_prod_type]
+        apply Finset.sum_congr rfl; intro e _
+        rw [Fintype.sum_unique]
+        change (∑ p : M × ((M × A) × A),
+            (CPTPMap.tensorIdLeft M fullBob).isom ((m₁, m₁'), (anc, ((e, ()), ()))) p * initVec p) *
+          star (∑ p : M × ((M × A) × A),
+            (CPTPMap.tensorIdLeft M fullBob).isom ((m₂, m₂'), (anc, ((e, ()), ()))) p * initVec p) = _
+        rw [hamp_eq m₁ m₁' anc e, hamp_eq m₂ m₂' anc e]
+      simp_rw [hunit]
+      exact Finset.sum_comm
     rw [hL, hR]
   refine ⟨v, 𝒟, ?_⟩
   unfold quantumEntanglementError
