@@ -242,8 +242,8 @@ private lemma relEntropy_eq_trace_log {α : Type*} [Fintype α] [DecidableEq α]
         simp only [L_B, W, dB, star_mul, star_star, Matrix.mul_assoc]
       rw [h2]
     rw [htr, Matrix.trace]
-    simp only [Complex.re_sum, Matrix.mul_apply, Matrix.diagonal_apply, ite_mul, zero_mul,
-      Finset.sum_ite_eq, Finset.mem_univ, ↓reduceIte, Function.comp_apply]
+    simp only [Complex.re_sum, Matrix.diag_apply, Matrix.mul_apply, Matrix.diagonal_apply,
+      ite_mul, zero_mul, Finset.sum_ite_eq, Finset.mem_univ, ↓reduceIte, Function.comp_apply]
     apply Finset.sum_congr rfl; intro i _
     simp only [Matrix.mul_apply, Matrix.diagonal_apply, mul_ite, mul_zero, Finset.sum_ite_eq',
       Finset.mem_univ, ↓reduceIte, Finset.mul_sum, Complex.re_sum]
@@ -525,7 +525,7 @@ theorem lemma_3_2_hockeyStick_measure_equalSupport {d : Type*} [Fintype d] [Deci
         simp only [Matrix.mul_apply, Matrix.diagonal_apply, mul_ite, mul_one, mul_zero,
           Finset.sum_ite_eq, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte, Matrix.star_apply,
           ite_mul, zero_mul]
-      rw [hL, hR, ← Finset.sum_filter]
+      rw [hL, hR, ← Finset.sum_filter, Finset.filter_mem_eq_inter, Finset.univ_inter]
       exact Finset.sum_coe_sort S_pos (fun i ↦ U r i * star (U s i))
     have hPτ : (V * Vᴴ) * τ.mat = τ.mat := by
       rw [hVV]
@@ -605,7 +605,14 @@ theorem lemma_3_2_hockeyStick_measure_equalSupport {d : Type*} [Fintype d] [Deci
         _ = Matrix.diagonal (fun k : d' ↦ (ρ.eigvals k.1 : ℂ)) := by
               rw [hVU, hUV]
               ext j k
-              simp [Matrix.mul_apply, Matrix.diagonal_apply, Subtype.ext_iff]
+              simp only [Matrix.mul_apply, Matrix.diagonal_apply, Matrix.of_apply,
+                ite_mul, one_mul, zero_mul, mul_ite, mul_one, mul_zero,
+                Finset.sum_ite_eq, Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte,
+                Function.comp_apply]
+              by_cases hjk : j = k
+              · subst hjk; simp
+              · have hne : j.1 ≠ k.1 := fun h ↦ hjk (Subtype.ext h)
+                simp [hjk, hne]
     rw [hρ'_diag]
     have hsum : star x ⬝ᵥ (Matrix.diagonal (fun k : d' ↦ (ρ.eigvals k.1 : ℂ)) *ᵥ x) =
         ((∑ k : d', ρ.eigvals k.1 * ‖x k‖ ^ 2 : ℝ) : ℂ) := by
@@ -686,16 +693,21 @@ theorem lemma_3_2_hockeyStick_measure_equalSupport {d : Type*} [Fintype d] [Deci
       simp only [Complex.re_sum, f] at hre
       unfold vonNeumannEntropy
       rw [div_left_inj' (ne_of_gt (Real.log_pos (by norm_num : (1 : ℝ) < 2)))]
-      have hconv : ∀ {β : Type*} [Fintype β] (X : DensityOp β),
-          ∑ i : β, (if X.eigvals i = 0 then (0 : ℂ) else ↑(X.eigvals i * Real.logb 2 (X.eigvals i))).re =
-            -(∑ i : β, Real.negMulLog (X.eigvals i)) / Real.log 2 := by
-        intro β _ X
-        rw [← neg_div, ← Finset.sum_neg_distrib, Finset.sum_div]
+      have hconvA : ∑ i : d, (if A.eigvals i = 0 then (0 : ℂ) else ↑(A.eigvals i * Real.logb 2 (A.eigvals i))).re =
+          (-∑ i : d, Real.negMulLog (A.eigvals i)) / Real.log 2 := by
+        rw [← Finset.sum_neg_distrib, Finset.sum_div]
         apply Finset.sum_congr rfl; intro i _
         split_ifs with hi
         · simp [hi, Real.negMulLog]
-        · simp [Real.negMulLog, Real.logb]; ring
-      rw [hconv A, hconv A'] at hre
+        · rw [Complex.ofReal_re]; simp only [Real.negMulLog, Real.logb]; ring
+      have hconvA' : ∑ i : d', (if A'.eigvals i = 0 then (0 : ℂ) else ↑(A'.eigvals i * Real.logb 2 (A'.eigvals i))).re =
+          (-∑ i : d', Real.negMulLog (A'.eigvals i)) / Real.log 2 := by
+        rw [← Finset.sum_neg_distrib, Finset.sum_div]
+        apply Finset.sum_congr rfl; intro i _
+        split_ifs with hi
+        · simp [hi, Real.negMulLog]
+        · rw [Complex.ofReal_re]; simp only [Real.negMulLog, Real.logb]; ring
+      rw [hconvA, hconvA'] at hre
       have hlog : Real.log 2 ≠ 0 := ne_of_gt (Real.log_pos (by norm_num))
       have := (div_left_inj' hlog).mp hre
       linarith
@@ -744,7 +756,7 @@ theorem lemma_3_2_hockeyStick_measure_equalSupport {d : Type*} [Fintype d] [Deci
             rw [hAi, Matrix.mulVec_zero]
           have hrew : star (A.eigUnitary : Matrix d d ℂ) *ᵥ (A.mat *ᵥ v) =
               Matrix.diagonal (Complex.ofReal ∘ A.eigvals) *ᵥ (star (A.eigUnitary : Matrix d d ℂ) *ᵥ v) := by
-            rw [density_spectral_eq A, Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec]
+            rw [density_spectral_eq A, Matrix.mulVec_mulVec, Matrix.mulVec_mulVec]
             congr 1
             rw [← Matrix.mul_assoc (star (A.eigUnitary : Matrix d d ℂ)),
               ← Matrix.mul_assoc (star (A.eigUnitary : Matrix d d ℂ)),
@@ -1136,7 +1148,7 @@ lemma suppSubset_dephaseState_half (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1)
     have hrew : star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *ᵥ (A.mat *ᵥ v) =
         Matrix.diagonal (Complex.ofReal ∘ A.eigvals) *ᵥ
           (star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ) *ᵥ v) := by
-      rw [density_spectral_eq A, Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec]
+      rw [density_spectral_eq A, Matrix.mulVec_mulVec, Matrix.mulVec_mulVec]
       congr 1
       rw [← Matrix.mul_assoc (star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ)),
         ← Matrix.mul_assoc (star (A.eigUnitary : Matrix (Bool × d) (Bool × d) ℂ)),
@@ -1245,9 +1257,9 @@ theorem relEntropy_dephaseState_eq (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1)
       _ = L_M := by rw [hZZ, Matrix.mul_one]
   have htr_ZA : ((Z * A.mat * Z) * L_M).trace = (A.mat * L_M).trace := by
     calc ((Z * A.mat * Z) * L_M).trace
-        = (A.mat * (Z * L_M * Z)).trace := by
-            rw [Matrix.trace_mul_cycle Z (A.mat * Z) L_M]
-            simp [Matrix.mul_assoc]
+        = (Z * (A.mat * Z * L_M)).trace := by simp [Matrix.mul_assoc]
+      _ = ((A.mat * Z * L_M) * Z).trace := Matrix.trace_mul_comm _ _
+      _ = (A.mat * (Z * L_M * Z)).trace := by simp [Matrix.mul_assoc]
       _ = (A.mat * L_M).trace := by rw [hZLZ]
   have htr_eq : (A.mat * L_M).trace = (M.mat * L_M).trace := by
     have h1 : (M.mat * L_M).trace =

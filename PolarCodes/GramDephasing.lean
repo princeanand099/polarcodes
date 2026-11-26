@@ -15,10 +15,11 @@ This module formalizes:
 - Pure-state density operators `pureState φ = |φ⟩⟨φ|`
 - **Lemma 4.1 (Gram-Matrix Dephasing Reduction)**:
   `Ψ₁ := ½ [[ρ₀, √ρ₀√ρ₁], [√ρ₁√ρ₀, ρ₁]] ∈ D(ℂ² ⊗ H₁)` satisfies:
-  1. `S(½ (ρ₀ ⊗ |φ₀⟩⟨φ₀| + ρ₁ ⊗ |φ₁⟩⟨φ₁|)) = S((Z_p ⊗ id)(Ψ₁))` for `p = (1 - |⟨φ₀|φ₁⟩|) / 2`,
+  1. `S(½ (ρ₀ ⊗ |φ₀⟩⟨φ₀| + ρ₁ ⊗ |φ₁⟩⟨φ₁|)) = S((Z_p ⊗ id)(Ψ₁))` for `p = (1 - |⟨φ₀|φ₁⟩|) / 2 ∈ [0, 1/2]`,
   2. `S(Ψ₁) = S((ρ₀ + ρ₁) / 2)`,
   3. `S((Z_{1/2} ⊗ id)(Ψ₁)) = 1 + ½ (S(ρ₀) + S(ρ₁))`,
-  4. `C(0) = H(W₁)`.
+  4. `C(0) = H(W₁)`,
+  5. Characteristic-polynomial coincidence (matching nonzero eigenvalues with multiplicities).
 -/
 
 open Matrix BigOperators Real
@@ -179,6 +180,32 @@ noncomputable def gramState (ρ₀ ρ₁ : DensityOp d) : DensityOp (Bool × d) 
       push_cast; ring
     rw [hprod, (DensityOp.midpoint ρ₀ ρ₁).trace_one]
 
+lemma gram_overlap_le_one (φ₀ φ₁ : d₂ → ℂ)
+    (hφ₀ : ∑ k : d₂, ‖φ₀ k‖ ^ 2 = 1) (hφ₁ : ∑ k : d₂, ‖φ₁ k‖ ^ 2 = 1) :
+    ‖∑ k : d₂, star (φ₀ k) * φ₁ k‖ ≤ 1 := by
+  have h1 : ‖∑ k : d₂, star (φ₀ k) * φ₁ k‖ ≤ ∑ k : d₂, ‖φ₀ k‖ * ‖φ₁ k‖ := by
+    calc ‖∑ k : d₂, star (φ₀ k) * φ₁ k‖
+        ≤ ∑ k : d₂, ‖star (φ₀ k) * φ₁ k‖ := norm_sum_le _ _
+      _ = ∑ k : d₂, ‖φ₀ k‖ * ‖φ₁ k‖ := by simp [norm_mul]
+  have h2 : ∑ k : d₂, ‖φ₀ k‖ * ‖φ₁ k‖ ≤
+      Real.sqrt (∑ k : d₂, ‖φ₀ k‖ ^ 2) * Real.sqrt (∑ k : d₂, ‖φ₁ k‖ ^ 2) :=
+    Real.sum_mul_le_sqrt_mul_sqrt Finset.univ (fun k ↦ ‖φ₀ k‖) (fun k ↦ ‖φ₁ k‖)
+  rw [hφ₀, hφ₁, Real.sqrt_one, mul_one] at h2
+  exact le_trans h1 h2
+
+lemma gram_dephase_nonneg (φ₀ φ₁ : d₂ → ℂ)
+    (hφ₀ : ∑ k : d₂, ‖φ₀ k‖ ^ 2 = 1) (hφ₁ : ∑ k : d₂, ‖φ₁ k‖ ^ 2 = 1) :
+    0 ≤ (1 - ‖∑ k : d₂, star (φ₀ k) * φ₁ k‖) / 2 := by
+  linarith [gram_overlap_le_one φ₀ φ₁ hφ₀ hφ₁]
+
+lemma gram_dephase_le_half (φ₀ φ₁ : d₂ → ℂ) :
+    (1 - ‖∑ k : d₂, star (φ₀ k) * φ₁ k‖) / 2 ≤ 1 / 2 := by
+  linarith [norm_nonneg (∑ k : d₂, star (φ₀ k) * φ₁ k)]
+
+lemma gram_dephase_le_one (φ₀ φ₁ : d₂ → ℂ) :
+    (1 - ‖∑ k : d₂, star (φ₀ k) * φ₁ k‖) / 2 ≤ 1 := by
+  linarith [gram_dephase_le_half φ₀ φ₁]
+
 /-- **Lemma 4.1 (Gram-Matrix Dephasing Reduction)**:
 Let `ρ₀, ρ₁ ∈ D(H₁)` and let `φ₀, φ₁ ∈ H₂` be unit vectors with overlap
 `f₂ := ‖⟨φ₀|φ₁⟩‖ ∈ [0, 1]`. Setting `p := (1 - f₂) / 2 ∈ [0, 1/2]`:
@@ -186,28 +213,18 @@ Let `ρ₀, ρ₁ ∈ D(H₁)` and let `φ₀, φ₁ ∈ H₂` be unit vectors w
 2. `S(Ψ₁) = S((ρ₀ + ρ₁) / 2)`,
 3. `S((Z_{1/2} ⊗ id)(Ψ₁)) = 1 + ½ (S(ρ₀) + S(ρ₁))`,
 4. `C(0) = 1 - QJS(ρ₀, ρ₁)`,
-5. Characteristic-polynomial (nonzero-eigenvalue) coincidence. -/
+5. The nonzero eigenvalues (with multiplicities) of `½ (ρ₀ ⊗ |φ₀⟩⟨φ₀| + ρ₁ ⊗ |φ₁⟩⟨φ₁|)`
+   and `(Z_p ⊗ id)(Ψ₁)` coincide (via characteristic polynomial equality),
+6. `p ≤ 1 / 2`. -/
 theorem lemma_4_1_gram_dephasing
     (ρ₀ ρ₁ : DensityOp d₁) (φ₀ φ₁ : d₂ → ℂ)
     (hφ₀ : ∑ k : d₂, ‖φ₀ k‖ ^ 2 = 1) (hφ₁ : ∑ k : d₂, ‖φ₁ k‖ ^ 2 = 1) :
-    let f₂ : ℝ := ‖∑ k : d₂, star (φ₀ k) * φ₁ k‖
-    have hf₂_le : f₂ ≤ 1 := by
-      have h1 : ‖∑ k : d₂, star (φ₀ k) * φ₁ k‖ ≤ ∑ k : d₂, ‖φ₀ k‖ * ‖φ₁ k‖ := by
-        calc ‖∑ k : d₂, star (φ₀ k) * φ₁ k‖
-            ≤ ∑ k : d₂, ‖star (φ₀ k) * φ₁ k‖ := norm_sum_le _ _
-          _ = ∑ k : d₂, ‖φ₀ k‖ * ‖φ₁ k‖ := by simp [norm_mul]
-      have h2 : ∑ k : d₂, ‖φ₀ k‖ * ‖φ₁ k‖ ≤
-          Real.sqrt (∑ k : d₂, ‖φ₀ k‖ ^ 2) * Real.sqrt (∑ k : d₂, ‖φ₁ k‖ ^ 2) :=
-        Real.sum_mul_le_sqrt_mul_sqrt Finset.univ (fun k ↦ ‖φ₀ k‖) (fun k ↦ ‖φ₁ k‖)
-      rw [hφ₀, hφ₁, Real.sqrt_one, mul_one] at h2
-      exact le_trans h1 h2
-    let p : ℝ := (1 - f₂) / 2
-    have hp0 : 0 ≤ p := by simp only [p]; linarith
-    have hp1 : p ≤ 1 / 2 := by simp only [p]; linarith [norm_nonneg (∑ k : d₂, star (φ₀ k) * φ₁ k)]
+    let p : ℝ := (1 - ‖∑ k : d₂, star (φ₀ k) * φ₁ k‖) / 2
     vonNeumannEntropy (DensityOp.midpoint
         (DensityOp.tensor ρ₀ (pureState φ₀ hφ₀))
         (DensityOp.tensor ρ₁ (pureState φ₁ hφ₁))) =
-      vonNeumannEntropy (dephaseState p hp0 (le_trans hp1 (half_le_self zero_le_one)) (gramState ρ₀ ρ₁)) ∧
+      vonNeumannEntropy (dephaseState p (gram_dephase_nonneg φ₀ φ₁ hφ₀ hφ₁)
+        (gram_dephase_le_one φ₀ φ₁) (gramState ρ₀ ρ₁)) ∧
     vonNeumannEntropy (gramState ρ₀ ρ₁) = vonNeumannEntropy (DensityOp.midpoint ρ₀ ρ₁) ∧
     vonNeumannEntropy (dephaseState (1 / 2) (by norm_num) (by norm_num) (gramState ρ₀ ρ₁)) =
       1 + (vonNeumannEntropy ρ₀ + vonNeumannEntropy ρ₁) / 2 ∧
@@ -216,15 +233,19 @@ theorem lemma_4_1_gram_dephasing
         (DensityOp.tensor ρ₀ (pureState φ₀ hφ₀))
         (DensityOp.tensor ρ₁ (pureState φ₁ hφ₁))).mat.charpoly *
       Polynomial.X ^ Fintype.card (Bool × d₁) =
-      (dephaseState p hp0 (le_trans hp1 (half_le_self zero_le_one)) (gramState ρ₀ ρ₁)).mat.charpoly *
-        Polynomial.X ^ Fintype.card (d₁ × d₂) := by
-  intro f₂ hf₂_le p hp0 hp1
+      (dephaseState p (gram_dephase_nonneg φ₀ φ₁ hφ₀ hφ₁)
+        (gram_dephase_le_one φ₀ φ₁) (gramState ρ₀ ρ₁)).mat.charpoly *
+        Polynomial.X ^ Fintype.card (d₁ × d₂) ∧
+    p ≤ 1 / 2 := by
+  intro p
+  set f₂ : ℝ := ‖∑ k : d₂, star (φ₀ k) * φ₁ k‖
   have hsq2 : star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) = (1 / 2 : ℂ) := by
     rw [← Complex.ofReal_inv, Complex.star_def, Complex.conj_ofReal, ← Complex.ofReal_mul,
       ← mul_inv, Real.mul_self_sqrt (by norm_num : (0 : ℝ) ≤ 2)]
     push_cast; ring
   have hsq2' : ((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹) = (1 / 2 : ℂ) := by
     rw [mul_comm, hsq2]
+  -- Part 2: `S(Ψ₁) = S(midpoint ρ₀ ρ₁)` via `spectral_sum_mul_conjTranspose (gramFactor ρ₀ ρ₁)`
   have hpart2 : vonNeumannEntropy (gramState ρ₀ ρ₁) =
       vonNeumannEntropy (DensityOp.midpoint ρ₀ ρ₁) := by
     unfold vonNeumannEntropy DensityOp.eigvals
@@ -260,6 +281,7 @@ theorem lemma_4_1_gram_dephasing
     rw [hAA] at hcp
     exact spectral_sum_eq_of_charpoly_mul_X_pow (gramState ρ₀ ρ₁).isHermitian
       (DensityOp.midpoint ρ₀ ρ₁).isHermitian hcp (by simp [Real.negMulLog])
+  -- Part 3: `(Z_{1/2} ⊗ id)(Ψ₁) = ½ |0⟩⟨0| ⊗ ρ₀ + ½ |1⟩⟨1| ⊗ ρ₁`
   have hpart3 : vonNeumannEntropy (dephaseState (1 / 2) (by norm_num) (by norm_num) (gramState ρ₀ ρ₁)) =
       1 + (vonNeumannEntropy ρ₀ + vonNeumannEntropy ρ₁) / 2 := by
     have hmat : (dephaseState (1 / 2) (by norm_num) (by norm_num) (gramState ρ₀ ρ₁)).mat =
@@ -307,10 +329,12 @@ theorem lemma_4_1_gram_dephasing
             _ = (1 / 2 : ℂ) * (ρ₁.sqrtMat i k * star (ρ₁.sqrtMat j k)) := by rw [hsq2']
         rw [hrew, h1]; push_cast; ring
     rw [vonNeumannEntropy_eq_of_mat_eq hmat, vonNeumannEntropy_block_midpoint]
+  -- Part 4: `C(0) = 1 - QJS(ρ₀, ρ₁)`
   have hpart4 : dephaseCoherence 0 le_rfl (by norm_num) (gramState ρ₀ ρ₁) = 1 - qjs ρ₀ ρ₁ := by
     unfold dephaseCoherence qjs
     rw [vonNeumannEntropy_eq_of_mat_eq (dephaseState_zero (gramState ρ₀ ρ₁)), hpart2, hpart3]
     ring
+  -- Part 1: Adjust global phase of `φ₁` so `⟨φ₀|ψ₁⟩ = f₂ ≥ 0`, build `A : (Bool × d₁) × (d₁ × d₂)`
   set z : ℂ := ∑ k : d₂, star (φ₀ k) * φ₁ k
   obtain ⟨u, hu_norm, hu_eq⟩ : ∃ u : ℂ, ‖u‖ = 1 ∧ u * z = (f₂ : ℂ) := by
     by_cases hz : z = 0
@@ -352,16 +376,18 @@ theorem lemma_4_1_gram_dephasing
     have h : ∀ k : d₂, star (ψ₁ k) * ψ₁ k = ((‖ψ₁ k‖ ^ 2 : ℝ) : ℂ) := by
       intro k; rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
     simp_rw [h, ← Complex.ofReal_sum, hψ₁_norm, Complex.ofReal_one]
+  -- Define `A : Matrix (Bool × d₁) (d₁ × d₂) ℂ`
   let A : Matrix (Bool × d₁) (d₁ × d₂) ℂ := Matrix.of fun p q ↦
     ((Real.sqrt 2)⁻¹ : ℂ) *
       if p.1 = false then ρ₀.sqrtMat p.2 q.1 * star (φ₀ q.2)
       else ρ₁.sqrtMat p.2 q.1 * star (ψ₁ q.2)
-  have hAAH : A * Aᴴ = (dephaseState p hp0 (le_trans hp1 (half_le_self zero_le_one)) (gramState ρ₀ ρ₁)).mat := by
+  have hAAH : A * Aᴴ = (dephaseState p (gram_dephase_nonneg φ₀ φ₁ hφ₀ hφ₁)
+      (gram_dephase_le_one φ₀ φ₁) (gramState ρ₀ ρ₁)).mat := by
     ext ⟨b₁, i⟩ ⟨b₂, j⟩
     rw [dephaseState_apply]
     simp only [A, gramState, gramFactor, Matrix.mul_apply, Matrix.conjTranspose_apply,
       Matrix.of_apply, Fintype.sum_prod_type]
-    have h1m2p : ((1 - 2 * p : ℝ) : ℂ) = (f₂ : ℂ) := by simp only [p]; push_cast; ring
+    have h1m2p : ((1 - 2 * p : ℝ) : ℂ) = (f₂ : ℂ) := by simp only [p, f₂]; push_cast; ring
     cases b₁ <;> cases b₂
     · simp only [↓reduceIte, one_mul]
       calc ∑ x : d₁, ∑ y : d₂,
@@ -450,7 +476,8 @@ theorem lemma_4_1_gram_dephasing
         (DensityOp.tensor ρ₀ (pureState φ₀ hφ₀))
         (DensityOp.tensor ρ₁ (pureState φ₁ hφ₁))).mat.charpoly *
       Polynomial.X ^ Fintype.card (Bool × d₁) =
-      (dephaseState p hp0 (le_trans hp1 (half_le_self zero_le_one)) (gramState ρ₀ ρ₁)).mat.charpoly *
+      (dephaseState p (gram_dephase_nonneg φ₀ φ₁ hφ₀ hφ₁)
+        (gram_dephase_le_one φ₀ φ₁) (gramState ρ₀ ρ₁)).mat.charpoly *
         Polynomial.X ^ Fintype.card (d₁ × d₂) := by
     have h := (charpoly_mul_conjTranspose_eq A).symm
     rw [hAAH, hAHA] at h
@@ -458,13 +485,15 @@ theorem lemma_4_1_gram_dephasing
   have hpart1 : vonNeumannEntropy (DensityOp.midpoint
         (DensityOp.tensor ρ₀ (pureState φ₀ hφ₀))
         (DensityOp.tensor ρ₁ (pureState φ₁ hφ₁))) =
-      vonNeumannEntropy (dephaseState p hp0 (le_trans hp1 (half_le_self zero_le_one)) (gramState ρ₀ ρ₁)) := by
+      vonNeumannEntropy (dephaseState p (gram_dephase_nonneg φ₀ φ₁ hφ₀ hφ₁)
+        (gram_dephase_le_one φ₀ φ₁) (gramState ρ₀ ρ₁)) := by
     unfold vonNeumannEntropy DensityOp.eigvals
     congr 1
     exact spectral_sum_eq_of_charpoly_mul_X_pow
       (DensityOp.midpoint (DensityOp.tensor ρ₀ (pureState φ₀ hφ₀))
         (DensityOp.tensor ρ₁ (pureState φ₁ hφ₁))).isHermitian
-      (dephaseState p hp0 (le_trans hp1 (half_le_self zero_le_one)) (gramState ρ₀ ρ₁)).isHermitian hcp (by simp [Real.negMulLog])
-  exact ⟨hpart1, hpart2, hpart3, hpart4, hcp⟩
+      (dephaseState p (gram_dephase_nonneg φ₀ φ₁ hφ₀ hφ₁)
+        (gram_dephase_le_one φ₀ φ₁) (gramState ρ₀ ρ₁)).isHermitian hcp (by simp [Real.negMulLog])
+  exact ⟨hpart1, hpart2, hpart3, hpart4, hcp, gram_dephase_le_half φ₀ φ₁⟩
 
 end PolarCodes
