@@ -398,10 +398,10 @@ theorem phaseChannel_dual_channelEquiv {d : Type} [Fintype d] [DecidableEq d]
       · simp only [↓reduceIte, Fintype.sum_bool, A₀, A₁, Matrix.conjTranspose_apply,
           choiFactor, pauliZTensorI, Matrix.diagonal_mul, Matrix.of_apply, star_mul', hstar2]
         cases b <;> cases u <;> cases a <;>
-          simp only [↓reduceIte, Bool.xor_false, Bool.xor_true, Bool.true_eq_false,
-            Bool.false_eq_true, and_self, and_false, false_and, one_mul, mul_one,
-            neg_mul, mul_neg, neg_neg, mul_zero, zero_mul, add_zero, zero_add,
-            star_one, star_neg, ← mul_assoc, hmul2] <;>
+          simp only [↓reduceIte, Bool.xor_false, Bool.xor_true, Bool.not_false, Bool.not_true,
+            Bool.true_eq_false, Bool.false_eq_true, and_self, and_false, false_and,
+            one_mul, mul_one, neg_mul, mul_neg, neg_neg, mul_zero, zero_mul,
+            add_zero, zero_add, star_one, star_neg, ← mul_assoc, hmul2] <;>
           ring
       · intro e' _ hne; apply Finset.sum_eq_zero; intro v _; simp [Ne.symm hne]
       · intro h; exact absurd (Finset.mem_univ e) h
