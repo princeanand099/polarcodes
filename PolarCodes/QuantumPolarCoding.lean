@@ -83,17 +83,19 @@ lemma polarChannelTree_transpose_condEntropy {α : Type u} [Fintype α] [Decidab
       cases b (Fin.last n)
       · rw [polarChannelTree_snoc_false, polarChannelTree_snoc_false]
         refine ⟨e.prodCongr e, fun z ⟨x₁, x₂⟩ ⟨y₁, y₂⟩ ↦ ?_⟩
-        simp only [BundledCQChannel.minus, CQChannel.minusChannel, CQChannel.checkCombine,
+        change ((polarChannelTree W.transpose n (Fin.init b)).ch.minusChannel.out z).mat (x₁, x₂) (y₁, y₂) =
+          ((polarChannelTree W n (Fin.init b)).ch.minusChannel.out z).mat (e y₁, e y₂) (e x₁, e x₂)
+        simp only [CQChannel.minusChannel, CQChannel.checkCombine,
           DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, Matrix.add_apply, Matrix.smul_apply,
           Matrix.kroneckerMap_apply]
-        dsimp only [Equiv.prodCongr, Prod.map]
         rw [he, he, he, he]
       · rw [polarChannelTree_snoc_true, polarChannelTree_snoc_true]
         refine ⟨(Equiv.refl Bool).prodCongr (e.prodCongr e), fun z ⟨w₁, x₁, x₂⟩ ⟨w₂, y₁, y₂⟩ ↦ ?_⟩
-        simp only [BundledCQChannel.plus, CQChannel.plusChannel, CQChannel.varCombine,
+        change ((polarChannelTree W.transpose n (Fin.init b)).ch.plusChannel.out z).mat (w₁, x₁, x₂) (w₂, y₁, y₂) =
+          ((polarChannelTree W n (Fin.init b)).ch.plusChannel.out z).mat (w₂, e y₁, e y₂) (w₁, e x₁, e x₂)
+        simp only [CQChannel.plusChannel, CQChannel.varCombine,
           DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, CQChannel.ketBraBool,
           Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Matrix.of_apply]
-        dsimp only [Equiv.prodCongr, Equiv.refl, Prod.map]
         cases w₁ <;> cases w₂ <;> simp only [↓reduceIte, Bool.true_eq_false, Bool.false_eq_true,
           and_self, and_false, false_and, one_mul, zero_mul, add_zero, zero_add, smul_zero] <;>
           try rw [he, he]
@@ -395,8 +397,12 @@ theorem phaseChannel_dual_channelEquiv {d : Type} [Fintype d] [DecidableEq d]
       rw [Finset.sum_eq_single e]
       · simp only [↓reduceIte, Fintype.sum_bool, A₀, A₁, Matrix.conjTranspose_apply,
           choiFactor, pauliZTensorI, Matrix.diagonal_mul, Matrix.of_apply, star_mul', hstar2]
-        cases b <;> cases u <;> cases a <;> simp <;>
-          simp only [pow_succ, pow_one, hmul2] <;> ring
+        cases b <;> cases u <;> cases a <;>
+          simp only [↓reduceIte, Bool.xor_false, Bool.xor_true, Bool.true_eq_false,
+            Bool.false_eq_true, and_self, and_false, false_and, one_mul, mul_one,
+            neg_mul, mul_neg, neg_neg, mul_zero, zero_mul, add_zero, zero_add,
+            star_one, star_neg, ← mul_assoc, hmul2] <;>
+          ring
       · intro e' _ hne; apply Finset.sum_eq_zero; intro v _; simp [Ne.symm hne]
       · intro h; exact absurd (Finset.mem_univ e) h
     have hamp_comp : ∀ (a : Bool) (e₁ e₂ : 𝒩.env),
