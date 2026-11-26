@@ -497,8 +497,7 @@ lemma qscPrefixKraus_sum_one (W : CQChannel d) (n : ℕ)
   | succ k ih =>
     set ik : Fin (2 ^ n) := ⟨k, by omega⟩
     by_cases hik : ik ∈ infoSet
-    · -- Split `{i ∈ infoSet | i < k + 1} → Bool` into `Bool × ({i ∈ infoSet | i < k} → Bool)`
-      let e : ({i : Fin (2 ^ n) // i ∈ infoSet ∧ i.val < k + 1} → Bool) ≃
+    · let e : ({i : Fin (2 ^ n) // i ∈ infoSet ∧ i.val < k + 1} → Bool) ≃
           Bool × ({i : Fin (2 ^ n) // i ∈ infoSet ∧ i.val < k} → Bool) :=
         { toFun := fun m ↦ (m ⟨ik, hik, Nat.lt_succ_self k⟩, fun ⟨i, hi, hlt⟩ ↦ m ⟨i, hi, by omega⟩)
           invFun := fun ⟨b, m'⟩ ⟨i, hi, hlt⟩ ↦
@@ -568,8 +567,7 @@ lemma qscPrefixKraus_sum_one (W : CQChannel d) (n : ℕ)
           _ = Kᴴ * K := by rw [qscStepProj_sum_bool, Matrix.mul_one]
       simp_rw [hinner]
       exact ih (by omega)
-    · -- `ik ∉ infoSet`: domains are equivalent and step `k` multiplies by `1`
-      let e : ({i : Fin (2 ^ n) // i ∈ infoSet ∧ i.val < k + 1} → Bool) ≃
+    · let e : ({i : Fin (2 ^ n) // i ∈ infoSet ∧ i.val < k + 1} → Bool) ≃
           ({i : Fin (2 ^ n) // i ∈ infoSet ∧ i.val < k} → Bool) :=
         { toFun := fun m ⟨i, hi, hlt⟩ ↦ m ⟨i, hi, by omega⟩
           invFun := fun m' ⟨i, hi, hlt⟩ ↦
@@ -703,16 +701,14 @@ private lemma avg_sqrt_le_sqrt_avg {ι : Type*} (s : Finset ι) (hs : s.Nonempty
       _ = (s.card : ℝ)⁻¹ * ∑ x ∈ s, f x := by field_simp
   exact Real.le_sqrt_of_sq_le hsq
 
-/-- **Wilde–Guha QSC Error Bound** ([12, Proposition 4]):
-for any binary-input c-q channel `W`, depth `n`, and information set `infoSet`, averaging the QSC
-block-error probability over uniform frozen vectors `u_{𝒜^c}` yields a deterministic frozen vector
-`frozen` such that `qscPolarCode W n infoSet frozen` satisfies
-`P_e(N, R) ≤ 2 √(∑_{i ∈ infoSet} (1 / 2) * Z(W_n^{(i)}))`. -/
-theorem wilde_guha_qsc_bound (W : CQChannel d) (n : ℕ) (infoSet : Finset (Fin (2 ^ n))) :
-    ∃ frozen : Fin (2 ^ n) → Bool,
-      (qscPolarCode W n infoSet frozen).avgBlockError ≤
-        2 * Real.sqrt (∑ i ∈ infoSet, (1 / 2 : ℝ) * (synthChannel W n i).fidelityParam) := by
-  -- Step 1: Uniform average over all `u : Fin (2^n) → Bool`
+/-- **Wilde–Guha QSC Average Block-Error Bound**: Averaging `(qscPolarCode W n infoSet frozen).avgBlockError`
+uniformly over all frozen-bit vectors `frozen : Fin (2^n) → Bool` yields
+`2 √(∑_{i ∈ infoSet} (1 / 2) * Z(W_n^{(i)}))`. -/
+theorem wilde_guha_qsc_avg_bound (W : CQChannel d) (n : ℕ) (infoSet : Finset (Fin (2 ^ n))) :
+    ((2 : ℝ) ^ (2 ^ n))⁻¹ *
+      ∑ frozen : Fin (2 ^ n) → Bool,
+        (qscPolarCode W n infoSet frozen).avgBlockError ≤
+      2 * Real.sqrt (∑ i ∈ infoSet, (1 / 2 : ℝ) * (synthChannel W n i).fidelityParam) := by
   let errU (u : Fin (2 ^ n) → Bool) : ℝ :=
     1 - ((qscPrefixKraus W n infoSet (2 ^ n) le_rfl u *
           (productState W n (arikanTransform n u)).mat *
@@ -752,7 +748,6 @@ theorem wilde_guha_qsc_bound (W : CQChannel d) (n : ℕ) (infoSet : Finset (Fin 
       ext i; simp [i.isLt]
     rw [hsum, hfilt] at h
     exact h
-  -- Step 2: Average `errU u` over all `u : Fin (2^n) → Bool` and apply Jensen for `sqrt`
   have hcard_u : ((Finset.univ : Finset (Fin (2 ^ n) → Bool)).card : ℝ) = (2 : ℝ) ^ (2 ^ n) := by
     simp [Fintype.card_fun, Fintype.card_bool, Fintype.card_fin]
   have havg_sen : ((2 : ℝ) ^ (2 ^ n))⁻¹ * ∑ u : Fin (2 ^ n) → Bool, errU u ≤
@@ -773,12 +768,10 @@ theorem wilde_guha_qsc_bound (W : CQChannel d) (n : ℕ) (infoSet : Finset (Fin 
                 (fun u ↦ ∑ i ∈ infoSet, stepErr u i)
                 (fun u _ ↦ Finset.sum_nonneg fun i _ ↦ hstepErr_nn u i)
       _ = _ := by rw [hcard_u]
-  -- Step 3: For each `i`, average `stepErr u i` over `u` and bound by `(1 / 2) * Z(W_n^{(i)})`
   have havg_i : ∀ i : Fin (2 ^ n),
       ((2 : ℝ) ^ (2 ^ n))⁻¹ * ∑ u : Fin (2 ^ n) → Bool, stepErr u i ≤
         (1 / 2 : ℝ) * (synthChannel W n i).fidelityParam := by
     intro i
-    -- Partition `u` by `(prefixOf i u, u i)`
     have hpart : ∑ u : Fin (2 ^ n) → Bool, stepErr u i =
         ∑ p : Fin i.val → Bool, ∑ b : Bool,
           ∑ u ∈ Finset.univ.filter (fun u : Fin (2 ^ n) → Bool ↦ prefixOf i u = p ∧ u i = b),
@@ -874,7 +867,6 @@ theorem wilde_guha_qsc_bound (W : CQChannel d) (n : ℕ) (infoSet : Finset (Fin 
     apply Real.sqrt_le_sqrt
     rw [Finset.sum_comm, Finset.mul_sum]
     exact Finset.sum_le_sum fun i _ ↦ havg_i i
-  -- Step 4: Factor uniform average over `u` into average over frozen bits × `avgBlockError`
   let eSplit : ({i : Fin (2 ^ n) // i ∉ infoSet} → Bool) × ({i : Fin (2 ^ n) // i ∈ infoSet} → Bool) ≃
       (Fin (2 ^ n) → Bool) :=
     { toFun := fun ⟨f, m⟩ i ↦ if hi : i ∈ infoSet then m ⟨i, hi⟩ else f ⟨i, hi⟩
@@ -921,28 +913,62 @@ theorem wilde_guha_qsc_bound (W : CQChannel d) (n : ℕ) (infoSet : Finset (Fin 
       rw [Matrix.trace_mul_cycle]
     rw [htr]
   rw [hsplit_sum] at havg_bound
-  -- Step 5: Probabilistic method — some `f` achieves at most the average
-  have hcard_f : ((Finset.univ : Finset ({i : Fin (2 ^ n) // i ∉ infoSet} → Bool)).card : ℝ) =
-      (2 : ℝ) ^ (2 ^ n - infoSet.card) := by
-    rw [Finset.card_univ, Fintype.card_fun, Fintype.card_bool]
-    have hc : Fintype.card {i : Fin (2 ^ n) // i ∉ infoSet} = 2 ^ n - infoSet.card := by
-      rw [Fintype.card_subtype_compl, Fintype.card_fin, Fintype.card_coe]
-    rw [hc]
+  have hfull : ((2 : ℝ) ^ (2 ^ n))⁻¹ *
+      ∑ frozen : Fin (2 ^ n) → Bool, (qscPolarCode W n infoSet frozen).avgBlockError =
+      ((2 : ℝ) ^ (2 ^ n - infoSet.card))⁻¹ *
+        ∑ f : {i : Fin (2 ^ n) // i ∉ infoSet} → Bool,
+          (qscPolarCode W n infoSet (extendF f)).avgBlockError := by
+    rw [← Equiv.sum_comp eSplit (fun frozen ↦ (qscPolarCode W n infoSet frozen).avgBlockError),
+      Fintype.sum_prod_type]
+    have hconst : ∀ (f : {i : Fin (2 ^ n) // i ∉ infoSet} → Bool)
+        (m : {i : Fin (2 ^ n) // i ∈ infoSet} → Bool),
+        (qscPolarCode W n infoSet (eSplit (f, m))).avgBlockError =
+          (qscPolarCode W n infoSet (extendF f)).avgBlockError := by
+      intro f m
+      unfold CosetPolarCode.avgBlockError qscPolarCode CosetPolarCode.encode
+      dsimp only
+      congr 1; apply Finset.sum_congr rfl; intro m' _
+      have hemb : embedMsg infoSet (eSplit (f, m)) m' = embedMsg infoSet (extendF f) m' := by
+        funext i; by_cases hi : i ∈ infoSet <;> simp [embedMsg, eSplit, extendF, hi]
+      rw [hemb]
+    simp_rw [hconst, Finset.sum_const, Finset.card_univ, Fintype.card_fun, Fintype.card_bool,
+      Fintype.card_coe, nsmul_eq_mul, Nat.cast_pow, Nat.cast_ofNat]
+    rw [← Finset.mul_sum, ← mul_assoc]
+    have hle : infoSet.card ≤ 2 ^ n := by
+      simpa [Fintype.card_fin] using Finset.card_le_univ infoSet
+    have hN : (2 : ℝ) ^ (2 ^ n) = (2 : ℝ) ^ (2 ^ n - infoSet.card) * (2 : ℝ) ^ infoSet.card := by
+      rw [← pow_add, Nat.sub_add_cancel hle]
+    have h2pos : (2 : ℝ) ^ infoSet.card ≠ 0 := by positivity
+    rw [hN, mul_inv, mul_assoc, inv_mul_cancel₀ h2pos, mul_one]
+  rw [hfull]
+  exact havg_bound
+
+/-- **Wilde–Guha Quantum Successive-Cancellation Coding Bound**:
+There exists a deterministic frozen-bit assignment `frozen : Fin (2^n) → Bool` such that
+`qscPolarCode W n infoSet frozen` achieves
+`P_e(N, R) ≤ 2 √(∑_{i ∈ infoSet} (1 / 2) * Z(W_n^{(i)}))`. -/
+theorem wilde_guha_qsc_bound (W : CQChannel d) (n : ℕ) (infoSet : Finset (Fin (2 ^ n))) :
+    ∃ frozen : Fin (2 ^ n) → Bool,
+      (qscPolarCode W n infoSet frozen).avgBlockError ≤
+        2 * Real.sqrt (∑ i ∈ infoSet, (1 / 2 : ℝ) * (synthChannel W n i).fidelityParam) := by
+  have havg := wilde_guha_qsc_avg_bound W n infoSet
+  have hcard : ((Finset.univ : Finset (Fin (2 ^ n) → Bool)).card : ℝ) = (2 : ℝ) ^ (2 ^ n) := by
+    rw [Finset.card_univ, Fintype.card_fun, Fintype.card_fin, Fintype.card_bool]
     norm_cast
-  have hsum_le : ∑ f : {i : Fin (2 ^ n) // i ∉ infoSet} → Bool,
-      (qscPolarCode W n infoSet (extendF f)).avgBlockError ≤
-      ∑ _f : {i : Fin (2 ^ n) // i ∉ infoSet} → Bool,
+  have hsum_le : ∑ frozen : Fin (2 ^ n) → Bool,
+      (qscPolarCode W n infoSet frozen).avgBlockError ≤
+      ∑ _frozen : Fin (2 ^ n) → Bool,
         (2 * Real.sqrt (∑ i ∈ infoSet, (1 / 2 : ℝ) * (synthChannel W n i).fidelityParam)) := by
-    rw [Finset.sum_const, nsmul_eq_mul, hcard_f]
-    have hpos : (0 : ℝ) < (2 : ℝ) ^ (2 ^ n - infoSet.card) := by positivity
-    calc ∑ f, (qscPolarCode W n infoSet (extendF f)).avgBlockError
-        = (2 : ℝ) ^ (2 ^ n - infoSet.card) *
-            (((2 : ℝ) ^ (2 ^ n - infoSet.card))⁻¹ *
-              ∑ f, (qscPolarCode W n infoSet (extendF f)).avgBlockError) := by
+    rw [Finset.sum_const, nsmul_eq_mul, hcard]
+    have hpos : (0 : ℝ) < (2 : ℝ) ^ (2 ^ n) := by positivity
+    calc ∑ frozen, (qscPolarCode W n infoSet frozen).avgBlockError
+        = (2 : ℝ) ^ (2 ^ n) *
+            (((2 : ℝ) ^ (2 ^ n))⁻¹ *
+              ∑ frozen, (qscPolarCode W n infoSet frozen).avgBlockError) := by
           rw [← mul_assoc, mul_inv_cancel₀ (ne_of_gt hpos), one_mul]
-      _ ≤ _ := mul_le_mul_of_nonneg_left havg_bound (le_of_lt hpos)
+      _ ≤ _ := mul_le_mul_of_nonneg_left havg (le_of_lt hpos)
   obtain ⟨f, _, hf⟩ := Finset.exists_le_of_sum_le Finset.univ_nonempty hsum_le
-  exact ⟨extendF f, hf⟩
+  exact ⟨f, hf⟩
 
 /-! ### Full Coding-Theoretic Theorem 1.1 -/
 
@@ -977,7 +1003,6 @@ theorem theorem_1_1_coding_poly_blocklength :
     by_contra h0
     have : n = 0 := by omega
     subst this; norm_num at hn_ge2
-  -- Handle trivial case `W.symCapacity ≤ ε` with empty information set `𝒜 = ∅` (`P_e = 0`)
   by_cases htriv : W.symCapacity ≤ ε
   · refine ⟨∅, fun _ ↦ false, ?_, ?_⟩
     · simp only [CosetPolarCode.rate, qscPolarCode, Finset.card_empty, Nat.cast_zero, zero_div]
@@ -1001,14 +1026,12 @@ theorem theorem_1_1_coding_poly_blocklength :
           (productState W n _).trace_one, Complex.one_re, sub_self, mul_zero]
       rw [herr0]
       exact Real.rpow_nonneg (by norm_num) _
-  · -- Non-trivial case: `ε < W.symCapacity`
-    let thresh : ℝ := (2 : ℝ) ^ (-(200 : ℝ) * ((2 : ℝ) ^ n) ^ (49047 / 100000 : ℝ))
+  · let thresh : ℝ := (2 : ℝ) ^ (-(200 : ℝ) * ((2 : ℝ) ^ n) ^ (49047 / 100000 : ℝ))
     let infoSet : Finset (Fin (2 ^ n)) :=
       Finset.univ.filter (fun i : Fin (2 ^ n) ↦ (synthChannel W n i).fidelityParam ≤ thresh)
     obtain ⟨frozen, hwg⟩ := wilde_guha_qsc_bound W n infoSet
     refine ⟨infoSet, frozen, ?_, ?_⟩
-    · -- Rate bound: `infoSet.card / 2^n = treeProb n (...) ≥ W.symCapacity - ε`
-      have hrate_eq : (qscPolarCode W n infoSet frozen).rate =
+    · have hrate_eq : (qscPolarCode W n infoSet frozen).rate =
           treeProb n (fun b ↦ polarFidelity W n b ≤ thresh) := by
         unfold CosetPolarCode.rate qscPolarCode treeProb treeAvg ind
         dsimp only
@@ -1028,8 +1051,7 @@ theorem theorem_1_1_coding_poly_blocklength :
           exact hb
       rw [hrate_eq]
       exact hpolar W hε0 hε1 n hn_base
-    · -- Block-error bound: `P_e ≤ 2 √(∑ (1/2) Z) ≤ 2 √(2^n * thresh) ≤ 2^{-(2^n)^0.49}`
-      have hthresh_nn : 0 ≤ thresh := Real.rpow_nonneg (by norm_num) _
+    · have hthresh_nn : 0 ≤ thresh := Real.rpow_nonneg (by norm_num) _
       have hsum_le : ∑ i ∈ infoSet, (1 / 2 : ℝ) * (synthChannel W n i).fidelityParam ≤
           (2 : ℝ) ^ n * thresh := by
         have h1 : ∑ i ∈ infoSet, (1 / 2 : ℝ) * (synthChannel W n i).fidelityParam ≤
