@@ -408,9 +408,19 @@ theorem phaseChannel_dual_channelEquiv {d : Type} [Fintype d] [DecidableEq d]
         have h4 : ∀ z : ℂ, ((Real.sqrt 2 : ℂ)⁻¹) ^ 3 * z * 2 = ((Real.sqrt 2 : ℂ)⁻¹) * z :=
           fun z ↦ by linear_combination z * h3'
         cases b <;> cases u <;> cases a <;> simp <;>
-          first | ring | exact h4 _
+          (first | ring | exact h4 _)
       · intro e' _ hne; apply Finset.sum_eq_zero; intro v _; simp [Ne.symm hne]
       · intro h; exact absurd (Finset.mem_univ e) h
+    have hamp_comp : ∀ (a : Bool) (e₁ e₂ : 𝒩.env),
+        ((ampChannel 𝒩.complementary).out a).mat e₂ e₁ =
+          ∑ x : d, 𝒩.isom (x, e₂) a * star (𝒩.isom (x, e₁) a) := by
+      intro a e₁ e₂
+      change ∑ x : d, (𝒩.complementary.isom * (CQChannel.ketBraBool a).mat *
+        𝒩.complementary.isomᴴ) (e₂, x) (e₁, x) = _
+      apply Finset.sum_congr rfl; intro x _
+      simp only [CPTPMap.complementary, CQChannel.ketBraBool, Matrix.mul_apply,
+        Matrix.conjTranspose_apply, Matrix.of_apply, Fintype.sum_bool]
+      cases a <;> simp
     intro b
     have hfactor : (H * Matrix.of fun (p : Bool × 𝒩.env) (x : Bool × d) ↦
           ((Real.sqrt 2 : ℂ)⁻¹) * (if p.1 = false then A₀ᴴ p.2 x else if b = false then A₁ᴴ p.2 x else -A₁ᴴ p.2 x)) *
@@ -420,18 +430,16 @@ theorem phaseChannel_dual_channelEquiv {d : Type} [Fintype d] [DecidableEq d]
       rw [hHM b]
       ext ⟨u₁, e₁⟩ ⟨u₂, e₂⟩
       simp only [CQChannel.symmetrize, CQChannel.transpose, DensityOp.transpose,
-        ampChannel, CPTPMap.apply, CPTPMap.complementary, CPTPMap.toLinearMap, partialTrace₂Mat,
         DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, CQChannel.ketBraBool,
         Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Matrix.transpose_apply,
-        Complex.real_smul]
-      simp only [LinearMap.coe_mk, AddHom.coe_mk, Matrix.mul_apply, Matrix.conjTranspose_apply,
+        Complex.real_smul, hamp_comp, Matrix.mul_apply, Matrix.conjTranspose_apply,
         Matrix.of_apply, Fintype.sum_prod_type, Fintype.sum_bool]
       cases b <;> cases u₁ <;> cases u₂ <;>
         simp only [↓reduceIte, Bool.xor_false, Bool.xor_true, Bool.true_eq_false, Bool.false_eq_true,
           Bool.not_false, Bool.not_true, and_self, and_false, false_and, one_mul, mul_one,
           mul_zero, zero_mul, add_zero, zero_add, star_zero, star_mul', star_star, hstar2,
           Finset.sum_const_zero] <;>
-        first
+        (first
         | rfl
         | (rw [Finset.mul_sum]; apply Finset.sum_congr rfl; intro x _;
            have hcalc : ∀ z₁ z₂ : ℂ,
@@ -444,7 +452,7 @@ theorem phaseChannel_dual_channelEquiv {d : Type} [Fintype d] [DecidableEq d]
                ((Real.sqrt 2 : ℂ)⁻¹ * star z₁) * ((Real.sqrt 2 : ℂ)⁻¹ * z₂) =
                  ((1 - 1 / 2 : ℝ) : ℂ) * (z₂ * star z₁) := fun z₁ z₂ ↦ by
              rw [hcalc]; norm_num
-           first | exact hcalc _ _ | exact hcalc' _ _)
+           first | exact hcalc _ _ | exact hcalc' _ _))
     cases b <;>
       simpa [Matrix.one_mul, Matrix.conjTranspose_one, Matrix.mul_one,
         Matrix.conjTranspose_mul, Matrix.mul_assoc] using hfactor
