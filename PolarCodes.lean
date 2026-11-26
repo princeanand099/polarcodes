@@ -19,6 +19,8 @@ import PolarCodes.HockeyStick
 import PolarCodes.HockeyStickMeasure
 import PolarCodes.MainTheorem
 import PolarCodes.MrsGerber
+import PolarCodes.MrsGerberClassical
+import PolarCodes.MrsGerberHybrid
 import PolarCodes.NoncommutativeUnion
 import PolarCodes.PolarCoding
 import PolarCodes.Polarization
@@ -26,9 +28,11 @@ import PolarCodes.PolarizationFine
 import PolarCodes.QJJS
 import PolarCodes.QuantumChannels
 import PolarCodes.QuantumPolarCoding
+import PolarCodes.QuantumPolarCodingBase
 import PolarCodes.QuantumProps
 import PolarCodes.QuantumStates
 import PolarCodes.Refinements
+import PolarCodes.SanityChecks
 import PolarCodes.ScalarSupplements
 import PolarCodes.SpectralTrace
 import PolarCodes.SplittingBounds
@@ -36,7 +40,7 @@ import PolarCodes.SplittingBounds
 /-!
 # Polynomial-Blocklength Quantum Polar Codes
 
-Root library module importing the complete Lean 4 formalization of
+Root library module importing all 33 modules of the complete Lean 4 formalization of
 *Polynomial-Blocklength Quantum Polar Codes via Nonlinear Dephasing Contraction*
 (Prince Anand, 2026).
 -/
