@@ -1,11 +1,13 @@
 # External Axioms
 
-**None (0 custom axioms).**
+**Zero external or custom axioms are used.**
 
-Every theorem in `PolarCodes` is proved unconditionally from Mathlib (`v4.35.0`) and Lean 4 core. Running `lake env lean PolarCodes/AuditAxioms.lean` checks that all 68 exported theorems depend exclusively on Lean 4's standard axioms:
-
+Every definition and theorem in `PolarCodes` is built strictly on top of Lean 4 (`v4.35.0`) and Mathlib, using only the three standard Lean 4 axioms:
 - `propext`
 - `Classical.choice`
 - `Quot.sound`
 
-No `axiom`, `sorry`, `admit`, `native_decide`, `unsafe`, or compiler-trust extensions are used anywhere in `PolarCodes` or `comparator/Solution.lean`.
+This is verified on every CI run by:
+1. `PolarCodes/AuditAxioms.lean` (`#print axioms` on all 29 headline theorems),
+2. Automated repository hygiene checks (zero `sorry`, `admit`, `axiom`, `native_decide`, `unsafe`, `implemented_by`, `extern`, `partial`), and
+3. `lake exe comparator`.
