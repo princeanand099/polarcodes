@@ -36,7 +36,7 @@ noncomputable def CPTPMap.tensorPow {d : Type} [Fintype d] [DecidableEq d]
   fintypeEnv := inferInstance
   decEqEnv := inferInstance
   isom := Matrix.of fun p x ↦ ∏ i : Fin (2 ^ n), 𝒩.isom (p.1 i, p.2 i) (x i)
-  isometry := by
+  isom_eq := by
     ext x₁ x₂
     simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply, Matrix.one_apply]
     let e : ((Fin (2 ^ n) → d) × (Fin (2 ^ n) → 𝒩.env)) ≃ (Fin (2 ^ n) → d × 𝒩.env) :=
@@ -56,7 +56,7 @@ noncomputable def CPTPMap.tensorPow {d : Type} [Fintype d] [DecidableEq d]
         ∑ p : d × 𝒩.env, star (𝒩.isom p (x₁ i)) * 𝒩.isom p (x₂ i) =
           if x₁ i = x₂ i then (1 : ℂ) else 0 := by
       intro i
-      have h := congr_fun (congr_fun 𝒩.isometry (x₁ i)) (x₂ i)
+      have h := congr_fun (congr_fun 𝒩.isom_eq (x₁ i)) (x₂ i)
       simpa [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.one_apply] using h
     simp_rw [hfac]
     by_cases hx : x₁ = x₂
@@ -75,7 +75,7 @@ noncomputable def CPTPMap.tensorIdLeft (α : Type) [Fintype α] [DecidableEq α]
   fintypeEnv := 𝒩.fintypeEnv
   decEqEnv := 𝒩.decEqEnv
   isom := Matrix.of fun p q ↦ if p.1.1 = q.1 then 𝒩.isom (p.1.2, p.2) q.2 else 0
-  isometry := by
+  isom_eq := by
     ext ⟨a₁, b₁⟩ ⟨a₂, b₂⟩
     simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply, Matrix.one_apply,
       Fintype.sum_prod_type]
@@ -86,7 +86,7 @@ noncomputable def CPTPMap.tensorIdLeft (α : Type) [Fintype α] [DecidableEq α]
       intro a
       by_cases h12 : a = a₁ ∧ a = a₂
       · rw [if_pos h12, if_pos h12.1, if_pos h12.2]
-        have h := congr_fun (congr_fun 𝒩.isometry b₁) b₂
+        have h := congr_fun (congr_fun 𝒩.isom_eq b₁) b₂
         simpa [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
           Matrix.one_apply] using h
       · rw [if_neg h12]
@@ -116,7 +116,7 @@ noncomputable def CPTPMap.seqComp {α β γ : Type} [Fintype α] [DecidableEq α
   fintypeEnv := @instFintypeProd _ _ ℳ.fintypeEnv 𝒩.fintypeEnv
   decEqEnv := @instDecidableEqProd _ _ ℳ.decEqEnv 𝒩.decEqEnv
   isom := Matrix.of fun p x ↦ ∑ y : β, ℳ.isom (p.1, p.2.1) y * 𝒩.isom (y, p.2.2) x
-  isometry := by
+  isom_eq := by
     letI := ℳ.fintypeEnv; letI := ℳ.decEqEnv
     letI := 𝒩.fintypeEnv; letI := 𝒩.decEqEnv
     ext x₁ x₂
@@ -164,7 +164,7 @@ noncomputable def CPTPMap.seqComp {α β γ : Type} [Fintype α] [DecidableEq α
         ∑ z : γ, ∑ e₂ : ℳ.env, star (ℳ.isom (z, e₂) y₁) * ℳ.isom (z, e₂) y₂ =
           if y₁ = y₂ then (1 : ℂ) else 0 := by
       intro y₁ y₂
-      have h := congr_fun (congr_fun ℳ.isometry y₁) y₂
+      have h := congr_fun (congr_fun ℳ.isom_eq y₁) y₂
       simpa [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
         Matrix.one_apply] using h
     simp_rw [hM]
@@ -178,7 +178,7 @@ noncomputable def CPTPMap.seqComp {α β γ : Type} [Fintype α] [DecidableEq α
       · intro y₂ _ hne; simp [Ne.symm hne]
       · intro h; exact absurd (Finset.mem_univ y₁) h
     rw [hdiag]
-    have hN := congr_fun (congr_fun 𝒩.isometry x₁) x₂
+    have hN := congr_fun (congr_fun 𝒩.isom_eq x₁) x₂
     simpa [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
       Matrix.one_apply] using hN
 
@@ -350,15 +350,14 @@ there exists a unitary `U : Matrix.unitaryGroup B ℂ` acting on `B` alone such 
 `T((I_A ⊗ U)|u⟩⟨u|(I_A ⊗ U)ᴴ, |v⟩⟨v|) ≤ √(1 - F(ρ_A, σ_A)²)`. -/
 theorem exists_uhlmann_unitary {A B : Type*} [Fintype A] [DecidableEq A]
     [Fintype B] [DecidableEq B]
-    (u v : A × B → ℂ) (hu : ∑ p, ‖u p‖ ^ 2 = 1) (hv : ∑ p, ‖v p‖ ^ 2 = 1)
     (ρ σ : DensityOp A)
+    (u v : A × B → ℂ) (hu : ∑ p, ‖u p‖ ^ 2 = 1) (hv : ∑ p, ‖v p‖ ^ 2 = 1)
     (hpt_u : partialTrace₂Mat A B (pureState u hu).mat = ρ.mat)
     (hpt_v : partialTrace₂Mat A B (pureState v hv).mat = σ.mat) :
-    ∃ U : Matrix.unitaryGroup B ℂ,
-      let u' : A × B → ℂ := fun p ↦ ∑ b' : B, (U : Matrix B B ℂ) p.2 b' * u (p.1, b')
-      ∃ hu' : ∑ p, ‖u' p‖ ^ 2 = 1,
-        traceDist (pureState u' hu') (pureState v hv) ≤
-          Real.sqrt (1 - rootFidelity ρ σ ^ 2) := by
+    ∃ U : Matrix B B ℂ,
+      Uᴴ * U = 1 ∧ U * Uᴴ = 1 ∧
+      rootFidelity ρ σ =
+        ‖∑ p : A × B, star (v p) * ∑ b' : B, U p.2 b' * u (p.1, b')‖ := by
   let Mu : Matrix A B ℂ := Matrix.of fun a b ↦ u (a, b)
   let Mv : Matrix A B ℂ := Matrix.of fun a b ↦ v (a, b)
   have hMu : Mu * Muᴴ = ρ.mat := by
@@ -480,14 +479,11 @@ theorem exists_uhlmann_unitary {A B : Type*} [Fintype A] [DecidableEq A]
     exact spectral_sum_eq_of_charpoly_mul_X_pow (f := Real.sqrt)
       (Matrix.posSemidef_conjTranspose_mul_self X).isHermitian
       (posSemidef_sqrt_mul_sqrt ρ σ).isHermitian hcp_final Real.sqrt_zero
-  refine ⟨U, hu', ?_⟩
-  have htd := traceDist_pureState_eq u' v hu' hv
-  have hnorm_ov : ‖∑ p : A × B, star (u' p) * v p‖ = rootFidelity ρ σ := by
-    have hstar : ∑ p : A × B, star (u' p) * v p = star (∑ p : A × B, star (v p) * u' p) := by
-      rw [star_sum]; apply Finset.sum_congr rfl; intro p _; rw [star_mul', star_star, mul_comm]
-    rw [hstar, norm_star, hov, Complex.norm_real, Real.norm_eq_abs, htn_eq,
+  refine ⟨(U : Matrix B B ℂ), ?_, ?_, ?_⟩
+  · simpa [Matrix.star_eq_conjTranspose] using Unitary.coe_star_mul_self U
+  · simpa [Matrix.star_eq_conjTranspose] using Unitary.coe_mul_star_self U
+  · rw [hov, Complex.norm_real, Real.norm_eq_abs, htn_eq,
       abs_of_nonneg (rootFidelity_nonneg ρ σ)]
-  rwa [hnorm_ov] at htd
 
 /-- Operator square root of any positive semidefinite matrix `M ≽ 0`. -/
 noncomputable def psdSqrt {α : Type*} [Fintype α] [DecidableEq α]
@@ -754,7 +750,7 @@ noncomputable def cssPolarEncoder (n : ℕ)
   fintypeEnv := inferInstance
   decEqEnv := inferInstance
   isom := Matrix.of fun p q ↦ cssPolarEncoderIsom n infoSet randSet assistSet uF v p.1 q
-  isometry := by
+  isom_eq := by
     have h := cssPolarEncoderIsom_isometry n infoSet randSet assistSet hdisj_ir hdisj_ia hdisj_ra uF v
     ext q₁ q₂
     have hq := congr_fun (congr_fun h q₁) q₂
@@ -808,7 +804,7 @@ variable {d : Type} [Fintype d] [DecidableEq d]
 
 private lemma nonempty_of_cptpMap (𝒩 : CPTPMap.{0} Bool d) : Nonempty d ∧ Nonempty 𝒩.env := by
   letI := 𝒩.fintypeEnv
-  have h := congr_fun (congr_fun 𝒩.isometry false) false
+  have h := congr_fun (congr_fun 𝒩.isom_eq false) false
   simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.one_apply_eq,
     Fintype.sum_prod_type] at h
   have hne_d : Nonempty d := by
@@ -1064,7 +1060,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
       have hV_unit : ∀ (x : Fin (2 ^ n) → Bool),
           ∑ e : E, ∑ y : Y, star ((𝒩.tensorPow n).isom (y, e) x) * (𝒩.tensorPow n).isom (y, e) x = 1 := by
         intro x
-        have h := congr_fun (congr_fun (𝒩.tensorPow n).isometry x) x
+        have h := congr_fun (congr_fun (𝒩.tensorPow n).isom_eq x) x
         rw [Finset.sum_comm]
         simpa [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type] using h
       calc ∑ e : E, ∑ m : M, (star ν * ν) * ∑ a : A, ∑ r : R, ∑ y : Y,
@@ -1104,7 +1100,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
           ∑ e : E, ∑ y : Y, star ((𝒩.tensorPow n).isom (y, e) x₁) * (𝒩.tensorPow n).isom (y, e) x₂ =
             if x₁ = x₂ then (1 : ℂ) else 0 := by
         intro x₁ x₂
-        have h := congr_fun (congr_fun (𝒩.tensorPow n).isometry x₁) x₂
+        have h := congr_fun (congr_fun (𝒩.tensorPow n).isom_eq x₁) x₂
         rw [Finset.sum_comm]
         simpa [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
           Matrix.one_apply] using h
@@ -1491,18 +1487,20 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
           (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).trace_one, Complex.one_re]
       have hnn : ∀ m', 0 ≤ (((C_qsc a).povm m' * (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).mat).trace).re := by
         intro m'
-        have htr := Matrix.trace_mul_comm ((C_qsc a).povm m') (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).mat
         have hsq : (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).mat =
             (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat *
               (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat :=
           (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat_mul_self.symm
-        rw [htr, hsq, Matrix.trace_mul_cycle]
-        have hpsd := ((C_qsc a).povm_posSemidef m').mul_mul_conjTranspose_same
-          (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat
+        have htr : ((C_qsc a).povm m' * (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).mat).trace =
+            ((productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat * (C_qsc a).povm m' *
+              ((productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat)ᴴ).trace := by
+          rw [hsq, ← Matrix.mul_assoc, Matrix.trace_mul_comm, ← Matrix.mul_assoc,
+            (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat_isHermitian.eq]
+        rw [htr]
         have hHerm : ((productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat * (C_qsc a).povm m' *
-            ((productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat)ᴴ).PosSemidef := by
-          simpa [Matrix.star_eq_conjTranspose,
-            (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat_isHermitian.eq] using hpsd
+            ((productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat)ᴴ).PosSemidef :=
+          ((C_qsc a).povm_posSemidef m').mul_mul_conjTranspose_same
+            (productState (ampChannel 𝒩) n ((C_qsc a).encode m)).sqrtMat
         rw [hHerm.isHermitian.trace_eq_sum_eigenvalues, Complex.re_sum]
         exact Finset.sum_nonneg fun idx _ ↦ by simpa using hHerm.eigenvalues_nonneg idx
       have hm_le := Finset.single_le_sum (fun m' _ ↦ hnn m') (Finset.mem_univ m)
@@ -1772,7 +1770,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
       fintypeEnv := inferInstance
       decEqEnv := inferInstance
       isom := U_dec * W_Z
-      isometry := by
+      isom_eq := by
         rw [Matrix.conjTranspose_mul, Matrix.mul_assoc, ← Matrix.mul_assoc U_decᴴ,
           hU_l, Matrix.one_mul, hWZ_isom] }
   let ptraceEA : CPTPMap.{0} ((M × E) × B_tot) (M × M) :=
@@ -1781,7 +1779,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
       decEqEnv := inferInstance
       isom := Matrix.of fun p q ↦
         if p.1.1 = q.1.1 ∧ p.1.2 = q.2.1 ∧ p.2.1 = q.1.2 ∧ p.2.2 = q.2.2 then 1 else 0
-      isometry := by
+      isom_eq := by
         ext ⟨⟨m₁, e₁⟩, ⟨m₁', anc₁⟩⟩ ⟨⟨m₂, e₂⟩, ⟨m₂', anc₂⟩⟩
         simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply, Matrix.one_apply,
           Fintype.sum_prod_type]
