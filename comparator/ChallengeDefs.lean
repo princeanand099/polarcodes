@@ -607,8 +607,7 @@ private lemma bitPathFwd_inv : ∀ (n : ℕ) (b : Fin n → Bool), bitPathFwd n 
     have hfin : (⟨(2 * (bitPathInv n (Fin.init b)).val + if b (Fin.last n) then 1 else 0) / 2,
         by omega⟩ : Fin (2 ^ n)) = bitPathInv n (Fin.init b) := Fin.ext hdiv
     rw [hfin, bitPathFwd_inv n (Fin.init b)]
-    congr 1
-    exact hmod
+    exact congrArg (Fin.snoc (α := fun _ ↦ Bool) (Fin.init b)) hmod
 
 def bitPath (n : ℕ) : Fin (2 ^ n) ≃ (Fin n → Bool) where
   toFun := bitPathFwd n
