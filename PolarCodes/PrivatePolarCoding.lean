@@ -587,6 +587,16 @@ private lemma varCombine_transpose {α₁ α₂ : Type*} [Fintype α₁] [Decida
   rw [h1, h2] at hb
   exact hb
 
+private lemma polarChannelTree_succ_false {α : Type} [Fintype α] [DecidableEq α]
+    (W : CQChannel α) {k : ℕ} (b : Fin (k + 1) → Bool) (hb : b (Fin.last k) = false) :
+    polarChannelTree W (k + 1) b = (polarChannelTree W k (Fin.init b)).minus := by
+  simp [polarChannelTree, hb]
+
+private lemma polarChannelTree_succ_true {α : Type} [Fintype α] [DecidableEq α]
+    (W : CQChannel α) {k : ℕ} (b : Fin (k + 1) → Bool) (hb : b (Fin.last k) = true) :
+    polarChannelTree W (k + 1) b = (polarChannelTree W k (Fin.init b)).plus := by
+  simp [polarChannelTree, hb]
+
 private lemma polarChannelTree_transpose_perm {α : Type} [Fintype α] [DecidableEq α]
     (W : CQChannel α) : ∀ (n : ℕ) (b : Fin n → Bool),
     ∃ e : (polarChannelTree W.transpose n b).dim ≃ (polarChannelTree W n b).dim,
@@ -600,9 +610,9 @@ private lemma polarChannelTree_transpose_perm {α : Type} [Fintype α] [Decidabl
   | succ k ih =>
     intro b
     obtain ⟨e, he⟩ := ih (Fin.init b)
-    simp only [polarChannelTree]
-    split_ifs with hb
-    · simp only [BundledCQChannel.minus]
+    rcases Bool.eq_false_or_eq_true (b (Fin.last k)) with hb | hb
+    · rw [polarChannelTree_succ_false W.transpose b hb, polarChannelTree_succ_false W b hb]
+      simp only [BundledCQChannel.minus]
       refine ⟨Equiv.prodCongr e e, fun c ⟨x₁, x₂⟩ ⟨y₁, y₂⟩ ↦ ?_⟩
       simp only [Equiv.prodCongr_apply, Prod.map_apply, CQChannel.checkCombine,
         CQChannel.transpose, DensityOp.transpose, DensityOp.midpoint, DensityOp.mix,
@@ -611,7 +621,8 @@ private lemma polarChannelTree_transpose_perm {α : Type} [Fintype α] [Decidabl
       simp only [CQChannel.transpose, DensityOp.transpose, Matrix.transpose_apply] at he
       rw [he false y₁ x₁, he false y₂ x₂, he true y₁ x₁, he true y₂ x₂]
       cases c <;> simp
-    · simp only [BundledCQChannel.plus]
+    · rw [polarChannelTree_succ_true W.transpose b hb, polarChannelTree_succ_true W b hb]
+      simp only [BundledCQChannel.plus]
       refine ⟨Equiv.prodCongr (Equiv.refl Bool) (Equiv.prodCongr e e), fun c ⟨v₁, x₁, x₂⟩ ⟨v₂, y₁, y₂⟩ ↦ ?_⟩
       simp only [Equiv.prodCongr_apply, Equiv.refl_apply, Prod.map_apply, CQChannel.varCombine,
         CQChannel.transpose, DensityOp.transpose, DensityOp.midpoint, DensityOp.mix,
@@ -643,12 +654,13 @@ private lemma polarChannelTree_symmetrize_traceDist {α : Type} [Fintype α] [De
     | zero => intro p; exact CQChannel.ChannelEquiv.refl _
     | succ k ih =>
       intro p
-      simp only [polarChannelTree]
       have hih := ih (Fin.init p)
-      split_ifs with hp
-      · simp only [BundledCQChannel.minus]
+      rcases Bool.eq_false_or_eq_true (p (Fin.last k)) with hp | hp
+      · rw [polarChannelTree_succ_false W.symmetrize p hp, polarChannelTree_succ_false W p hp]
+        simp only [BundledCQChannel.minus]
         exact (hih.checkCombine hih).trans (symmetrize_minusChannel_channelEquiv _)
-      · simp only [BundledCQChannel.plus]
+      · rw [polarChannelTree_succ_true W.symmetrize p hp, polarChannelTree_succ_true W p hp]
+        simp only [BundledCQChannel.plus]
         exact (hih.varCombine hih).trans (symmetrize_plusChannel_channelEquiv _)
   rw [CQChannel.ChannelEquiv.traceDist_eq (heq n b), traceDist_symmetrize]
 
@@ -1198,7 +1210,8 @@ theorem avg_fixedSubset_decoupling_le {α : Type} [Fintype α] [DecidableEq α]
             have hexp : 2 ^ n - 1 = i.val + (2 ^ n - 1 - i.val) := by have := i.isLt; omega
             have hpow : ((2 : ℂ) ^ (2 ^ n - 1))⁻¹ =
                 ((2 : ℂ) ^ i.val)⁻¹ * ((2 : ℂ) ^ (2 ^ n - 1 - i.val))⁻¹ := by
-              rw [hexp, pow_add, mul_inv, mul_comm]
+              conv_lhs => rw [hexp]
+              rw [pow_add, mul_inv, mul_comm]
             rw [hpow]; push_cast; ring
           · rfl
         rw [hout false, hout true, traceDist_uniformBlockDiag]
