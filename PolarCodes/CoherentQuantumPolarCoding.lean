@@ -1394,7 +1394,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
             apply Finset.sum_congr rfl; intro y _
             rw [Finset.sum_comm]
             apply Finset.sum_congr rfl; intro y₁ _
-            apply Finset.sum_congr rfl; intro e _; dsimp only [Y, E]; ring
+            apply Finset.sum_congr rfl; intro e _; simp only [mul_assoc]
     have hK_ge : ∀ (a : A) (m : M) (r : R),
         (((C_qsc a).povm (eMR (m, r)) * (productState (ampChannel 𝒩) n
             (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a))).mat).trace).re ≤
@@ -1668,7 +1668,14 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
           rw [hcard, pow_add]; push_cast; rw [mul_inv, mul_comm]
         rw [hpref]
         congr 1
-        rw [← Fintype.sum_prod_type]
+        have hsum_eq : ∑ r : R, ∑ a : A,
+            (productState (ampChannel 𝒩.complementary) n
+              (arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r a))).mat e₁ e₂ =
+            ∑ ra : R × A,
+              (productState (ampChannel 𝒩.complementary) n
+                (arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ ra.1 ra.2))).mat e₁ e₂ :=
+          (Fintype.sum_prod_type _).symm
+        rw [hsum_eq]
         refine Finset.sum_bij (fun (ra : R × A) _ ↦ wiretapWord infoSet randSet assistSet uF m₁ ra.1 ra.2)
           ?_ ?_ ?_ ?_
         · intro ⟨r, a⟩ _
@@ -1881,7 +1888,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
         · rw [Finset.sum_eq_single m₁']
           · rw [Finset.sum_eq_single e₁]
             · rw [Finset.sum_eq_single anc₁]
-              · simp only [true_and, ↓reduceIte, star_one, one_mul]; congr 1; apply propext; simp only [Prod.mk.injEq]; tauto
+              · simp only [true_and, ↓reduceIte, star_one, one_mul]; congr 1; apply propext; simp only [B_tot, Prod.mk.injEq]; tauto
               · intro anc _ hne; simp [hne]
               · intro h; exact absurd (Finset.mem_univ anc₁) h
             · intro e _ hne; apply Finset.sum_eq_zero; intro anc _; simp [hne]

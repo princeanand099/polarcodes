@@ -349,6 +349,7 @@ theorem corollary_5_5_operational_quantum_private_polar_coding :
         ((unpolarizedSet (phaseChannel 𝒩) n thresh).card : ℝ) / (2 : ℝ) ^ n := by
       rw [← add_div]
       exact div_le_div_of_nonneg_right (by exact_mod_cast hcard) (le_of_lt hpow_pos)
-    exact ⟨by linarith, by linarith⟩
+    have hassist_le : (assistSet.card : ℝ) / (2 : ℝ) ^ n ≤ ε / 2 := by linarith
+    exact ⟨hassist_le, hassist_le⟩
 
 end PolarCodes
