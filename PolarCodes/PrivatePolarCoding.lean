@@ -601,8 +601,8 @@ private lemma polarChannelTree_transpose_perm {α : Type} [Fintype α] [Decidabl
     intro b
     obtain ⟨e, he⟩ := ih (Fin.init b)
     simp only [polarChannelTree]
-    by_cases hb : b (Fin.last k) = false
-    · simp only [if_pos hb, BundledCQChannel.minus]
+    split_ifs with hb
+    · simp only [BundledCQChannel.minus]
       refine ⟨Equiv.prodCongr e e, fun c ⟨x₁, x₂⟩ ⟨y₁, y₂⟩ ↦ ?_⟩
       simp only [Equiv.prodCongr_apply, Prod.map_apply, CQChannel.checkCombine,
         CQChannel.transpose, DensityOp.transpose, DensityOp.midpoint, DensityOp.mix,
@@ -611,7 +611,7 @@ private lemma polarChannelTree_transpose_perm {α : Type} [Fintype α] [Decidabl
       simp only [CQChannel.transpose, DensityOp.transpose, Matrix.transpose_apply] at he
       rw [he false y₁ x₁, he false y₂ x₂, he true y₁ x₁, he true y₂ x₂]
       cases c <;> simp
-    · simp only [if_neg hb, BundledCQChannel.plus]
+    · simp only [BundledCQChannel.plus]
       refine ⟨Equiv.prodCongr (Equiv.refl Bool) (Equiv.prodCongr e e), fun c ⟨v₁, x₁, x₂⟩ ⟨v₂, y₁, y₂⟩ ↦ ?_⟩
       simp only [Equiv.prodCongr_apply, Equiv.refl_apply, Prod.map_apply, CQChannel.varCombine,
         CQChannel.transpose, DensityOp.transpose, DensityOp.midpoint, DensityOp.mix,
@@ -645,10 +645,10 @@ private lemma polarChannelTree_symmetrize_traceDist {α : Type} [Fintype α] [De
       intro p
       simp only [polarChannelTree]
       have hih := ih (Fin.init p)
-      by_cases hp : p (Fin.last k) = false
-      · simp only [if_pos hp, BundledCQChannel.minus]
+      split_ifs with hp
+      · simp only [BundledCQChannel.minus]
         exact (hih.checkCombine hih).trans (symmetrize_minusChannel_channelEquiv _)
-      · simp only [if_neg hp, BundledCQChannel.plus]
+      · simp only [BundledCQChannel.plus]
         exact (hih.varCombine hih).trans (symmetrize_plusChannel_channelEquiv _)
   rw [CQChannel.ChannelEquiv.traceDist_eq (heq n b), traceDist_symmetrize]
 
@@ -985,8 +985,8 @@ theorem avg_fixedSubset_decoupling_le {α : Type} [Fintype α] [DecidableEq α]
           exact posPartTrace_eq_of_eq _ _ (by simp)
         rw [htd]
         cases hbi : u i
-        · rw [hbi]
-        · rw [hbi, traceDist_symm]
+        · rfl
+        · exact traceDist_symm _ _
       simp_rw [hS_succ, hhalf_step]
       rw [← Finset.mul_sum, ← mul_assoc, mul_comm (((2 : ℝ) ^ (2 ^ n))⁻¹), mul_assoc]
       apply mul_le_mul_of_nonneg_left _ (by norm_num)
@@ -1065,6 +1065,7 @@ theorem avg_fixedSubset_decoupling_le {α : Type} [Fintype α] [DecidableEq α]
               simp only [prefixOf, hjnotR, ↓reduceIte] at hval
               simpa [Function.update_of_ne hne] using hval
           · intro q₁ _ q₂ _ hne
+            dsimp only [Function.onFun]
             rw [Finset.disjoint_left]
             intro v h1 h2
             have hp1 := (Finset.mem_filter.mp h1).2.1
@@ -1188,9 +1189,8 @@ theorem avg_fixedSubset_decoupling_le {α : Type} [Fintype α] [DecidableEq α]
         have hout : ∀ b : Bool, (synthChannel W n i).out b =
             uniformBlockDiag (fun p : Fin i.val → Bool ↦ condSynthState W n i p b) := by
           intro b
-          have hmat : ((synthChannel W n i).out b).mat =
-              (uniformBlockDiag (fun p : Fin i.val → Bool ↦ condSynthState W n i p b)).mat := by
-            ext ⟨p₁, x₁⟩ ⟨p₂, x₂⟩
+          apply densityOp_eq_of_mat
+          ext ⟨p₁, x₁⟩ ⟨p₂, x₂⟩
           simp only [synthChannel, synthState, uniformBlockDiag, condSynthState, Matrix.of_apply,
             Matrix.smul_apply, smul_eq_mul, Fintype.card_fun, Fintype.card_bool, Fintype.card_fin]
           split_ifs with hp
@@ -1201,9 +1201,6 @@ theorem avg_fixedSubset_decoupling_le {α : Type} [Fintype α] [DecidableEq α]
               rw [hexp, pow_add, mul_inv, mul_comm]
             rw [hpow]; push_cast; ring
           · rfl
-          rcases (synthChannel W n i).out b with ⟨m₁, p₁, t₁⟩
-          rcases uniformBlockDiag (fun p : Fin i.val → Bool ↦ condSynthState W n i p b) with ⟨m₂, p₂, t₂⟩
-          dsimp only at hmat; subst hmat; rfl
         rw [hout false, hout true, traceDist_uniformBlockDiag]
         simp [Fintype.card_fun, Fintype.card_bool, Fintype.card_fin]
       rw [hsynth_eq, ← havg_p]
