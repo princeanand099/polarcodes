@@ -919,10 +919,8 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
   let E := Fin (2 ^ n) → 𝒩.env
   let Anc := Y × A × R × E
   let B_tot := M × Anc
-  letI : DecidableEq M := Classical.decEq _
-  letI : DecidableEq E := Classical.decEq _
-  letI : DecidableEq Anc := Classical.decEq _
-  letI : DecidableEq B_tot := Classical.decEq _
+  letI : DecidableEq Anc := inferInstanceAs (DecidableEq (Y × A × R × E))
+  letI : DecidableEq B_tot := inferInstanceAs (DecidableEq (M × Anc))
   let y₀ : Y := fun _ ↦ d₀
   let a₀ : A := fun _ ↦ false
   let r₀ : R := fun _ ↦ false
@@ -1017,6 +1015,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
       rw [Equiv.sum_comp eMR (fun w ↦ (C_qsc a₁).povm w y₁ y₂)]
       have h1 := congr_fun (congr_fun (C_qsc a₁).povm_sum_one y₁) y₂
       simp only [Matrix.sum_apply, Matrix.one_apply] at h1
+      simp only [Prod.mk.injEq, and_true]
       convert h1
     · rw [if_neg (fun h ↦ ha (congr_arg Prod.snd h))]
       apply Finset.sum_eq_zero; intro m _
@@ -1222,7 +1221,8 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
       have h1 : ∀ z : ℂ, ((‖z‖ ^ 2 : ℝ) : ℂ) = star z * z := fun z ↦ by
         rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
       simp_rw [h1]
-      rw [Fintype.sum_prod_type, Fintype.sum_prod_type]
+      conv_lhs => rw [Fintype.sum_prod_type]
+      conv_rhs => rw [Fintype.sum_prod_type]
       apply Finset.sum_congr rfl; intro me _
       have hinner : ∀ b : B_tot,
           star (ψ_Z v (me, b)) * ψ_Z v (me, b) =
@@ -1394,11 +1394,12 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
         ((K a m r * (productState (ampChannel 𝒩) n
             (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a))).mat).trace).re := by
       intro a m r
-      let Λ := (C_qsc a).povm (eMR (m, r))
+      let w₀ : {i : Fin (2 ^ n) // i ∈ (C_qsc a).infoSet} → Bool := eMR (m, r)
+      let Λ := (C_qsc a).povm w₀
       have hle1 : (1 - Λ).PosSemidef := by
-        have h1 : 1 - Λ = ∑ w ∈ Finset.univ.erase (eMR (m, r)), (C_qsc a).povm w := by
+        have h1 : 1 - Λ = ∑ w ∈ Finset.univ.erase w₀, (C_qsc a).povm w := by
           have hsum := (C_qsc a).povm_sum_one
-          rw [← Finset.add_sum_erase _ _ (Finset.mem_univ (eMR (m, r)))] at hsum
+          rw [← Finset.add_sum_erase _ _ (Finset.mem_univ w₀)] at hsum
           exact eq_sub_of_add_eq' hsum
         rw [h1]
         have hsum_psd : ∀ s : Finset ({i : Fin (2 ^ n) // i ∈ (C_qsc a).infoSet} → Bool),
