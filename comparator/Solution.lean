@@ -147,6 +147,60 @@ private lemma arikanTransform_eq : ∀ (n : ℕ) (u : Fin (2 ^ n) → Bool),
       · exact congr_fun (arikanTransform_eq n _) _
       · exact congr_fun (arikanTransform_eq n _) _
 
+private lemma condSynthStateMat_eq {d : Type} [Fintype d] [DecidableEq d]
+    (W : CQChannel d) (n : ℕ) (i : Fin (2 ^ n)) (p : Fin i.val → Bool) (b : Bool) :
+    condSynthStateMat W n i p b =
+      (PolarCodes.condSynthState (toPolarCQChannel W) n i p b).mat := by
+  unfold condSynthStateMat synthBlockMat PolarCodes.condSynthState PolarCodes.synthBlockMat
+  dsimp only
+  congr 1
+  apply Finset.sum_congr
+  · ext u; simp [prefixOf, PolarCodes.prefixOf]
+  · intro u _
+    rw [arikanTransform_eq]
+    rfl
+
+private lemma helstromProjectorMat_eq {α : Type*} [Fintype α] [DecidableEq α]
+    {A B : Matrix α α ℂ} (hA : A.IsHermitian) (hB : B.IsHermitian)
+    {ρ₀ ρ₁ : PolarCodes.DensityOp α} (h0 : A = ρ₀.mat) (h1 : B = ρ₁.mat) :
+    helstromProjectorMat hA hB = PolarCodes.helstromProjector ρ₀ ρ₁ := by
+  subst h0; subst h1; rfl
+
+private lemma qscStepProj_eq {d : Type} [Fintype d] [DecidableEq d]
+    (W : CQChannel d) (n : ℕ) (i : Fin (2 ^ n)) (p : Fin i.val → Bool) (b : Bool) :
+    qscStepProj W n i p b = PolarCodes.qscStepProj (toPolarCQChannel W) n i p b := by
+  unfold qscStepProj PolarCodes.qscStepProj
+  dsimp only
+  rw [helstromProjectorMat_eq _ _ (condSynthStateMat_eq W n i p false)
+    (condSynthStateMat_eq W n i p true)]
+
+private lemma seqProd_eq {α : Type*} [Fintype α] [DecidableEq α] :
+    ∀ (Ps : List (Matrix α α ℂ)), seqProd Ps = PolarCodes.seqProd Ps
+  | [] => rfl
+  | P :: Ps => by simp only [seqProd, PolarCodes.seqProd, seqProd_eq Ps]
+
+private lemma qscProjListPrefix_eq {d : Type} [Fintype d] [DecidableEq d]
+    (W : CQChannel d) (n : ℕ) (infoSet : Finset (Fin (2 ^ n))) :
+    ∀ (k : ℕ) (hk : k ≤ 2 ^ n) (u : Fin (2 ^ n) → Bool),
+      qscProjListPrefix W n infoSet k hk u =
+        PolarCodes.qscProjListPrefix (toPolarCQChannel W) n infoSet k hk u
+  | 0, _, _ => rfl
+  | k + 1, hk, u => by
+      simp only [qscProjListPrefix, PolarCodes.qscProjListPrefix,
+        qscProjListPrefix_eq W n infoSet k (by omega) u]
+      congr 2
+      split_ifs
+      · exact qscStepProj_eq W n ⟨k, by omega⟩ _ _
+      · rfl
+
+private lemma qscPrefixKraus_eq {d : Type} [Fintype d] [DecidableEq d]
+    (W : CQChannel d) (n : ℕ) (infoSet : Finset (Fin (2 ^ n)))
+    (k : ℕ) (hk : k ≤ 2 ^ n) (u : Fin (2 ^ n) → Bool) :
+    qscPrefixKraus W n infoSet k hk u =
+      PolarCodes.qscPrefixKraus (toPolarCQChannel W) n infoSet k hk u := by
+  unfold qscPrefixKraus PolarCodes.qscPrefixKraus
+  rw [seqProd_eq, qscProjListPrefix_eq]
+
 private def fromPolarCosetPolarCode {d : Type} [Fintype d] [DecidableEq d]
     {W : CQChannel d} {W' : PolarCodes.CQChannel d} {n : ℕ}
     (C : PolarCodes.CosetPolarCode W' n) : CosetPolarCode W n :=
@@ -244,14 +298,25 @@ theorem theorem_1_1_coding_poly_blocklength :
         {ε : ℝ}, 0 < ε → ε < 1 →
         ∀ (n : ℕ), C₀ * (1 / ε) ^ μ ≤ (2 : ℝ) ^ n →
           ∃ C : CosetPolarCode W n,
+            C.IsQSCDecoder ∧
             W.symCapacity - ε ≤ C.rate ∧
             C.avgBlockError ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) := by
   rcases PolarCodes.theorem_1_1_coding_poly_blocklength.{0} with ⟨μ, C₀, hμ, hC₀, h⟩
   refine ⟨μ, C₀, hμ, hC₀, ?_⟩
   intro d _ _ W ε hε0 hε1 n hn
-  obtain ⟨C, hrate, herr⟩ := h (toPolarCQChannel W) hε0 hε1 n hn
-  refine ⟨fromPolarCosetPolarCode C, hrate, ?_⟩
-  rwa [fromPolarCosetPolarCode_avgBlockError (fun _ ↦ rfl)]
+  obtain ⟨infoSet, frozen, hrate, herr⟩ := h (toPolarCQChannel W) hε0 hε1 n hn
+  refine ⟨fromPolarCosetPolarCode (PolarCodes.qscPolarCode (toPolarCQChannel W) n infoSet frozen),
+    ?_, hrate, ?_⟩
+  · intro m
+    change (PolarCodes.qscPrefixKraus (toPolarCQChannel W) n infoSet (2 ^ n) le_rfl
+        (PolarCodes.embedMsg infoSet frozen m)).conjTranspose *
+      PolarCodes.qscPrefixKraus (toPolarCQChannel W) n infoSet (2 ^ n) le_rfl
+        (PolarCodes.embedMsg infoSet frozen m) =
+      (qscPrefixKraus W n infoSet (2 ^ n) le_rfl (embedMsg infoSet frozen m)).conjTranspose *
+      qscPrefixKraus W n infoSet (2 ^ n) le_rfl (embedMsg infoSet frozen m)
+    rw [qscPrefixKraus_eq]
+    rfl
+  · rwa [fromPolarCosetPolarCode_avgBlockError (fun _ ↦ rfl)]
 
 theorem corollary_5_5_simultaneous_css_polarization :
     ∃ (μ C₀ : ℝ), 0 < μ ∧ 0 < C₀ ∧
@@ -395,7 +460,7 @@ theorem theorem_1_3_dephasing_sdpi_relEntropy {d : Type} [Fintype d] [DecidableE
       1 - h2 (binConv (h2Inv (1 -
         (relEntropy (dephaseState 0 le_rfl (by norm_num) Ψ)
           (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ)).toReal)) p) :=
-  PolarCodes.theorem_1_3_dephasing_sdpi_relEntropy_finite (toPolarDensityOp Ψ) hp0 hp1
+  PolarCodes.theorem_1_3_dephasing_sdpi_relEntropy (toPolarDensityOp Ψ) hp0 hp1
 
 theorem theorem_1_3_equatorial_equality_relEntropy {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 1)
     {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) :
@@ -408,6 +473,6 @@ theorem theorem_1_3_equatorial_equality_relEntropy {x : ℝ} (hx0 : 0 ≤ x) (hx
       1 - h2 (binConv (h2Inv (1 -
         (relEntropy (dephaseState 0 le_rfl (by norm_num) (equatorialState x hx0 hx1))
           (dephaseState (1 / 2) (by norm_num) (by norm_num) (equatorialState x hx0 hx1))).toReal)) p) :=
-  PolarCodes.theorem_1_3_equatorial_equality_relEntropy_finite hx0 hx1 hp0 hp1
+  PolarCodes.theorem_1_3_equatorial_equality_relEntropy hx0 hx1 hp0 hp1
 
 end PolarCodesChallenge

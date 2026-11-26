@@ -418,6 +418,80 @@ def embedMsg {N : ℕ} (infoSet : Finset (Fin N)) (frozen : Fin N → Bool)
     (m : {i : Fin N // i ∈ infoSet} → Bool) : Fin N → Bool :=
   fun i ↦ if hi : i ∈ infoSet then m ⟨i, hi⟩ else frozen i
 
+def prefixOf {N : ℕ} (i : Fin N) (u : Fin N → Bool) : Fin i.val → Bool :=
+  fun j ↦ u ⟨j.val, Nat.lt_trans j.isLt i.isLt⟩
+
+noncomputable def synthBlockMat {d : Type*} [Fintype d] [DecidableEq d]
+    (W : CQChannel d) (n : ℕ) (i : Fin (2 ^ n))
+    (p : Fin i.val → Bool) (b : Bool) :
+    Matrix (Fin (2 ^ n) → d) (Fin (2 ^ n) → d) ℂ :=
+  ∑ u ∈ Finset.univ.filter (fun u : Fin (2 ^ n) → Bool ↦ prefixOf i u = p ∧ u i = b),
+    productStateMat W n (arikanTransform n u)
+
+noncomputable def condSynthStateMat {d : Type*} [Fintype d] [DecidableEq d]
+    (W : CQChannel d) (n : ℕ) (i : Fin (2 ^ n))
+    (p : Fin i.val → Bool) (b : Bool) :
+    Matrix (Fin (2 ^ n) → d) (Fin (2 ^ n) → d) ℂ :=
+  ((2 : ℂ) ^ (2 ^ n - 1 - i.val))⁻¹ • synthBlockMat W n i p b
+
+lemma productStateMat_isHermitian {d : Type*} [Fintype d] [DecidableEq d]
+    (W : CQChannel d) (n : ℕ) (x : Fin (2 ^ n) → Bool) :
+    (productStateMat W n x).IsHermitian := by
+  ext r s
+  simp only [Matrix.conjTranspose_apply, productStateMat, Matrix.of_apply, Complex.star_def,
+    map_prod]
+  apply Finset.prod_congr rfl; intro k _
+  have h := congr_fun (congr_fun (W.out (x k)).isHermitian.eq (r k)) (s k)
+  simpa [Matrix.conjTranspose_apply, Complex.star_def] using h
+
+lemma condSynthStateMat_isHermitian {d : Type*} [Fintype d] [DecidableEq d]
+    (W : CQChannel d) (n : ℕ) (i : Fin (2 ^ n))
+    (p : Fin i.val → Bool) (b : Bool) :
+    (condSynthStateMat W n i p b).IsHermitian := by
+  unfold condSynthStateMat synthBlockMat
+  rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Matrix.conjTranspose_sum]
+  have hc : star (((2 : ℂ) ^ (2 ^ n - 1 - i.val))⁻¹) = ((2 : ℂ) ^ (2 ^ n - 1 - i.val))⁻¹ := by
+    simp
+  rw [hc]
+  congr 1
+  apply Finset.sum_congr rfl; intro u _
+  exact (productStateMat_isHermitian W n (arikanTransform n u)).eq
+
+noncomputable def helstromProjectorMat {α : Type*} [Fintype α] [DecidableEq α]
+    {A B : Matrix α α ℂ} (hA : A.IsHermitian) (hB : B.IsHermitian) : Matrix α α ℂ :=
+  let hΔ := hA.sub hB
+  let U : Matrix α α ℂ := (hΔ.eigenvectorUnitary : Matrix α α ℂ)
+  U * Matrix.diagonal (fun i : α ↦ if 0 ≤ hΔ.eigenvalues i then (1 : ℂ) else 0) * star U
+
+noncomputable def qscStepProj {d : Type*} [Fintype d] [DecidableEq d]
+    (W : CQChannel d) (n : ℕ) (i : Fin (2 ^ n))
+    (p : Fin i.val → Bool) (b : Bool) :
+    Matrix (Fin (2 ^ n) → d) (Fin (2 ^ n) → d) ℂ :=
+  let P := helstromProjectorMat
+    (condSynthStateMat_isHermitian W n i p false)
+    (condSynthStateMat_isHermitian W n i p true)
+  if b = false then P else 1 - P
+
+def seqProd {α : Type*} [Fintype α] [DecidableEq α] : List (Matrix α α ℂ) → Matrix α α ℂ
+  | [] => 1
+  | P :: Ps => seqProd Ps * P
+
+noncomputable def qscProjListPrefix {d : Type*} [Fintype d] [DecidableEq d]
+    (W : CQChannel d) (n : ℕ) (infoSet : Finset (Fin (2 ^ n))) :
+    (k : ℕ) → k ≤ 2 ^ n → (Fin (2 ^ n) → Bool) →
+      List (Matrix (Fin (2 ^ n) → d) (Fin (2 ^ n) → d) ℂ)
+  | 0, _, _ => []
+  | k + 1, hk, u =>
+      let i : Fin (2 ^ n) := ⟨k, by omega⟩
+      qscProjListPrefix W n infoSet k (by omega) u ++
+        [if i ∈ infoSet then qscStepProj W n i (prefixOf i u) (u i) else 1]
+
+noncomputable def qscPrefixKraus {d : Type*} [Fintype d] [DecidableEq d]
+    (W : CQChannel d) (n : ℕ) (infoSet : Finset (Fin (2 ^ n)))
+    (k : ℕ) (hk : k ≤ 2 ^ n) (u : Fin (2 ^ n) → Bool) :
+    Matrix (Fin (2 ^ n) → d) (Fin (2 ^ n) → d) ℂ :=
+  seqProd (qscProjListPrefix W n infoSet k hk u)
+
 structure CosetPolarCode {d : Type*} [Fintype d] [DecidableEq d]
     (W : CQChannel d) (n : ℕ) where
   infoSet : Finset (Fin (2 ^ n))
@@ -443,6 +517,13 @@ noncomputable def avgBlockError {d : Type*} [Fintype d] [DecidableEq d]
   ((2 : ℝ) ^ C.infoSet.card)⁻¹ *
     ∑ m : {i : Fin (2 ^ n) // i ∈ C.infoSet} → Bool,
       (1 - ((C.povm m * productStateMat W n (C.encode m)).trace).re)
+
+def IsQSCDecoder {d : Type*} [Fintype d] [DecidableEq d]
+    {W : CQChannel d} {n : ℕ} (C : CosetPolarCode W n) : Prop :=
+  ∀ m : {i : Fin (2 ^ n) // i ∈ C.infoSet} → Bool,
+    C.povm m =
+      (qscPrefixKraus W n C.infoSet (2 ^ n) le_rfl (embedMsg C.infoSet C.frozenBits m))ᴴ *
+        qscPrefixKraus W n C.infoSet (2 ^ n) le_rfl (embedMsg C.infoSet C.frozenBits m)
 
 end CosetPolarCode
 

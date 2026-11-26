@@ -24,6 +24,7 @@ theorem theorem_1_1_coding_poly_blocklength :
         {ε : ℝ}, 0 < ε → ε < 1 →
         ∀ (n : ℕ), C₀ * (1 / ε) ^ μ ≤ (2 : ℝ) ^ n →
           ∃ C : CosetPolarCode W n,
+            C.IsQSCDecoder ∧
             W.symCapacity - ε ≤ C.rate ∧
             C.avgBlockError ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) := by
   sorry
