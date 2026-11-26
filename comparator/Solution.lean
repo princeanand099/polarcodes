@@ -84,10 +84,19 @@ private lemma symCoherentInfo_eq {d : Type} [Fintype d] [DecidableEq d] (𝒩 : 
   unfold symCoherentInfo PolarCodes.symCoherentInfo
   have h1 : toPolarDensityOp (𝒩.apply (maxMixedState Bool)) =
       (toPolarCPTPMap 𝒩).apply (PolarCodes.maxMixedState Bool) :=
-    toPolarDensityOp_eq_of_mat (by ext i j; rfl)
+    toPolarDensityOp_eq_of_mat (by
+      ext i j
+      simp only [CPTPMap.apply, PolarCodes.CPTPMap.apply, PolarCodes.CPTPMap.toLinearMap,
+        LinearMap.coe_mk, AddHom.coe_mk, partialTrace₂Mat, PolarCodes.partialTrace₂Mat,
+        maxMixedState, PolarCodes.maxMixedState, toPolarCPTPMap, Matrix.of_apply])
   have h2 : toPolarDensityOp (𝒩.complementary.apply (maxMixedState Bool)) =
       (toPolarCPTPMap 𝒩).complementary.apply (PolarCodes.maxMixedState Bool) :=
-    toPolarDensityOp_eq_of_mat (by ext i j; rfl)
+    toPolarDensityOp_eq_of_mat (by
+      ext i j
+      simp only [CPTPMap.apply, PolarCodes.CPTPMap.apply, PolarCodes.CPTPMap.toLinearMap,
+        LinearMap.coe_mk, AddHom.coe_mk, partialTrace₂Mat, PolarCodes.partialTrace₂Mat,
+        maxMixedState, PolarCodes.maxMixedState, toPolarCPTPMap,
+        CPTPMap.complementary, PolarCodes.CPTPMap.complementary, Matrix.of_apply])
   rw [← h1, ← h2]
   rfl
 
