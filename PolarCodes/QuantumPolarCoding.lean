@@ -1095,8 +1095,10 @@ theorem phaseChannel_dual_channelEquiv {d : Type} [Fintype d] [DecidableEq d]
                  ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) * ((Real.sqrt 2 : ℂ)⁻¹) := by ring
             _ = (1 / 2 + 1 / 2) * ((Real.sqrt 2 : ℂ)⁻¹) := by rw [hmul2]
             _ = ((Real.sqrt 2 : ℂ)⁻¹) := by ring
+        have h3' : ((Real.sqrt 2 : ℂ)⁻¹) ^ 3 * 2 = ((Real.sqrt 2 : ℂ)⁻¹) := by
+          linear_combination h3
         cases b <;> cases u <;> cases a <;> simp <;>
-          first | ring | (linear_combination star (𝒩.isom (x, e) _) * h3)
+          first | ring | (linear_combination (starRingEnd ℂ) (𝒩.isom (x, e) _) * h3')
       · intro e' _ hne; apply Finset.sum_eq_zero; intro v _; simp [Ne.symm hne]
       · intro h; exact absurd (Finset.mem_univ e) h
     intro b
@@ -1107,13 +1109,14 @@ theorem phaseChannel_dual_channelEquiv {d : Type} [Fintype d] [DecidableEq d]
         ((ampChannel 𝒩.complementary).transpose.symmetrize.out b).mat := by
       rw [hHM b]
       ext ⟨u₁, e₁⟩ ⟨u₂, e₂⟩
-      simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
-        Fintype.sum_prod_type, CQChannel.symmetrize, CQChannel.transpose, DensityOp.transpose,
+      simp only [CQChannel.symmetrize, CQChannel.transpose, DensityOp.transpose,
         ampChannel, CPTPMap.apply, CPTPMap.complementary, CPTPMap.toLinearMap, partialTrace₂Mat,
         DensityOp.midpoint, DensityOp.mix, DensityOp.tensor, CQChannel.ketBraBool,
         Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, Matrix.transpose_apply,
-        LinearMap.coe_mk, AddHom.coe_mk, Complex.real_smul, Fintype.sum_bool, star_mul',
-        star_star, hstar2]
+        Complex.real_smul]
+      dsimp only [LinearMap.coe_mk, AddHom.coe_mk]
+      simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+        Fintype.sum_prod_type, Fintype.sum_bool, star_mul', star_star, hstar2]
       cases b <;> cases u₁ <;> cases u₂ <;>
         simp only [↓reduceIte, Bool.xor_false, Bool.xor_true, Bool.true_eq_false, Bool.false_eq_true,
           Bool.not_false, Bool.not_true, and_self, and_false, false_and, one_mul, mul_one,
@@ -1348,7 +1351,7 @@ theorem corollary_5_5_quantum_private_polar_coding :
       have hcast : ((goodSet (ampChannel 𝒩) n thresh).card : ℝ) +
           ((goodSet (phaseChannel 𝒩) n thresh).card : ℝ) ≤ (infoA.card : ℝ) + (2 : ℝ) ^ n := by
         exact_mod_cast hcard_inter
-      rw [div_add_div_same, sub_le_iff_le_add]
+      rw [← add_div, sub_le_iff_le_add]
       rw [div_le_iff₀ hpow_pos]
       have hmul : ((infoA.card : ℝ) / (2 : ℝ) ^ n + 1) * (2 : ℝ) ^ n = (infoA.card : ℝ) + (2 : ℝ) ^ n := by
         field_simp [ne_of_gt hpow_pos]
