@@ -1980,10 +1980,10 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
             apply Finset.sum_congr rfl; intro a₁ _; ring
           simpa [Fintype.sum_prod_type] using hreorder
         · intro m₁ _ hne; apply Finset.sum_eq_zero; intro a₁ _; apply Finset.sum_eq_zero; intro a₂ _
-          simp [maxEntangledVec, hne]
+          simp [maxEntangledVec, Ne.symm hne]
         · intro h; exact absurd (Finset.mem_univ m) h
       · intro m₁ _ hne; apply Finset.sum_eq_zero; intro m₂ _; apply Finset.sum_eq_zero; intro a₁ _
-        apply Finset.sum_eq_zero; intro a₂ _; simp [hne]
+        apply Finset.sum_eq_zero; intro a₂ _; simp [Ne.symm hne]
       · intro h; exact absurd (Finset.mem_univ m) h
     apply densityOp_eq_of_mat
     ext ⟨m₁, m₁'⟩ ⟨m₂, m₂'⟩
@@ -2015,14 +2015,14 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
         ∑ e : E, ∑ anc : Anc, ψ_Z_dec ((m₁, e), (m₁', anc)) * star (ψ_Z_dec ((m₂, e), (m₂', anc))) := by
       unfold entanglementChannelOutput
       rw [CPTPMap.apply_pureState]
-      simp only [Matrix.of_apply, Fintype.sum_prod_type, Fintype.sum_unique]
+      dsimp only [Matrix.of_apply]
+      change ∑ x : Anc × ((E × Unit) × Unit),
+        (∑ p : M × ((M × A) × A), (CPTPMap.tensorIdLeft M fullBob).isom ((m₁, m₁'), x) p * initVec p) *
+        star (∑ p : M × ((M × A) × A), (CPTPMap.tensorIdLeft M fullBob).isom ((m₂, m₂'), x) p * initVec p) = _
+      simp only [Fintype.sum_prod_type, Fintype.sum_unique]
       rw [Finset.sum_comm]
       apply Finset.sum_congr rfl; intro e _
       apply Finset.sum_congr rfl; intro anc _
-      change (∑ p : M × ((M × A) × A),
-        (CPTPMap.tensorIdLeft M fullBob).isom ((m₁, m₁'), (anc, ((e, ()), ()))) p * initVec p) *
-        star (∑ p : M × ((M × A) × A),
-        (CPTPMap.tensorIdLeft M fullBob).isom ((m₂, m₂'), (anc, ((e, ()), ()))) p * initVec p) = _
       rw [hamp_eq m₁ m₁' anc e, hamp_eq m₂ m₂' anc e]
     rw [hL, hR]
   refine ⟨v, 𝒟, ?_⟩
