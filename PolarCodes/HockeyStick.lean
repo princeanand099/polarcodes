@@ -83,15 +83,12 @@ lemma negPartTrace_pencil_eq_zero_of_mem_Icc {t : ℝ} (ht0 : 0 ≤ t) (ht1 : t 
   have hnn : 0 ≤ (pencil_isHermitian t ρ σ).eigenvalues i := hpsd.eigenvalues_nonneg i
   exact max_eq_right (by linarith)
 
-/-- **Eq. (3.8)** (Hockey-Stick Integral Representation of Quantum Relative Entropy) for full-rank
-density operators `ρ, σ ≻ 0`:
-`D(ρ ‖ σ) * log 2 = ∫_{0}^{∞} (E_s(ρ ‖ σ) - (1 - s)_+) / s ds`. -/
-theorem relEntropy_hockeyStick_integral {ρ σ : DensityOp d}
-    (hρ : ρ.mat.PosDef) (hσ : σ.mat.PosDef) :
-    relEntropy ρ σ * ENNReal.ofReal (Real.log 2) =
+/-- Pure change-of-variables identity equating Frenkel's integral to the hockey-stick integral
+for arbitrary (possibly rank-deficient) density operators `ρ, σ`. -/
+lemma frenkel_lintegral_eq_hockeyStick_lintegral (ρ σ : DensityOp d) :
+    (∫⁻ t : ℝ, ENNReal.ofReal (negPartTrace (pencil_isHermitian t ρ σ) / (|t| * (t - 1) ^ 2)) ∂volume) =
       ∫⁻ s in Ioi (0 : ℝ),
         ENNReal.ofReal ((hockeyStick s ρ σ - max (1 - s) 0) / s) ∂volume := by
-  rw [relEntropy_frenkel_integral hρ hσ]
   let F : ℝ → ℝ≥0∞ := fun t ↦
     ENNReal.ofReal (negPartTrace (pencil_isHermitian t ρ σ) / (|t| * (t - 1) ^ 2))
   change ∫⁻ t : ℝ, F t ∂volume = _
@@ -282,6 +279,17 @@ theorem relEntropy_hockeyStick_integral {ρ σ : DensityOp d}
 
 /-! ### Part 2: Convexity and Endpoint Behavior of `s ↦ E_s(ρ ‖ σ)` -/
 
+
+/-- **Eq. (3.8)** (Hockey-Stick Integral Representation of Quantum Relative Entropy) for full-rank
+density operators `ρ, σ ≻ 0`:
+`D(ρ ‖ σ) * log 2 = ∫_{0}^{∞} (E_s(ρ ‖ σ) - (1 - s)_+) / s ds`. -/
+theorem relEntropy_hockeyStick_integral {ρ σ : DensityOp d}
+    (hρ : ρ.mat.PosDef) (hσ : σ.mat.PosDef) :
+    relEntropy ρ σ * ENNReal.ofReal (Real.log 2) =
+      ∫⁻ s in Ioi (0 : ℝ),
+        ENNReal.ofReal ((hockeyStick s ρ σ - max (1 - s) 0) / s) ∂volume := by
+  rw [relEntropy_frenkel_integral hρ hσ]
+  exact frenkel_lintegral_eq_hockeyStick_lintegral ρ σ
 /-- `s ↦ E_s(ρ ‖ σ)` is convex on all of `ℝ`. -/
 lemma hockeyStick_convexOn (ρ σ : DensityOp d) :
     ConvexOn ℝ univ (fun s : ℝ ↦ hockeyStick s ρ σ) := by
