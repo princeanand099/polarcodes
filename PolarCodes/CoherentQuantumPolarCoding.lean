@@ -893,12 +893,15 @@ private lemma productState_comp_eq_tensorPow_partialTrace (𝒩 : CPTPMap.{0} Bo
   apply Finset.prod_congr rfl; intro i _
   have hcomp : ((ampChannel 𝒩.complementary).out (x i)).mat (e₁ i) (e₂ i) =
       ∑ y : d, 𝒩.isom (y, e₁ i) (x i) * star (𝒩.isom (y, e₂ i) (x i)) := by
-    simp only [ampChannel, CPTPMap.complementary, CPTPMap.apply, CPTPMap.toLinearMap,
-      partialTrace₂Mat, CQChannel.ketBraBool, LinearMap.coe_mk, AddHom.coe_mk, Matrix.of_apply]
-    apply Finset.sum_congr rfl; intro y _
-    rw [Matrix.mul_apply]
-    simp_rw [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply]
-    cases x i <;> simp [Fintype.sum_bool]
+    have h : ((ampChannel 𝒩.complementary).out (x i)).mat (e₁ i) (e₂ i) =
+        ∑ y : 𝒩.complementary.env,
+          𝒩.complementary.isom (e₁ i, y) (x i) * star (𝒩.complementary.isom (e₂ i, y) (x i)) := by
+      simp only [ampChannel, CPTPMap.apply, CPTPMap.toLinearMap, partialTrace₂Mat,
+        CQChannel.ketBraBool, LinearMap.coe_mk, AddHom.coe_mk, Matrix.of_apply]
+      apply Finset.sum_congr rfl; intro y _
+      simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply]
+      cases x i <;> simp [Fintype.sum_bool]
+    simpa [CPTPMap.complementary] using h
   exact hcomp
 
 set_option maxHeartbeats 2400000 in
