@@ -907,6 +907,17 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
   let a₀ : A := fun _ ↦ false
   let r₀ : R := fun _ ↦ false
   let e₀ : E := fun _ ↦ e₀_single
+  obtain ⟨V_isom, hV_def⟩ : ∃ V : Matrix (Y × E) (Fin (2 ^ n) → Bool) ℂ, V = (𝒩.tensorPow n).isom :=
+    ⟨(𝒩.tensorPow n).isom, rfl⟩
+  have hV_orth : ∀ (x₁ x₂ : Fin (2 ^ n) → Bool),
+      ∑ e : E, ∑ y : Y, star (V_isom (y, e) x₁) * V_isom (y, e) x₂ =
+        if x₁ = x₂ then (1 : ℂ) else 0 := by
+    intro x₁ x₂
+    rw [hV_def]
+    have h := congr_fun (congr_fun (𝒩.tensorPow n).isom_eq x₁) x₂
+    rw [Finset.sum_comm]
+    simpa [Y, E, CPTPMap.tensorPow, Matrix.mul_apply, Matrix.conjTranspose_apply,
+      Fintype.sum_prod_type, Matrix.one_apply] using h
   let eMR : (M × R) ≃ ({i : Fin (2 ^ n) // i ∈ infoSet ∪ randSet} → Bool) :=
     { toFun := fun mr ⟨i, hi⟩ ↦
         if h : i ∈ infoSet then mr.1 ⟨i, h⟩
@@ -1015,13 +1026,13 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
           (((2 : ℝ) ^ randSet.card : ℝ) : ℂ)⁻¹ := by rw [h1, h1, h1]
       _ = _ := by push_cast; rw [mul_inv, mul_inv]
   let ψ_ch (v : R) : (M × E) × (Y × A) → ℂ := fun p ↦
-    ν * ∑ r : R, phaseSign v r * (𝒩.tensorPow n).isom (p.2.1, p.1.2)
+    ν * ∑ r : R, phaseSign v r * V_isom (p.2.1, p.1.2)
       (arikanTransform n (wiretapWord infoSet randSet assistSet uF p.1.1 r p.2.2))
   let ψ_Z (v : R) : (M × E) × B_tot → ℂ := fun p ↦
     ∑ ya : Y × A, W_Z p.2 ya * ψ_ch v (p.1, ya)
   let ψ_ideal (v : R) : (M × E) × B_tot → ℂ := fun p ↦
     if p.2.1 = p.1.1 ∧ p.2.2.2.2.2 = e₀ then
-      ν * phaseSign v p.2.2.2.2.1 * (𝒩.tensorPow n).isom (p.2.2.1, p.1.2)
+      ν * phaseSign v p.2.2.2.2.1 * V_isom (p.2.2.1, p.1.2)
         (arikanTransform n (wiretapWord infoSet randSet assistSet uF p.1.1 p.2.2.2.2.1 p.2.2.2.1))
     else 0
   have hψ_ideal_norm : ∀ v : R, ∑ p : (M × E) × B_tot, ‖ψ_ideal v p‖ ^ 2 = 1 := by
@@ -1034,13 +1045,13 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
       simp only [ψ_ideal, B_tot, Anc, Fintype.sum_prod_type]
       have hinner : ∀ m : M, ∀ e : E,
           ∑ m' : M, ∑ y : Y, ∑ a : A, ∑ r : R, ∑ e' : E,
-            star (if m' = m ∧ e' = e₀ then ν * phaseSign v r * (𝒩.tensorPow n).isom (y, e)
+            star (if m' = m ∧ e' = e₀ then ν * phaseSign v r * V_isom (y, e)
               (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a)) else 0) *
-            (if m' = m ∧ e' = e₀ then ν * phaseSign v r * (𝒩.tensorPow n).isom (y, e)
+            (if m' = m ∧ e' = e₀ then ν * phaseSign v r * V_isom (y, e)
               (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a)) else 0) =
           (star ν * ν) * ∑ a : A, ∑ r : R, ∑ y : Y,
-            star ((𝒩.tensorPow n).isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a))) *
-            (𝒩.tensorPow n).isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a)) := by
+            star (V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a))) *
+            V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a)) := by
         intro m e
         rw [Finset.sum_eq_single m]
         · simp only [true_and, Finset.mul_sum]
@@ -1053,8 +1064,8 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
           · simp only [↓reduceIte, star_mul', phaseSign_star]
             have hps := phaseSign_mul_self v r
             linear_combination (star ν * ν *
-              (star ((𝒩.tensorPow n).isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a))) *
-               (𝒩.tensorPow n).isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a)))) * hps
+              (star (V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a))) *
+               V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a)))) * hps
           · intro e' _ hne; simp [hne]
           · intro h; exact absurd (Finset.mem_univ e₀) h
         · intro m' _ hne
@@ -1067,20 +1078,15 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
       simp_rw [hinner]
       rw [Finset.sum_comm]
       have hV_unit : ∀ (x : Fin (2 ^ n) → Bool),
-          ∑ e : E, ∑ y : Y, star ((𝒩.tensorPow n).isom (y, e) x) * (𝒩.tensorPow n).isom (y, e) x = 1 := by
-        intro x
-        have h := congr_fun (congr_fun (𝒩.tensorPow n).isom_eq x) x
-        simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
-          Matrix.one_apply_eq] at h
-        rw [Finset.sum_comm]
-        convert h
+          ∑ e : E, ∑ y : Y, star (V_isom (y, e) x) * V_isom (y, e) x = 1 :=
+        fun x ↦ by simpa using hV_orth x x
       calc ∑ e : E, ∑ m : M, (star ν * ν) * ∑ a : A, ∑ r : R, ∑ y : Y,
-              star ((𝒩.tensorPow n).isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a))) *
-              (𝒩.tensorPow n).isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a))
+              star (V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a))) *
+              V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a))
           = (star ν * ν) * ∑ m : M, ∑ a : A, ∑ r : R, ∑ e : E, ∑ y : Y,
-              star ((𝒩.tensorPow n).isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a))) *
-              (𝒩.tensorPow n).isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a)) := by
-            rw [Finset.sum_comm, ← Finset.mul_sum]
+              star (V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a))) *
+              V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a)) := by
+            rw [Finset.sum_comm]; simp_rw [← Finset.mul_sum]
             congr 1; apply Finset.sum_congr rfl; intro m _
             rw [Finset.sum_comm]
             apply Finset.sum_congr rfl; intro a _
@@ -1091,7 +1097,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
             apply Finset.sum_congr rfl; intro r _
             exact hV_unit _
         _ = 1 := by
-            simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fun, Fintype.card_bool,
+            simp only [M, A, R, Finset.sum_const, Finset.card_univ, Fintype.card_fun, Fintype.card_bool,
               Fintype.card_coe, nsmul_eq_mul, mul_one, Nat.cast_pow, Nat.cast_ofNat, hν_sq]
             have hne : ((2 : ℂ) ^ infoSet.card * (2 : ℂ) ^ assistSet.card * (2 : ℂ) ^ randSet.card) ≠ 0 := by
               positivity
@@ -1107,15 +1113,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
       simp_rw [h1]
       simp only [ψ_ch, Fintype.sum_prod_type, star_mul, star_sum, phaseSign_star,
         Finset.sum_mul, Finset.mul_sum]
-      have hV : ∀ (x₁ x₂ : Fin (2 ^ n) → Bool),
-          ∑ e : E, ∑ y : Y, star ((𝒩.tensorPow n).isom (y, e) x₁) * (𝒩.tensorPow n).isom (y, e) x₂ =
-            if x₁ = x₂ then (1 : ℂ) else 0 := by
-        intro x₁ x₂
-        have h := congr_fun (congr_fun (𝒩.tensorPow n).isom_eq x₁) x₂
-        simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
-          Matrix.one_apply] at h
-        rw [Finset.sum_comm]
-        convert h
+      have hV := hV_orth
       have hinj_r : ∀ (m : M) (a : A) (r₁ r₂ : R),
           arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₁ a) =
           arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₂ a) → r₁ = r₂ := by
@@ -1126,14 +1124,14 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
         have h := congr_fun hw i
         simpa [wiretapWord, hni, hi] using h
       calc ∑ m : M, ∑ e : E, ∑ y : Y, ∑ a : A, ∑ r₁ : R, ∑ r₂ : R,
-            star ((𝒩.tensorPow n).isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₁ a))) *
+            star (V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₁ a))) *
             phaseSign v r₁ * star ν *
-            (ν * (phaseSign v r₂ * (𝒩.tensorPow n).isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₂ a))))
+            (ν * (phaseSign v r₂ * V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₂ a))))
           = (star ν * ν) * ∑ m : M, ∑ a : A, ∑ r₁ : R, ∑ r₂ : R,
               (phaseSign v r₁ * phaseSign v r₂) *
               ∑ e : E, ∑ y : Y,
-                star ((𝒩.tensorPow n).isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₁ a))) *
-                (𝒩.tensorPow n).isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₂ a)) := by
+                star (V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₁ a))) *
+                V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₂ a)) := by
             rw [Finset.mul_sum]
             apply Finset.sum_congr rfl; intro m _
             rw [Finset.mul_sum]
@@ -1178,7 +1176,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
             · intro r₂ _ hne; rw [if_neg, mul_zero]; intro heq; exact hne (hinj_r m a r₁ r₂ heq).symm
             · intro h; exact absurd (Finset.mem_univ r₁) h
         _ = 1 := by
-            simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fun, Fintype.card_bool,
+            simp only [M, A, R, Finset.sum_const, Finset.card_univ, Fintype.card_fun, Fintype.card_bool,
               Fintype.card_coe, nsmul_eq_mul, mul_one, Nat.cast_pow, Nat.cast_ofNat, hν_sq]
             have hne : ((2 : ℂ) ^ infoSet.card * (2 : ℂ) ^ assistSet.card * (2 : ℂ) ^ randSet.card) ≠ 0 := by
               positivity
@@ -1247,41 +1245,41 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
               (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a))).mat).trace := by
       have hterm : ∀ v : R, ∀ m : M, ∀ e : E,
           ∑ m' : M, ∑ y : Y, ∑ a' : A, ∑ r' : R, ∑ e' : E,
-            star (if m' = m ∧ e' = e₀ then ν * phaseSign v r' * (𝒩.tensorPow n).isom (y, e)
+            star (if m' = m ∧ e' = e₀ then ν * phaseSign v r' * V_isom (y, e)
               (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r' a')) else 0) *
             (∑ y₁ : Y, ∑ a₁ : A,
               (if a' = a₁ ∧ e' = e₀ then K a₁ m' r' y y₁ else 0) *
-              (ν * ∑ r₂ : R, phaseSign v r₂ * (𝒩.tensorPow n).isom (y₁, e)
+              (ν * ∑ r₂ : R, phaseSign v r₂ * V_isom (y₁, e)
                 (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₂ a₁)))) =
           (star ν * ν) * ∑ a : A, ∑ r' : R, ∑ r₂ : R,
             (phaseSign v r' * phaseSign v r₂) *
             ∑ y : Y, ∑ y₁ : Y,
               K a m r' y y₁ *
-              (𝒩.tensorPow n).isom (y₁, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₂ a)) *
-              star ((𝒩.tensorPow n).isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r' a))) := by
+              V_isom (y₁, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₂ a)) *
+              star (V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r' a))) := by
         intro v m e
         rw [Finset.sum_eq_single m]
         · simp only [true_and, Finset.mul_sum]
           have h1 : ∀ y : Y, ∀ a' : A, ∀ r' : R,
               ∑ e' : E,
-                star (if e' = e₀ then ν * phaseSign v r' * (𝒩.tensorPow n).isom (y, e)
+                star (if e' = e₀ then ν * phaseSign v r' * V_isom (y, e)
                   (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r' a')) else 0) *
                 (∑ y₁ : Y, ∑ a₁ : A,
                   (if a' = a₁ ∧ e' = e₀ then K a₁ m r' y y₁ else 0) *
-                  (ν * ∑ r₂ : R, phaseSign v r₂ * (𝒩.tensorPow n).isom (y₁, e)
+                  (ν * ∑ r₂ : R, phaseSign v r₂ * V_isom (y₁, e)
                     (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₂ a₁)))) =
               (star ν * ν) * ∑ r₂ : R, (phaseSign v r' * phaseSign v r₂) * ∑ y₁ : Y,
                 K a' m r' y y₁ *
-                (𝒩.tensorPow n).isom (y₁, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₂ a')) *
-                star ((𝒩.tensorPow n).isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r' a'))) := by
+                V_isom (y₁, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₂ a')) *
+                star (V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r' a'))) := by
             intro y a' r'
             rw [Finset.sum_eq_single e₀]
             · simp only [↓reduceIte, and_true, star_mul', phaseSign_star]
               have ha' : ∀ y₁ : Y, ∑ a₁ : A,
                   (if a' = a₁ then K a₁ m r' y y₁ else 0) *
-                  (ν * ∑ r₂ : R, phaseSign v r₂ * (𝒩.tensorPow n).isom (y₁, e)
+                  (ν * ∑ r₂ : R, phaseSign v r₂ * V_isom (y₁, e)
                     (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₂ a₁))) =
-                  K a' m r' y y₁ * (ν * ∑ r₂ : R, phaseSign v r₂ * (𝒩.tensorPow n).isom (y₁, e)
+                  K a' m r' y y₁ * (ν * ∑ r₂ : R, phaseSign v r₂ * V_isom (y₁, e)
                     (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₂ a'))) := fun y₁ ↦ by
                 rw [Finset.sum_eq_single a']
                 · simp
@@ -1317,8 +1315,8 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
             (phaseSign v r' * phaseSign v r₂) *
             ∑ y : Y, ∑ y₁ : Y,
               K a m r' y y₁ *
-              (𝒩.tensorPow n).isom (y₁, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₂ a)) *
-              star ((𝒩.tensorPow n).isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r' a))) := by
+              V_isom (y₁, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₂ a)) *
+              star (V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r' a))) := by
         intro v
         simp only [ψ_ideal, ψ_Z, ψ_ch, W_Z, B_tot, Anc, Fintype.sum_prod_type]
         simp_rw [hterm v, ← Finset.mul_sum]
@@ -1326,8 +1324,8 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
       let g : M → E → A → R → R → ℂ := fun m e a r' r₂ ↦
         ∑ y : Y, ∑ y₁ : Y,
           K a m r' y y₁ *
-          (𝒩.tensorPow n).isom (y₁, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₂ a)) *
-          star ((𝒩.tensorPow n).isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r' a)))
+          V_isom (y₁, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r₂ a)) *
+          star (V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r' a)))
       have hswap : ∑ v : R, ∑ m : M, ∑ e : E, ∑ a : A, ∑ r' : R, ∑ r₂ : R,
             (phaseSign v r' * phaseSign v r₂) * g m e a r' r₂ =
           ∑ m : M, ∑ e : E, ∑ a : A, ∑ r' : R, ∑ r₂ : R,
@@ -1367,7 +1365,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
             apply Finset.sum_congr rfl; intro a _
             apply Finset.sum_congr rfl; intro m _
             apply Finset.sum_congr rfl; intro r _
-            simp only [g, Matrix.trace, Matrix.diag, Matrix.mul_apply,
+            simp only [g, hV_def, Matrix.trace, Matrix.diag, Matrix.mul_apply,
               productState_amp_eq_tensorPow_partialTrace, Finset.mul_sum]
             rw [Finset.sum_comm]
             apply Finset.sum_congr rfl; intro y _
@@ -1482,7 +1480,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
         ∑ _v : R, (1 - wiretapBobError 𝒩 n infoSet randSet assistSet uF) := by
       apply Finset.sum_lt_sum_of_nonempty Finset.univ_nonempty
       intro v _; exact hall v
-    simp only [Finset.sum_const, Finset.card_univ, Fintype.card_fun, Fintype.card_bool,
+    simp only [R, Finset.sum_const, Finset.card_univ, Fintype.card_fun, Fintype.card_bool,
       Fintype.card_coe, nsmul_eq_mul, Nat.cast_pow, Nat.cast_ofNat] at hlt
     linarith
   obtain ⟨v, hv_ov⟩ := hov_exists
@@ -1581,9 +1579,9 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
     by_cases hm : m₁ = m₂
     · subst hm
       have hL : ∑ m' : M, ∑ y : Y, ∑ a : A, ∑ r : R, ∑ e' : E,
-          (if m' = m₁ ∧ e' = e₀ then ν * phaseSign v r * (𝒩.tensorPow n).isom (y, e₁)
+          (if m' = m₁ ∧ e' = e₀ then ν * phaseSign v r * V_isom (y, e₁)
             (arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r a)) else 0) *
-          star (if m' = m₁ ∧ e' = e₀ then ν * phaseSign v r * (𝒩.tensorPow n).isom (y, e₂)
+          star (if m' = m₁ ∧ e' = e₀ then ν * phaseSign v r * V_isom (y, e₂)
             (arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r a)) else 0) =
           (star ν * ν) * ∑ r : R, ∑ a : A,
             (productState (ampChannel 𝒩.complementary) n
@@ -1592,20 +1590,20 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
         · simp only [true_and]
           have he' : ∀ y a r,
               ∑ e' : E,
-                (if e' = e₀ then ν * phaseSign v r * (𝒩.tensorPow n).isom (y, e₁)
+                (if e' = e₀ then ν * phaseSign v r * V_isom (y, e₁)
                   (arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r a)) else 0) *
-                star (if e' = e₀ then ν * phaseSign v r * (𝒩.tensorPow n).isom (y, e₂)
+                star (if e' = e₀ then ν * phaseSign v r * V_isom (y, e₂)
                   (arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r a)) else 0) =
               (star ν * ν) *
-                ((𝒩.tensorPow n).isom (y, e₁) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r a)) *
-                 star ((𝒩.tensorPow n).isom (y, e₂) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r a)))) := by
+                (V_isom (y, e₁) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r a)) *
+                 star (V_isom (y, e₂) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r a)))) := by
             intro y a r
             rw [Finset.sum_eq_single e₀]
             · simp only [↓reduceIte, star_mul', phaseSign_star]
               have hps := phaseSign_mul_self v r
               linear_combination (star ν * ν *
-                ((𝒩.tensorPow n).isom (y, e₁) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r a)) *
-                 star ((𝒩.tensorPow n).isom (y, e₂) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r a))))) * hps
+                (V_isom (y, e₁) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r a)) *
+                 star (V_isom (y, e₂) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r a))))) * hps
             · intro e' _ hne; simp [hne]
             · intro h; exact absurd (Finset.mem_univ e₀) h
           simp_rw [he', ← Finset.mul_sum]
@@ -1615,7 +1613,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
           rw [Finset.sum_comm]
           apply Finset.sum_congr rfl; intro r _
           apply Finset.sum_congr rfl; intro a _
-          exact (productState_comp_eq_tensorPow_partialTrace 𝒩 n _ e₁ e₂).symm
+          simpa only [hV_def] using (productState_comp_eq_tensorPow_partialTrace 𝒩 n _ e₁ e₂).symm
         · intro m' _ hne
           apply Finset.sum_eq_zero; intro y _
           apply Finset.sum_eq_zero; intro a _
@@ -1631,9 +1629,9 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
       rw [mul_inv, mul_inv, mul_assoc]
       ring
     · have hL : ∑ m' : M, ∑ y : Y, ∑ a : A, ∑ r : R, ∑ e' : E,
-          (if m' = m₁ ∧ e' = e₀ then ν * phaseSign v r * (𝒩.tensorPow n).isom (y, e₁)
+          (if m' = m₁ ∧ e' = e₀ then ν * phaseSign v r * V_isom (y, e₁)
             (arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r a)) else 0) *
-          star (if m' = m₂ ∧ e' = e₀ then ν * phaseSign v r * (𝒩.tensorPow n).isom (y, e₂)
+          star (if m' = m₂ ∧ e' = e₀ then ν * phaseSign v r * V_isom (y, e₂)
             (arikanTransform n (wiretapWord infoSet randSet assistSet uF m₂ r a)) else 0) = 0 := by
         apply Finset.sum_eq_zero; intro m' _
         apply Finset.sum_eq_zero; intro y _
@@ -1889,7 +1887,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
       intro m m' anc e
       simp only [CPTPMap.tensorIdLeft, CPTPMap.seqComp, CPTPMap.tensor, CPTPMap.id,
         fullBob, aliceToBob, ℰ, cssPolarEncoder, cssPolarEncoderIsom, 𝒟,
-        Matrix.of_apply, Matrix.mul_apply, Fintype.sum_prod_type, initVec]
+        Matrix.of_apply, Matrix.mul_apply, Fintype.sum_prod_type, initVec, ← hV_def]
       rw [Finset.sum_eq_single m]
       · simp only [↓reduceIte, one_mul]
         rw [Finset.sum_eq_single m]
@@ -1898,14 +1896,14 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
                 (∑ y : Y, ∑ a' : A,
                   (∑ b : B_tot, U_dec (m', anc) b * W_Z b (y, a')) *
                   ((∑ x : Fin (2 ^ n) → Bool,
-                    (𝒩.tensorPow n).isom (y, e) x *
+                    V_isom (y, e) x *
                     (((Real.sqrt ((2 : ℝ) ^ randSet.card) : ℝ) : ℂ)⁻¹ *
                       ∑ r : R, if x = arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a₁) then phaseSign v r else 0)) *
                    if a' = a₂ then (1 : ℂ) else 0)) *
                 (maxEntangledVec M (m, m) * maxEntangledVec A (a₁, a₂)) =
               ∑ y : Y,
                 (∑ b : B_tot, U_dec (m', anc) b * W_Z b (y, a₁)) *
-                (ν * ∑ r : R, phaseSign v r * (𝒩.tensorPow n).isom (y, e)
+                (ν * ∑ r : R, phaseSign v r * V_isom (y, e)
                   (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a₁))) := by
             intro a₁
             rw [Finset.sum_eq_single a₁]
@@ -1920,11 +1918,11 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
               rw [Finset.sum_eq_single a₁]
               · simp only [↓reduceIte, mul_one]
                 have hx_sum : ∑ x : Fin (2 ^ n) → Bool,
-                    (𝒩.tensorPow n).isom (y, e) x *
+                    V_isom (y, e) x *
                     (((Real.sqrt ((2 : ℝ) ^ randSet.card) : ℝ) : ℂ)⁻¹ *
                       ∑ r : R, if x = arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a₁) then phaseSign v r else 0) =
                     ((Real.sqrt ((2 : ℝ) ^ randSet.card) : ℝ) : ℂ)⁻¹ *
-                      ∑ r : R, phaseSign v r * (𝒩.tensorPow n).isom (y, e)
+                      ∑ r : R, phaseSign v r * V_isom (y, e)
                         (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a₁)) := by
                   simp_rw [Finset.mul_sum]
                   rw [Finset.sum_comm]
@@ -1943,11 +1941,11 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
           rw [Finset.sum_comm]
           have hreorder : ∑ y : Y, ∑ a₁ : A,
               (∑ b : B_tot, U_dec (m', anc) b * W_Z b (y, a₁)) *
-              (ν * ∑ r : R, phaseSign v r * (𝒩.tensorPow n).isom (y, e)
+              (ν * ∑ r : R, phaseSign v r * V_isom (y, e)
                 (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a₁))) =
               ∑ b : B_tot, U_dec (m', anc) b *
                 ∑ y : Y, ∑ a₁ : A, W_Z b (y, a₁) *
-                  (ν * ∑ r : R, phaseSign v r * (𝒩.tensorPow n).isom (y, e)
+                  (ν * ∑ r : R, phaseSign v r * V_isom (y, e)
                     (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r a₁))) := by
             simp_rw [Finset.sum_mul, Finset.mul_sum]
             rw [Finset.sum_comm]
