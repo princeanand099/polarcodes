@@ -445,7 +445,7 @@ lemma choiFactor_conjTranspose_mul_eq {d : Type} [Fintype d] [DecidableEq d] (�
     change ∑ b : d, (𝒩.complementary.isom * (maxMixedState Bool).mat *
       𝒩.complementary.isomᴴ) (e₂, b) (e₁, b) = _
     have hM : (maxMixedState Bool).mat = ((2 : ℂ)⁻¹) • (1 : Matrix Bool Bool ℂ) := by
-      simp [maxMixedState]
+      ext i j; simp [maxMixedState, Complex.real_smul]
     apply Finset.sum_congr rfl; intro b _
     rw [hM, Matrix.mul_smul, Matrix.mul_one, Matrix.smul_mul, Matrix.smul_apply, Matrix.mul_apply]
     simp only [CPTPMap.complementary, Matrix.conjTranspose_apply, Matrix.of_apply,
