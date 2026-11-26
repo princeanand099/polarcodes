@@ -111,37 +111,6 @@ lemma condEntropy_checkCombine_comm (W₁ : CQChannel d₁) (W₂ : CQChannel d�
     push_cast; ring)
   rw [h0, h1, hm]
 
-/-- Swapping `false` and `true` inputs of `W₁` preserves `H(W₁ ⊠ W₂)`. -/
-private lemma condEntropy_checkCombine_flip (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
-    (CQChannel.checkCombine ⟨fun b ↦ W₁.out (!b)⟩ W₂).condEntropy =
-      (CQChannel.checkCombine W₁ W₂).condEntropy := by
-  unfold CQChannel.condEntropy
-  have h0 : ((CQChannel.checkCombine ⟨fun b ↦ W₁.out (!b)⟩ W₂).out false).mat =
-      ((CQChannel.checkCombine W₁ W₂).out true).mat := by
-    ext ⟨i₁, i₂⟩ ⟨j₁, j₂⟩
-    simp only [CQChannel.checkCombine, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor,
-      Bool.not_false, Bool.not_true, Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply,
-      Complex.real_smul]
-  have h1 : ((CQChannel.checkCombine ⟨fun b ↦ W₁.out (!b)⟩ W₂).out true).mat =
-      ((CQChannel.checkCombine W₁ W₂).out false).mat := by
-    ext ⟨i₁, i₂⟩ ⟨j₁, j₂⟩
-    simp only [CQChannel.checkCombine, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor,
-      Bool.not_false, Bool.not_true, Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply,
-      Complex.real_smul]
-  have hq : qjs ((CQChannel.checkCombine ⟨fun b ↦ W₁.out (!b)⟩ W₂).out false)
-      ((CQChannel.checkCombine ⟨fun b ↦ W₁.out (!b)⟩ W₂).out true) =
-      qjs ((CQChannel.checkCombine W₁ W₂).out false) ((CQChannel.checkCombine W₁ W₂).out true) := by
-    rw [qjs_symm ((CQChannel.checkCombine W₁ W₂).out false)]
-    unfold qjs
-    have hm : (DensityOp.midpoint ((CQChannel.checkCombine ⟨fun b ↦ W₁.out (!b)⟩ W₂).out false)
-        ((CQChannel.checkCombine ⟨fun b ↦ W₁.out (!b)⟩ W₂).out true)).mat =
-        (DensityOp.midpoint ((CQChannel.checkCombine W₁ W₂).out true)
-          ((CQChannel.checkCombine W₁ W₂).out false)).mat := by
-      simp only [DensityOp.midpoint, DensityOp.mix, h0, h1]
-    rw [vonNeumannEntropy_eq_of_mat_eq hm, vonNeumannEntropy_eq_of_mat_eq h0,
-      vonNeumannEntropy_eq_of_mat_eq h1]
-  rw [hq]
-
 /-- Cauchy–Schwarz upper bound `‖∑ i, star (φ₀ i) * φ₁ i‖ ≤ 1` for unit vectors `φ₀, φ₁`. -/
 lemma norm_inner_le_one {ι : Type*} [Fintype ι] {φ₀ φ₁ : ι → ℂ}
     (hφ₀ : ∑ i, ‖φ₀ i‖ ^ 2 = 1) (hφ₁ : ∑ i, ‖φ₁ i‖ ^ 2 = 1) :
@@ -454,7 +423,7 @@ theorem theorem_1_2a_pure (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) (hW₂
     have h27 := condEntropy_varCombine_eq W₁ W₂
     linarith
   have hC0 : dephaseCoherence 0 le_rfl (by norm_num) (gramState ρ₀ ρ₁) = W₁.condEntropy := by
-    have h4 := (lemma_4_1_gram_dephasing ρ₀ ρ₁ φ₀ φ₁ hφ₀ hφ₁).2.2.2
+    have h4 := (lemma_4_1_gram_dephasing ρ₀ ρ₁ φ₀ φ₁ hφ₀ hφ₁).2.2.2.1
     unfold dephaseCoherence CQChannel.condEntropy at *
     exact h4
   have hsdpi := theorem_1_3_dephasing_sdpi (gramState ρ₀ ρ₁) hp0 hp1
