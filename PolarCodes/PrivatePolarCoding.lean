@@ -611,16 +611,6 @@ private lemma polarChannelTree_transpose_perm {α : Type} [Fintype α] [Decidabl
     intro b
     obtain ⟨e, he⟩ := ih (Fin.init b)
     rcases Bool.eq_false_or_eq_true (b (Fin.last k)) with hb | hb
-    · rw [polarChannelTree_succ_false W.transpose b hb, polarChannelTree_succ_false W b hb]
-      simp only [BundledCQChannel.minus]
-      refine ⟨Equiv.prodCongr e e, fun c ⟨x₁, x₂⟩ ⟨y₁, y₂⟩ ↦ ?_⟩
-      simp only [Equiv.prodCongr_apply, Prod.map_apply, CQChannel.checkCombine,
-        CQChannel.transpose, DensityOp.transpose, DensityOp.midpoint, DensityOp.mix,
-        DensityOp.tensor, Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply,
-        Matrix.transpose_apply, smul_eq_mul]
-      simp only [CQChannel.transpose, DensityOp.transpose, Matrix.transpose_apply] at he
-      rw [he false y₁ x₁, he false y₂ x₂, he true y₁ x₁, he true y₂ x₂]
-      cases c <;> simp
     · rw [polarChannelTree_succ_true W.transpose b hb, polarChannelTree_succ_true W b hb]
       simp only [BundledCQChannel.plus]
       refine ⟨Equiv.prodCongr (Equiv.refl Bool) (Equiv.prodCongr e e), fun c ⟨v₁, x₁, x₂⟩ ⟨v₂, y₁, y₂⟩ ↦ ?_⟩
@@ -631,6 +621,16 @@ private lemma polarChannelTree_transpose_perm {α : Type} [Fintype α] [Decidabl
       simp only [CQChannel.transpose, DensityOp.transpose, Matrix.transpose_apply] at he
       rw [he false y₁ x₁, he false y₂ x₂, he true y₁ x₁, he true y₂ x₂]
       cases c <;> cases v₁ <;> cases v₂ <;> simp
+    · rw [polarChannelTree_succ_false W.transpose b hb, polarChannelTree_succ_false W b hb]
+      simp only [BundledCQChannel.minus]
+      refine ⟨Equiv.prodCongr e e, fun c ⟨x₁, x₂⟩ ⟨y₁, y₂⟩ ↦ ?_⟩
+      simp only [Equiv.prodCongr_apply, Prod.map_apply, CQChannel.checkCombine,
+        CQChannel.transpose, DensityOp.transpose, DensityOp.midpoint, DensityOp.mix,
+        DensityOp.tensor, Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply,
+        Matrix.transpose_apply, smul_eq_mul]
+      simp only [CQChannel.transpose, DensityOp.transpose, Matrix.transpose_apply] at he
+      rw [he false y₁ x₁, he false y₂ x₂, he true y₁ x₁, he true y₂ x₂]
+      cases c <;> simp
 
 private lemma polarChannelTree_transpose_traceDist {α : Type} [Fintype α] [DecidableEq α]
     (W : CQChannel α) (n : ℕ) (b : Fin n → Bool) :
@@ -656,12 +656,12 @@ private lemma polarChannelTree_symmetrize_traceDist {α : Type} [Fintype α] [De
       intro p
       have hih := ih (Fin.init p)
       rcases Bool.eq_false_or_eq_true (p (Fin.last k)) with hp | hp
-      · rw [polarChannelTree_succ_false W.symmetrize p hp, polarChannelTree_succ_false W p hp]
-        simp only [BundledCQChannel.minus]
-        exact (hih.checkCombine hih).trans (symmetrize_minusChannel_channelEquiv _)
       · rw [polarChannelTree_succ_true W.symmetrize p hp, polarChannelTree_succ_true W p hp]
         simp only [BundledCQChannel.plus]
         exact (hih.varCombine hih).trans (symmetrize_plusChannel_channelEquiv _)
+      · rw [polarChannelTree_succ_false W.symmetrize p hp, polarChannelTree_succ_false W p hp]
+        simp only [BundledCQChannel.minus]
+        exact (hih.checkCombine hih).trans (symmetrize_minusChannel_channelEquiv _)
   rw [CQChannel.ChannelEquiv.traceDist_eq (heq n b), traceDist_symmetrize]
 
 /-- **Complementary–Phase Polarization Duality for Synthetic Channels**:
