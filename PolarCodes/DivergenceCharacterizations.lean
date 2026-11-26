@@ -266,8 +266,12 @@ theorem qjs_eq_avg_relEntropy (ρ σ : DensityOp d) :
             _ = (W * Matrix.diagonal (Complex.ofReal ∘ A.eigvals) * Wᴴ * Matrix.diagonal dm).trace := by
                   congr 1; simp only [W, ← hW_star, Matrix.mul_assoc]
         rw [hcy]
-        simp only [Matrix.trace, Matrix.diag, Matrix.mul_diagonal, Matrix.mul_apply,
-          Matrix.conjTranspose_apply, Function.comp_apply]
+        have hdiag1 : ∀ a b, (W * Matrix.diagonal (Complex.ofReal ∘ A.eigvals)) a b =
+            W a b * (A.eigvals b : ℂ) := fun a b ↦ by simp [Matrix.mul_diagonal]
+        have hdiag2 : ∀ M : Matrix d d ℂ, (M * Matrix.diagonal dm).trace = ∑ j : d, M j j * dm j :=
+          fun M ↦ by simp [Matrix.trace, Matrix.diag, Matrix.mul_diagonal]
+        rw [hdiag2]
+        simp only [Matrix.mul_apply, hdiag1, Matrix.conjTranspose_apply, Finset.sum_mul]
         rw [Finset.sum_comm]
         apply Finset.sum_congr rfl; intro i _
         apply Finset.sum_congr rfl; intro j _
@@ -700,7 +704,7 @@ private lemma qjs_eq_one_iff_mpr (ρ σ : DensityOp d) (horth : ρ.mat * σ.mat 
       simp only [A, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
         Fintype.sum_prod_type, Fintype.sum_bool, ↓reduceIte, Bool.true_eq_false,
         star_mul', hstar2, DensityOp.midpoint, DensityOp.mix, Matrix.add_apply,
-        Matrix.smul_apply, smul_eq_mul, c2]
+        Matrix.smul_apply, Complex.real_smul, smul_eq_mul, c2]
       rw [sum_c2_sqrtMat_mul ρ i j, sum_c2_sqrtMat_mul σ i j]; push_cast; ring
     let B : DensityOp (Bool × d) := DensityOp.midpoint
       (DensityOp.tensor (CQChannel.ketBraBool false) ρ)
@@ -750,7 +754,7 @@ private lemma qjs_eq_one_iff_mpr (ρ σ : DensityOp d) (horth : ρ.mat * σ.mat 
         rw [σ.sqrtMat_isHermitian.apply i k]
         calc c2 * σ.sqrtMat i k * (c2 * σ.sqrtMat k j)
             = (c2 * c2) * (σ.sqrtMat i k * σ.sqrtMat k j) := by ring
-          _ = _ := by rw [hmul2]; ring
+          _ = _ := by rw [hmul2]
     have hS_eq : vonNeumannEntropy (DensityOp.midpoint ρ σ) = vonNeumannEntropy B := by
       unfold vonNeumannEntropy DensityOp.eigvals
       congr 1
@@ -845,11 +849,12 @@ theorem rootFidelity_block_diagonal {ι : Type*} [Fintype ι] [DecidableEq ι]
       · simp [hy]
   have hcp_RS : (R.sqrtMat * S.mat * R.sqrtMat).charpoly =
       (Matrix.diagonal (Complex.ofReal ∘ lam)).charpoly := by
-    let Rsq : Matrix (ι × d) (ι × d) ℂ := fun a b ↦
+    let Rsq : Matrix (ι × d) (ι × d) ℂ := Matrix.of fun a b ↦
       if a.1 = b.1 then ((Real.sqrt (p a.1) : ℝ) : ℂ) * (ρ a.1).sqrtMat a.2 b.2 else 0
     have hRsq_sq : Rsq * Rsq = R.mat := by
       ext ⟨x₁, i₁⟩ ⟨x₂, i₂⟩
-      simp only [Rsq, R, blockDiagState, Matrix.mul_apply, Matrix.of_apply, Fintype.sum_prod_type]
+      rw [Matrix.mul_apply]
+      simp only [Rsq, R, blockDiagState, Matrix.of_apply, Fintype.sum_prod_type]
       by_cases hx : x₁ = x₂
       · subst hx
         simp only [↓reduceIte]
@@ -879,13 +884,14 @@ theorem rootFidelity_block_diagonal {ι : Type*} [Fintype ι] [DecidableEq ι]
         rw [Matrix.mul_assoc, Matrix.charpoly_mul_comm, Matrix.mul_assoc, hRsq_sq,
           Matrix.charpoly_mul_comm]
       exact h1.trans h2.symm
-    let Ublk : Matrix (ι × d) (ι × d) ℂ := fun a b ↦
+    let Ublk : Matrix (ι × d) (ι × d) ℂ := Matrix.of fun a b ↦
       if h : a.1 = b.1 then
         ((posSemidef_sqrt_mul_sqrt (ρ a.1) (σ a.1)).isHermitian.eigenvectorUnitary : Matrix d d ℂ) a.2 b.2
       else 0
     have hUblk_l : Ublkᴴ * Ublk = 1 := by
       ext ⟨x₁, i₁⟩ ⟨x₂, i₂⟩
-      simp only [Ublk, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+      rw [Matrix.mul_apply]
+      simp only [Ublk, Matrix.conjTranspose_apply, Matrix.of_apply,
         Matrix.one_apply, Fintype.sum_prod_type]
       by_cases hx : x₁ = x₂
       · subst hx
@@ -904,12 +910,12 @@ theorem rootFidelity_block_diagonal {ι : Type*} [Fintype ι] [DecidableEq ι]
         · simp [hy]
     have hRsq_apply : ∀ a b, Rsq a b =
         if a.1 = b.1 then ((Real.sqrt (p a.1) : ℝ) : ℂ) * (ρ a.1).sqrtMat a.2 b.2 else 0 :=
-      fun _ _ ↦ rfl
+      fun _ _ ↦ Matrix.of_apply _ _ _
     have hUblk_apply : ∀ a b, Ublk a b =
         if h : a.1 = b.1 then
           ((posSemidef_sqrt_mul_sqrt (ρ a.1) (σ a.1)).isHermitian.eigenvectorUnitary : Matrix d d ℂ) a.2 b.2
         else 0 :=
-      fun _ _ ↦ rfl
+      fun _ _ ↦ Matrix.of_apply _ _ _
     have hS_apply : ∀ a b, S.mat a b =
         if a.1 = b.1 then (p a.1 : ℂ) * (σ a.1).mat a.2 b.2 else 0 :=
       fun _ _ ↦ rfl
@@ -919,9 +925,8 @@ theorem rootFidelity_block_diagonal {ι : Type*} [Fintype ι] [DecidableEq ι]
         fun a b ↦ by rw [Matrix.mul_diagonal]; rfl
       ext ⟨x₁, i₁⟩ ⟨x₂, i₂⟩
       simp only [Matrix.mul_apply, Matrix.conjTranspose_apply]
-      simp_rw [hUdiag]
-      dsimp only [Rsq, Ublk]
-      simp only [hS_apply, Fintype.sum_prod_type]
+      simp_rw [hUdiag, hRsq_apply, hUblk_apply, hS_apply]
+      simp only [Fintype.sum_prod_type]
       by_cases hx : x₁ = x₂
       · subst hx
         have hLHS : ∑ a : ι, ∑ k : d,

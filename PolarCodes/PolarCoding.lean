@@ -941,7 +941,8 @@ theorem wilde_guha_qsc_avg_bound (W : CQChannel d) (n : ℕ) (infoSet : Finset (
     have hN : (2 : ℝ) ^ (2 ^ n) = (2 : ℝ) ^ (2 ^ n - infoSet.card) * (2 : ℝ) ^ infoSet.card := by
       rw [← pow_add, Nat.sub_add_cancel hle]
     have h2pos : (2 : ℝ) ^ infoSet.card ≠ 0 := by positivity
-    rw [hN, mul_inv, mul_assoc ((2 : ℝ) ^ (2 ^ n - infoSet.card))⁻¹, ← mul_assoc ((2 : ℝ) ^ infoSet.card)⁻¹, inv_mul_cancel₀ h2pos, one_mul]
+    have h2pos' : (2 : ℝ) ^ (2 ^ n - infoSet.card) ≠ 0 := by positivity
+    rw [hN]; field_simp
   change ((2 : ℝ) ^ (2 ^ n))⁻¹ * ∑ frozen : Fin (2 ^ n) → Bool, G frozen ≤ _
   rw [hfull]
   exact havg_bound
