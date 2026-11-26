@@ -53,7 +53,7 @@ noncomputable def CPTPMap.tensor {α₁ β₁ α₂ β₂ : Type u}
     simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
       Matrix.one_apply] at h1 h2
     calc ∑ b₁ : β₁, ∑ b₂ : β₂, ∑ e₁ : 𝒟₁.env, ∑ e₂ : 𝒟₂.env,
-          (star (𝒟₂.isom (b₂, e₂) a₂) * star (𝒟₁.isom (b₁, e₁) a₁)) *
+          (star (𝒟₁.isom (b₁, e₁) a₁) * star (𝒟₂.isom (b₂, e₂) a₂)) *
           (𝒟₁.isom (b₁, e₁) a₁' * 𝒟₂.isom (b₂, e₂) a₂')
         = (∑ b₁ : β₁, ∑ e₁ : 𝒟₁.env, star (𝒟₁.isom (b₁, e₁) a₁) * 𝒟₁.isom (b₁, e₁) a₁') *
           (∑ b₂ : β₂, ∑ e₂ : 𝒟₂.env, star (𝒟₂.isom (b₂, e₂) a₂) * 𝒟₂.isom (b₂, e₂) a₂') := by
@@ -86,16 +86,15 @@ lemma CPTPMap.tensor_apply_tensor {α₁ β₁ α₂ β₂ : Type u}
       ∑ a₁' : α₁, ∑ a₂' : α₂,
         (∑ a₁ : α₁, ∑ a₂ : α₂,
           𝒟₁.isom (b₁, e₁) a₁ * 𝒟₂.isom (b₂, e₂) a₂ * (ρ₁.mat a₁ a₁' * ρ₂.mat a₂ a₂')) *
-        (star (𝒟₂.isom (b₂', e₂) a₂') * star (𝒟₁.isom (b₁', e₁) a₁')) =
+        (star (𝒟₁.isom (b₁', e₁) a₁') * star (𝒟₂.isom (b₂', e₂) a₂')) =
       (∑ a₁' : α₁, (∑ a₁ : α₁, 𝒟₁.isom (b₁, e₁) a₁ * ρ₁.mat a₁ a₁') * star (𝒟₁.isom (b₁', e₁) a₁')) *
       (∑ a₂' : α₂, (∑ a₂ : α₂, 𝒟₂.isom (b₂, e₂) a₂ * ρ₂.mat a₂ a₂') * star (𝒟₂.isom (b₂', e₂) a₂')) := by
     intro e₁ e₂
     simp_rw [Finset.sum_mul, Finset.mul_sum]
     apply Finset.sum_congr rfl; intro a₁' _
     rw [Finset.sum_comm]
-    apply Finset.sum_congr rfl; intro a₂' _
-    rw [Finset.sum_comm]
     apply Finset.sum_congr rfl; intro a₁ _
+    apply Finset.sum_congr rfl; intro a₂' _
     apply Finset.sum_congr rfl; intro a₂ _
     ring
   simp_rw [hterm]
@@ -161,8 +160,7 @@ lemma CPTPMap.idBoolTensor_apply_ketBra {α β : Type u} [Fintype α] [Decidable
       apply Finset.sum_eq_zero; intro a' _
       by_cases hw' : w₂ = w'
       · subst hw'
-        have hne : ¬ (w₂ = w₁) := h2
-        simp [hne]
+        simp [h2]
       · simp [hw']
   · simp only [h1, false_and, ↓reduceIte, zero_mul]
     apply Finset.sum_eq_zero; intro e _
@@ -191,7 +189,8 @@ lemma CPTPMap.apply_midpoint {α β : Type u} [Fintype α] [DecidableEq α] [Fin
   apply Finset.sum_congr rfl; intro e _
   rw [Finset.mul_sum, Finset.mul_sum, ← Finset.sum_add_distrib]
   apply Finset.sum_congr rfl; intro k _
-  rw [Finset.mul_sum, Finset.mul_sum, ← Finset.sum_add_distrib]
+  rw [Finset.sum_mul, Finset.sum_mul, Finset.sum_mul, Finset.mul_sum, Finset.mul_sum,
+    ← Finset.sum_add_distrib]
   apply Finset.sum_congr rfl; intro l _
   ring
 
@@ -352,11 +351,9 @@ theorem polarChannelTree_dual_complement_channelEquiv (W : CQChannel d) :
       rw [h1]
       have ih := polarChannelTree_dual_complement_channelEquiv W n b₀
       cases bn
-      · simp only [Bool.not_false, polarChannelTree_snoc_true, polarChannelTree_snoc_false,
-          BundledCQChannel.plus, BundledCQChannel.minus, CQChannel.plusChannel, CQChannel.minusChannel]
+      · rw [Bool.not_false, polarChannelTree_snoc_true, polarChannelTree_snoc_false]
         exact (ih.varCombine ih).trans (prop_2_2_D2_check_channelEquiv _ _).symm
-      · simp only [Bool.not_true, polarChannelTree_snoc_false, polarChannelTree_snoc_true,
-          BundledCQChannel.plus, BundledCQChannel.minus, CQChannel.plusChannel, CQChannel.minusChannel]
+      · rw [Bool.not_true, polarChannelTree_snoc_false, polarChannelTree_snoc_true]
         exact (ih.checkCombine ih).trans (prop_2_2_D2_var_channelEquiv _ _).symm
     have hres := haux (Fin.init b) (b (Fin.last n))
     rwa [Fin.snoc_init_self] at hres
@@ -443,10 +440,9 @@ lemma choiFactor_conjTranspose_mul_eq {d : Type} [Fintype d] [DecidableEq d] (�
     Complex.real_smul, Fintype.card_bool, Nat.cast_ofNat]
   rw [Finset.sum_comm]
   apply Finset.sum_congr rfl; intro b _
-  simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply, Matrix.smul_apply,
-    Matrix.one_apply, Fintype.sum_bool, ↓reduceIte, Bool.true_eq_false, Bool.false_eq_true,
-    smul_eq_mul, mul_zero, zero_mul, add_zero, zero_add, mul_one,
-    Complex.ofReal_inv, Complex.ofReal_ofNat]
+  simp only [Matrix.mul_smul, Matrix.smul_mul, Matrix.mul_one, Matrix.smul_apply,
+    Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply, Fintype.sum_bool,
+    smul_eq_mul, Complex.ofReal_inv, Complex.ofReal_ofNat]
   calc (Real.sqrt 2 : ℂ)⁻¹ * star (𝒩.isom (b, e₁) true) * ((Real.sqrt 2 : ℂ)⁻¹ * 𝒩.isom (b, e₂) true) +
         (Real.sqrt 2 : ℂ)⁻¹ * star (𝒩.isom (b, e₁) false) * ((Real.sqrt 2 : ℂ)⁻¹ * 𝒩.isom (b, e₂) false)
       = ((Real.sqrt 2 : ℂ)⁻¹ * (Real.sqrt 2 : ℂ)⁻¹) *
@@ -531,12 +527,12 @@ lemma phaseChannel_midpoint_mat {d : Type} [Fintype d] [DecidableEq d] (𝒩 : C
       one_mul, mul_one, mul_zero, zero_mul, add_zero, zero_add]
     rw [Finset.mul_sum, Finset.mul_sum, Finset.mul_sum, ← Finset.sum_add_distrib]
     apply Finset.sum_congr rfl; intro e _
-    calc (1 - 1 / 2 : ℂ) * ((Real.sqrt 2 : ℂ)⁻¹ * 𝒩.isom (b₁, e) false *
+    calc ((1 - 1 / 2 : ℝ) : ℂ) * ((Real.sqrt 2 : ℂ)⁻¹ * 𝒩.isom (b₁, e) false *
             ((Real.sqrt 2 : ℂ)⁻¹ * star (𝒩.isom (b₂, e) false))) +
-          (1 / 2 : ℂ) * ((Real.sqrt 2 : ℂ)⁻¹ * 𝒩.isom (b₁, e) false *
+          ((1 / 2 : ℝ) : ℂ) * ((Real.sqrt 2 : ℂ)⁻¹ * 𝒩.isom (b₁, e) false *
             ((Real.sqrt 2 : ℂ)⁻¹ * star (𝒩.isom (b₂, e) false)))
         = (((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) *
-          (𝒩.isom (b₁, e) false * star (𝒩.isom (b₂, e) false)) := by ring
+          (𝒩.isom (b₁, e) false * star (𝒩.isom (b₂, e) false)) := by push_cast; ring
       _ = _ := by rw [hmul2]; push_cast; ring
   · simp only [↓reduceIte, Bool.false_eq_true, Bool.true_eq_false, and_self, and_false, false_and,
       one_mul, mul_one, mul_neg, neg_mul, mul_zero, zero_mul, add_zero, zero_add]
@@ -548,12 +544,12 @@ lemma phaseChannel_midpoint_mat {d : Type} [Fintype d] [DecidableEq d] (𝒩 : C
       one_mul, mul_one, mul_neg, neg_mul, neg_neg, mul_zero, zero_mul, add_zero, zero_add]
     rw [Finset.mul_sum, Finset.mul_sum, Finset.mul_sum, ← Finset.sum_add_distrib]
     apply Finset.sum_congr rfl; intro e _
-    calc (1 - 1 / 2 : ℂ) * ((Real.sqrt 2 : ℂ)⁻¹ * 𝒩.isom (b₁, e) true *
+    calc ((1 - 1 / 2 : ℝ) : ℂ) * ((Real.sqrt 2 : ℂ)⁻¹ * 𝒩.isom (b₁, e) true *
             ((Real.sqrt 2 : ℂ)⁻¹ * star (𝒩.isom (b₂, e) true))) +
-          (1 / 2 : ℂ) * ((Real.sqrt 2 : ℂ)⁻¹ * 𝒩.isom (b₁, e) true *
+          ((1 / 2 : ℝ) : ℂ) * ((Real.sqrt 2 : ℂ)⁻¹ * 𝒩.isom (b₁, e) true *
             ((Real.sqrt 2 : ℂ)⁻¹ * star (𝒩.isom (b₂, e) true)))
         = (((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) *
-          (𝒩.isom (b₁, e) true * star (𝒩.isom (b₂, e) true)) := by ring
+          (𝒩.isom (b₁, e) true * star (𝒩.isom (b₂, e) true)) := by push_cast; ring
       _ = _ := by rw [hmul2]; push_cast; ring
 
 /-- **Renes–Wilde Capacity Identity**:
