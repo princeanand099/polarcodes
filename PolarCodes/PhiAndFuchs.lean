@@ -64,7 +64,7 @@ private lemma hasDerivAt_phiParam_aux {x : ℝ} (hx0 : 0 < x) (hx1 : x < 1) :
     convert ((hasDerivAt_const x (1 : ℝ)).add (hasDerivAt_id x)).div
       ((hasDerivAt_const x (1 : ℝ)).sub (hasDerivAt_id x)) (ne_of_gt h1mx) using 1
     · ext r; rfl
-    · simp; ring
+    · simp
   have hd_log : HasDerivAt (fun t : ℝ ↦ Real.log ((1 + t) / (1 - t)))
       (((1 * (1 - x) - (1 + x) * (-1)) / (1 - x) ^ 2) / ((1 + x) / (1 - x))) x :=
     hd_quo.log (ne_of_gt (div_pos h1px h1mx))
@@ -137,8 +137,8 @@ theorem hasDerivAt_phi_cParam {x : ℝ} (hx0 : 0 < x) (hx1 : x < 1) :
     rw [hinv_at]; exact hasDerivAt_phiParam_aux hx0 hx1
   have hcomp_phi : HasDerivAt (fun c : ℝ ↦ phiParam (1 - 2 * h2Inv (1 - c)))
       (((Real.logb 2 ((1 + x) / (1 - x)) + 2 * x / ((1 - x ^ 2) * Real.log 2)) / 2) *
-        (Real.logb 2 ((1 + x) / (1 - x)) / 2)⁻¹) (cParam x) :=
-    hd_phiP.comp (cParam x) hd_inv
+        (Real.logb 2 ((1 + x) / (1 - x)) / 2)⁻¹) (cParam x) := by
+    simpa [Function.comp_def] using hd_phiP.comp (cParam x) hd_inv
   rw [phiDerivParam_eq_ratio hx0 hx1, div_eq_mul_inv]
   exact hcomp_phi
 
@@ -259,7 +259,7 @@ theorem strictConvexOn_phi : StrictConvexOn ℝ (Ico (0 : ℝ) 1) phi := by
           convert ((hasDerivAt_const t (1 : ℝ)).add (hasDerivAt_id t)).div
             ((hasDerivAt_const t (1 : ℝ)).sub (hasDerivAt_id t)) (ne_of_gt h1mt) using 1
           · ext r; rfl
-          · simp; ring
+          · simp
         have hd_log : HasDerivAt (fun s : ℝ ↦ Real.log ((1 + s) / (1 - s)))
             (((1 * (1 - t) - (1 + t) * (-1)) / (1 - t) ^ 2) / ((1 + t) / (1 - t))) t :=
           hd_quo.log (ne_of_gt (div_pos h1pt h1mt))
@@ -299,7 +299,7 @@ theorem strictConvexOn_phi : StrictConvexOn ℝ (Ico (0 : ℝ) 1) phi := by
               convert ((hasDerivAt_const s (1 : ℝ)).add (hasDerivAt_id s)).div
                 ((hasDerivAt_const s (1 : ℝ)).sub (hasDerivAt_id s)) (ne_of_gt h1ms) using 1
               · ext r; rfl
-              · simp; ring
+              · simp
             have hd_log := hd_quo.log (ne_of_gt (div_pos h1ps h1ms))
             have hd_lin : HasDerivAt (fun r : ℝ ↦ 2 * r) (2 * 1) s :=
               (hasDerivAt_id s).const_mul (2 : ℝ)

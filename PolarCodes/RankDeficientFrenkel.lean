@@ -532,7 +532,7 @@ private lemma continuous_negPartTrace_pencil_aux {α : Type*} [Fintype α] [Deci
           Complex.real_smul]; push_cast; ring
       have hle := negPartTrace_add_le (pencil_isHermitian x ρ σ) hH
       rw [← negPartTrace_eq_of_eq (pencil_isHermitian y ρ σ) ((pencil_isHermitian x ρ σ).add hH) hmat] at hle
-      have hsm := negPartTrace_smul_nonneg hd (σ.isHermitian.sub ρ.isHermitian)
+      have hsm := negPartTrace_smul_nonneg hd (σ.isHermitian.sub ρ.isHermitian) hH
       rw [abs_of_nonneg hd]
       have h2 := negPartTrace_nonneg (ρ.isHermitian.sub σ.isHermitian)
       nlinarith
@@ -547,7 +547,7 @@ private lemma continuous_negPartTrace_pencil_aux {α : Type*} [Fintype α] [Deci
           Complex.real_smul]; push_cast; ring
       have hle := negPartTrace_add_le (pencil_isHermitian x ρ σ) hH
       rw [← negPartTrace_eq_of_eq (pencil_isHermitian y ρ σ) ((pencil_isHermitian x ρ σ).add hH) hmat] at hle
-      have hsm := negPartTrace_smul_nonneg hd (ρ.isHermitian.sub σ.isHermitian)
+      have hsm := negPartTrace_smul_nonneg hd (ρ.isHermitian.sub σ.isHermitian) hH
       have habs : |y - x| = x - y := by rw [abs_of_neg (by linarith)]; ring
       rw [habs]
       have h1 := negPartTrace_nonneg (σ.isHermitian.sub ρ.isHermitian)
@@ -704,11 +704,11 @@ private lemma relEntropy_frenkel_integral_of_posDef_right {α : Type*} [Fintype 
     · simp only [G, hs0, ↓reduceIte]
       congr 1
       have hneg : (s - ε n) / (1 - ε n) < 0 := div_neg_of_neg_of_pos (by linarith [hε0 n]) h1mε
-      have hsub1 : (s - ε n) / (1 - ε n) - 1 = (s - 1) / (1 - ε n) := by
+      have hneg_eq : -((s - ε n) / (1 - ε n)) = (-s + ε n) / (1 - ε n) := by ring
+      have hsub1 : ((s - ε n) / (1 - ε n) - 1) ^ 2 = ((1 - s) / (1 - ε n)) ^ 2 := by
         field_simp [ne_of_gt h1mε]; ring
-      rw [abs_of_neg hneg, hsub1]
+      rw [abs_of_neg hneg, hneg_eq, hsub1]
       field_simp [ne_of_gt h1mε, ne_of_gt (by linarith [hε0 n] : 0 < -s + ε n), ne_of_gt (by linarith : 0 < 1 - s)]
-      ring
     · by_cases hs1 : 1 < s
       · simp only [G, hs0, hs1, ↓reduceIte]
         congr 1
@@ -717,7 +717,6 @@ private lemma relEntropy_frenkel_integral_of_posDef_right {α : Type*} [Fintype 
           field_simp [ne_of_gt h1mε]; ring
         rw [abs_of_pos hpos, hsub1]
         field_simp [ne_of_gt h1mε, ne_of_gt (by linarith [hε1 n] : 0 < s - ε n), ne_of_gt (by linarith : 0 < s - 1)]
-        ring
       · have hmem : s ∈ Icc (0 : ℝ) 1 := ⟨not_lt.mp hs0, not_lt.mp hs1⟩
         simp only [G, hs0, hs1, ↓reduceIte, negPartTrace_pencil_eq_zero_of_mem_Icc hmem.1 hmem.2,
           zero_div, mul_zero, ENNReal.ofReal_zero]
@@ -1022,7 +1021,7 @@ theorem relEntropy_frenkel_integral_of_suppSubset {ρ σ : DensityOp d} (hsupp :
           rw [Matrix.mul_diagonal]; simp [V, Matrix.conjTranspose_apply]
         have hR : Lσ i j = ∑ k : d, U i k *
             (if σ.eigvals k = 0 then (0 : ℂ) else (Real.log (σ.eigvals k) : ℂ)) * star (U j k) := by
-          change ((U * Matrix.diagonal _) * star U) i j = _
+          change ((U * Matrix.diagonal (fun j ↦ if σ.eigvals j = 0 then (0 : ℂ) else (Real.log (σ.eigvals j) : ℂ))) * star U) i j = _
           rw [Matrix.mul_apply]
           apply Finset.sum_congr rfl; intro k _
           rw [Matrix.mul_diagonal]; simp [Matrix.star_apply]
