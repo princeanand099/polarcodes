@@ -6,13 +6,6 @@ Authors: Prince Anand
 import ChallengeDefs
 import PolarCodes
 
-/-!
-# Comparator Solution Module for `PolarCodes`
-
-Proves all 13 locked headline theorems in `Challenge.lean` by structural transport to the
-complete unconditional formalization in `PolarCodes`.
--/
-
 namespace PolarCodesChallenge
 
 private def toPolarDensityOp {d : Type*} [Fintype d] [DecidableEq d]
@@ -109,7 +102,6 @@ private lemma unpolarizedSet_eq {d : Type} [Fintype d] [DecidableEq d]
   have hdual : toPolarCQChannel W.dual = (toPolarCQChannel W).dual := rfl
   rw [← hdual, ← polarFidelity_eq]
 
-/-- **Theorem 1.1 (Polynomial-Blocklength Quantum Polarization — Fidelity Fraction)**. -/
 theorem theorem_1_1_quantum_polar_poly_blocklength :
     ∃ (μ C₀ : ℝ), 0 < μ ∧ 0 < C₀ ∧
       ∀ {d : Type} [Fintype d] [DecidableEq d] (W : CQChannel d)
@@ -130,7 +122,6 @@ theorem theorem_1_1_quantum_polar_poly_blocklength :
     ext b; rw [polarFidelity_eq]
   simpa only [hpred] using hW
 
-/-- **Theorem 1.1 (Full Coding-Theoretic Polynomial-Blocklength C-Q Polar Codes)**. -/
 theorem theorem_1_1_coding_poly_blocklength :
     ∃ (μ C₀ : ℝ), 0 < μ ∧ 0 < C₀ ∧
       ∀ {d : Type} [Fintype d] [DecidableEq d] (W : CQChannel d)
@@ -146,7 +137,6 @@ theorem theorem_1_1_coding_poly_blocklength :
   refine ⟨fromPolarCosetPolarCode C, hrate, ?_⟩
   rwa [fromPolarCosetPolarCode_avgBlockError]
 
-/-- **Corollary 5.5 (Simultaneous Amplitude/Phase Polarization for CSS Quantum Polar Codes)**. -/
 theorem corollary_5_5_simultaneous_css_polarization :
     ∃ (μ C₀ : ℝ), 0 < μ ∧ 0 < C₀ ∧
       ∀ {d₁ d₂ : Type} [Fintype d₁] [DecidableEq d₁] [Fintype d₂] [DecidableEq d₂]
@@ -176,7 +166,6 @@ theorem corollary_5_5_simultaneous_css_polarization :
     ext b; rw [polarFidelity_eq, polarFidelity_eq]
   simpa only [hpred] using hW
 
-/-- **Corollary 5.5 (Full Quantum & Private Polar Coding — Renes–Wilde Reduction)**. -/
 theorem corollary_5_5_quantum_private_polar_coding :
     ∃ (μ C₀ : ℝ), 0 < μ ∧ 0 < C₀ ∧
       ∀ {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap Bool d)
@@ -217,7 +206,6 @@ theorem corollary_5_5_quantum_private_polar_coding :
     rcases hdegN with ⟨𝒟, h𝒟⟩
     exact ⟨toPolarCPTPMap 𝒟, fun ρ ↦ h𝒟 ⟨ρ.mat, ρ.posSemidef, ρ.trace_one⟩⟩
 
-/-- **Theorem 1.2(a) (Pure-State Hybrid Quantum Mrs. Gerber Bound)**. -/
 theorem theorem_1_2a_pure {d₁ d₂ : Type} [Fintype d₁] [DecidableEq d₁]
     [Fintype d₂] [DecidableEq d₂] (W₁ : CQChannel d₁) (W₂ : CQChannel d₂)
     (hW₂ : W₂.IsPureState) :
@@ -227,7 +215,6 @@ theorem theorem_1_2a_pure {d₁ d₂ : Type} [Fintype d₁] [DecidableEq d₁]
     gq W₁.condEntropy W₂.condEntropy ≤ (CQChannel.checkCombine W₁ W₂).condEntropy :=
   PolarCodes.theorem_1_2a_pure (toPolarCQChannel W₁) (toPolarCQChannel W₂) hW₂
 
-/-- **Theorem 1.2(a) (Classical Hybrid Quantum Mrs. Gerber Bound)**. -/
 theorem theorem_1_2a_classical {d₁ d₂ : Type} [Fintype d₁] [DecidableEq d₁]
     [Fintype d₂] [DecidableEq d₂] (W₁ : CQChannel d₁) (W₂ : CQChannel d₂)
     (hW₂ : W₂.IsClassical) :
@@ -235,7 +222,6 @@ theorem theorem_1_2a_classical {d₁ d₂ : Type} [Fintype d₁] [DecidableEq d�
     gq W₁.condEntropy W₂.condEntropy ≤ (CQChannel.checkCombine W₁ W₂).condEntropy :=
   PolarCodes.theorem_1_2a_classical (toPolarCQChannel W₁) (toPolarCQChannel W₂) hW₂
 
-/-- **Proposition 4.2 (Four-Branch Purification Bound)**. -/
 theorem prop_4_2_four_branch {d₁ d₂ : Type} [Fintype d₁] [DecidableEq d₁]
     [Fintype d₂] [DecidableEq d₂] (W₁ : CQChannel d₁) (W₂ : CQChannel d₂) :
     max (max (W₁.condEntropy + deltaGap (1 - W₁.condEntropy) (1 - (2 : ℝ) ^ (W₂.condEntropy - 1)))
@@ -245,26 +231,22 @@ theorem prop_4_2_four_branch {d₁ d₂ : Type} [Fintype d₁] [DecidableEq d₁
       (CQChannel.checkCombine W₁ W₂).condEntropy :=
   PolarCodes.prop_4_2_four_branch (toPolarCQChannel W₁) (toPolarCQChannel W₂)
 
-/-- **Theorem 1.2(b), Eq. (1.7) (Linear-Scaling Polarization Splitting)**. -/
 theorem theorem_1_2b_linear_splitting {d : Type} [Fintype d] [DecidableEq d] (W : CQChannel d) :
     W.minusChannel.condEntropy - W.condEntropy = W.condEntropy - W.plusChannel.condEntropy ∧
     theta0 * W.condEntropy * (1 - W.condEntropy) ≤ W.minusChannel.condEntropy - W.condEntropy :=
   PolarCodes.theorem_1_2b_linear_splitting (toPolarCQChannel W)
 
-/-- **Theorem 1.2(b), Eq. (1.9) (Uniform Potential Contraction)**. -/
 theorem theorem_1_2b_potential_contraction {d : Type} [Fintype d] [DecidableEq d]
     (W : CQChannel d) :
     (W.minusChannel.potential + W.plusChannel.potential) / 2 ≤ Lambda0 * W.potential :=
   PolarCodes.theorem_1_2b_potential_contraction (toPolarCQChannel W)
 
-/-- **Theorem 1.3 (Nonlinear SDPI for Qubit Dephasing — Entropy-Difference Form)**. -/
 theorem theorem_1_3_dephasing_sdpi {d : Type} [Fintype d] [DecidableEq d]
     (Ψ : DensityOp (Bool × d)) {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) :
     dephaseCoherence p hp0 (le_trans hp1 (by norm_num)) Ψ ≤
       1 - h2 (binConv (h2Inv (1 - dephaseCoherence 0 le_rfl (by norm_num) Ψ)) p) :=
   PolarCodes.theorem_1_3_dephasing_sdpi (toPolarDensityOp Ψ) hp0 hp1
 
-/-- **Theorem 1.3 (Equatorial Equality — Entropy-Difference Form)**. -/
 theorem theorem_1_3_equatorial_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 1)
     {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) :
     dephaseCoherence p hp0 (le_trans hp1 (by norm_num)) (equatorialState x hx0 hx1) =
@@ -272,7 +254,6 @@ theorem theorem_1_3_equatorial_equality {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 1
         (equatorialState x hx0 hx1))) p) :=
   PolarCodes.theorem_1_3_equatorial_equality hx0 hx1 hp0 hp1
 
-/-- **Theorem 1.3 (Nonlinear SDPI for Qubit Dephasing — Umegaki Relative-Entropy Form)**. -/
 theorem theorem_1_3_dephasing_sdpi_relEntropy {d : Type} [Fintype d] [DecidableEq d]
     (Ψ : DensityOp (Bool × d)) {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) :
     (relEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) Ψ)
@@ -282,7 +263,6 @@ theorem theorem_1_3_dephasing_sdpi_relEntropy {d : Type} [Fintype d] [DecidableE
           (dephaseState (1 / 2) (by norm_num) (by norm_num) Ψ)).toReal)) p) :=
   PolarCodes.theorem_1_3_dephasing_sdpi_relEntropy (toPolarDensityOp Ψ) hp0 hp1
 
-/-- **Theorem 1.3 (Equatorial Equality — Umegaki Relative-Entropy Form)**. -/
 theorem theorem_1_3_equatorial_equality_relEntropy {x : ℝ} (hx0 : 0 ≤ x) (hx1 : x ≤ 1)
     {p : ℝ} (hp0 : 0 ≤ p) (hp1 : p ≤ 1 / 2) :
     (relEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) (equatorialState x hx0 hx1))
