@@ -171,12 +171,13 @@ theorem strictMonoOn_phi : StrictMonoOn phi (Ico (0 : ℝ) 1) := by
       have ht0 : 0 ≤ t := le_trans hx.1 ht.1
       have ht1 : t < 1 := lt_of_le_of_lt ht.2 hy.2
       have hfun : phiParam = fun s : ℝ ↦ (s / 2) * (Real.log ((1 + s) / (1 - s)) / Real.log 2) := by
-        ext s; simp [phiParam, Real.logb]; ring
+        ext s; simp [phiParam, Real.logb]
       rw [hfun]
       have h1 : ContinuousAt (fun s : ℝ ↦ (s / 2) * (Real.log ((1 + s) / (1 - s)) / Real.log 2)) t := by
         refine (continuousAt_id.div_const 2).mul ?_
         refine ContinuousAt.div_const ?_ (Real.log 2)
-        refine (Real.continuousAt_log (ne_of_gt (div_pos (by linarith : (0 : ℝ) < 1 + t) (by linarith : (0 : ℝ) < 1 - t)))).comp ?_
+        refine ContinuousAt.comp (g := Real.log) (f := fun s : ℝ ↦ (1 + s) / (1 - s))
+          (Real.continuousAt_log (ne_of_gt (div_pos (by linarith : (0 : ℝ) < 1 + t) (by linarith : (0 : ℝ) < 1 - t)))) ?_
         exact (continuousAt_const.add continuousAt_id).div
           (continuousAt_const.sub continuousAt_id) (ne_of_gt (by linarith : (0 : ℝ) < 1 - t))
       exact h1.continuousWithinAt
@@ -247,11 +248,12 @@ theorem strictConvexOn_phi : StrictConvexOn ℝ (Ico (0 : ℝ) 1) phi := by
           have hinv := hasDerivAt_inv (ne_of_gt ht0)
           have h1' : (fun s : ℝ ↦ 1 / s - s) = (fun s : ℝ ↦ s⁻¹ - s) := by ext s; simp [one_div]
           rw [h1']
-          simpa [one_div, neg_div] using hinv.sub (hasDerivAt_id t)
+          convert hinv.sub (hasDerivAt_id t) using 1; simp [one_div, neg_div]
         have hd_quo : HasDerivAt (fun s : ℝ ↦ (1 + s) / (1 - s))
             ((1 * (1 - t) - (1 + t) * (-1)) / (1 - t) ^ 2) t := by
-          simpa using ((hasDerivAt_const t (1 : ℝ)).add (hasDerivAt_id t)).div
-            ((hasDerivAt_const t (1 : ℝ)).sub (hasDerivAt_id t)) (ne_of_gt h1mt)
+          convert ((hasDerivAt_const t (1 : ℝ)).add (hasDerivAt_id t)).div
+            ((hasDerivAt_const t (1 : ℝ)).sub (hasDerivAt_id t)) (ne_of_gt h1mt) using 1
+          ring
         have hd_log : HasDerivAt (fun s : ℝ ↦ Real.log ((1 + s) / (1 - s)))
             (((1 * (1 - t) - (1 + t) * (-1)) / (1 - t) ^ 2) / ((1 + t) / (1 - t))) t :=
           hd_quo.log (ne_of_gt (div_pos h1pt h1mt))
@@ -273,7 +275,8 @@ theorem strictConvexOn_phi : StrictConvexOn ℝ (Ico (0 : ℝ) 1) phi := by
               (continuousAt_const.add continuousAt_id).div
                 (continuousAt_const.sub continuousAt_id) (ne_of_gt h1ms)
             have hc2 : ContinuousAt (fun r : ℝ ↦ Real.log ((1 + r) / (1 - r))) s :=
-              (Real.continuousAt_log (ne_of_gt (div_pos h1ps h1ms))).comp hc1
+              ContinuousAt.comp (g := Real.log) (f := fun r : ℝ ↦ (1 + r) / (1 - r))
+                (Real.continuousAt_log (ne_of_gt (div_pos h1ps h1ms))) hc1
             have hc3 : ContinuousAt (fun r : ℝ ↦ 2 * r) s :=
               continuousAt_const.mul continuousAt_id
             exact (hc2.sub hc3).continuousWithinAt
@@ -287,8 +290,9 @@ theorem strictConvexOn_phi : StrictConvexOn ℝ (Ico (0 : ℝ) 1) phi := by
             have h1ps : 0 < 1 + s := by linarith
             have hd_quo : HasDerivAt (fun r : ℝ ↦ (1 + r) / (1 - r))
                 ((1 * (1 - s) - (1 + s) * (-1)) / (1 - s) ^ 2) s := by
-              simpa using ((hasDerivAt_const s (1 : ℝ)).add (hasDerivAt_id s)).div
-                ((hasDerivAt_const s (1 : ℝ)).sub (hasDerivAt_id s)) (ne_of_gt h1ms)
+              convert ((hasDerivAt_const s (1 : ℝ)).add (hasDerivAt_id s)).div
+                ((hasDerivAt_const s (1 : ℝ)).sub (hasDerivAt_id s)) (ne_of_gt h1ms) using 1
+              ring
             have hd_log := hd_quo.log (ne_of_gt (div_pos h1ps h1ms))
             have hd_lin : HasDerivAt (fun r : ℝ ↦ 2 * r) (2 * 1) s :=
               (hasDerivAt_id s).const_mul (2 : ℝ)
@@ -473,9 +477,9 @@ lemma traceDist_eq_half_traceNorm (ρ σ : DensityOp d) :
       rw [hsq]
       have hsim := Matrix.charpoly_mul_comm (U * Matrix.diagonal (fun i : d ↦ (((hΔ.eigenvalues i) ^ 2 : ℝ) : ℂ))) (star U)
       rw [hsim, ← Matrix.mul_assoc, hU_star, Matrix.one_mul]
-    have hsum := spectral_sum_eq_of_charpoly_mul_X_pow (k := 0) (l := 0)
+    have hsum := spectral_sum_eq_of_charpoly_mul_X_pow (f := Real.sqrt) (k := 0) (l := 0)
       (Matrix.posSemidef_conjTranspose_mul_self (ρ.mat - σ.mat)).isHermitian hD_herm
-      (by simp [hcp]) (by simp)
+      (by rw [hcp]; simp) Real.sqrt_zero
     rw [hsum, spectral_sum_diagonal (fun i ↦ (hΔ.eigenvalues i) ^ 2) hD_herm (by simp)]
     apply Finset.sum_congr rfl; intro i _
     exact Real.sqrt_sq_eq_abs _
@@ -508,9 +512,9 @@ theorem one_sub_rootFidelity_le_traceDist (ρ σ : DensityOp d) :
         rw [← hL, ← hR]; exact h1'
       have hcp' : (((ρ.sqrtMat * σ.sqrtMat)ᴴ * (ρ.sqrtMat * σ.sqrtMat)).charpoly) =
           (ρ.sqrtMat * σ.mat * ρ.sqrtMat).charpoly := by rw [hM, hcp]
-      exact spectral_sum_eq_of_charpoly_mul_X_pow (k := 0) (l := 0)
+      exact spectral_sum_eq_of_charpoly_mul_X_pow (f := Real.sqrt) (k := 0) (l := 0)
         (Matrix.posSemidef_conjTranspose_mul_self _).isHermitian
-        (posSemidef_sqrt_mul_sqrt ρ σ).isHermitian (by simp [hcp']) (by simp)
+        (posSemidef_sqrt_mul_sqrt ρ σ).isHermitian (by rw [hcp']; simp) Real.sqrt_zero
     simpa [h2] using h1
   rw [traceDist_eq_half_traceNorm]
   linarith
@@ -558,8 +562,9 @@ theorem traceDist_le_sqrt_one_sub_rootFidelity_sq (ρ σ : DensityOp d) :
   let B : Matrix (Fin 2) (d × d) ℂ := Matrix.of fun k p ↦ if k = 0 then star (ψ₀ p) else -star (ψ₁ p)
   have hAB : A * B = P₀.mat - P₁.mat := by
     ext p q
+    have h10 : (1 : Fin 2) ≠ 0 := by decide
     simp only [A, B, P₀, P₁, pureState, Matrix.mul_apply, Matrix.sub_apply, Matrix.of_apply,
-      Fin.sum_univ_two, ↓reduceIte, Fin.one_eq_zero_iff, OfNat.ofNat_ne_zero]
+      Fin.sum_univ_two, ↓reduceIte, h10]
     ring
   have hnorm_sum : ∀ (v : (d × d) → ℂ), (∑ p, ‖v p‖ ^ 2 = 1) →
       ∑ p : d × d, star (v p) * v p = (1 : ℂ) := by
@@ -569,27 +574,28 @@ theorem traceDist_le_sqrt_one_sub_rootFidelity_sq (ρ σ : DensityOp d) :
     simp_rw [h1, ← Complex.ofReal_sum, hv, Complex.ofReal_one]
   have hBA : B * A = Matrix.of ![![(1 : ℂ), c], ![-star c, -1]] := by
     ext k₁ k₂
+    have h10 : (1 : Fin 2) ≠ 0 := by decide
     simp only [A, B, Matrix.mul_apply, Matrix.of_apply]
-    fin_cases k₁ <;> fin_cases k₂ <;> simp only [↓reduceIte, Matrix.cons_val_zero,
-      Matrix.cons_val_one, Matrix.head_cons, Fin.zero_eta, Fin.mk_one, Fin.one_eq_zero_iff,
-      OfNat.ofNat_ne_zero]
+    fin_cases k₁ <;> fin_cases k₂ <;> simp only [Fin.zero_eta, Fin.mk_one, ↓reduceIte, h10,
+      Matrix.cons_val_zero, Matrix.cons_val_one, Matrix.head_cons]
     · exact hnorm_sum ψ₀ hψ₀
     · rfl
     · simp only [neg_mul, Finset.sum_neg_distrib, c, star_sum, star_mul', star_star]
       congr 1; apply Finset.sum_congr rfl; intro p _; ring
     · simp only [neg_mul, Finset.sum_neg_distrib, hnorm_sum ψ₁ hψ₁]
-  let D2 : Matrix (Fin 2) (Fin 2) ℂ := Matrix.diagonal (fun k : Fin 2 ↦ if k = 0 then (r : ℂ) else (-r : ℂ))
+  let D2 : Matrix (Fin 2) (Fin 2) ℂ := Matrix.diagonal (Complex.ofReal ∘ fun k : Fin 2 ↦ if k = 0 then r else -r)
   have hD2_herm : D2.IsHermitian := by
     rw [Matrix.IsHermitian, Matrix.diagonal_conjTranspose]; congr 1; ext k; fin_cases k <;> simp
   have hcp_BA : (B * A).charpoly = D2.charpoly := by
+    have h10 : (1 : Fin 2) ≠ 0 := by decide
+    have h01 : (0 : Fin 2) ≠ 1 := by decide
     rw [hBA, charpoly_diagonal_complex, Fin.prod_univ_two]
-    simp only [↓reduceIte, Fin.one_eq_zero_iff, OfNat.ofNat_ne_zero]
+    simp only [Function.comp_apply, ↓reduceIte, h10, Complex.ofReal_neg]
     rw [Matrix.charpoly, Matrix.charmatrix, Matrix.det_fin_two]
     simp only [Matrix.sub_apply, Matrix.scalar_apply, Matrix.diagonal_apply,
       RingHom.mapMatrix_apply, Matrix.map_apply, Matrix.of_apply,
       Matrix.cons_val_zero, Matrix.cons_val_one, Matrix.head_cons,
-      ↓reduceIte, Fin.zero_eta, Fin.mk_one, Fin.one_eq_zero_iff, Fin.zero_eq_one_iff,
-      OfNat.ofNat_ne_zero, zero_sub, map_one, map_neg]
+      ↓reduceIte, h10, h01, zero_sub, map_one, map_neg]
     have hc_mul : c * star c = ((‖c‖ ^ 2 : ℝ) : ℂ) := by
       rw [Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
     have hrC : (r : ℂ) * (r : ℂ) = 1 - c * star c := by
@@ -603,17 +609,18 @@ theorem traceDist_le_sqrt_one_sub_rootFidelity_sq (ρ σ : DensityOp d) :
       _ = (Polynomial.X - Polynomial.C (r : ℂ)) * (Polynomial.X - Polynomial.C (-r : ℂ)) := by
           simp only [map_mul, map_neg]; ring
   have hpure_td : traceDist P₀ P₁ = r := by
+    have h10 : (1 : Fin 2) ≠ 0 := by decide
     have hcp_syl := charpoly_mul_rect_eq A B
     rw [hAB, hcp_BA] at hcp_syl
-    have hsum := spectral_sum_eq_of_charpoly_mul_X_pow (P₀.isHermitian.sub P₁.isHermitian) hD2_herm
-      hcp_syl (by simp : max (0 : ℝ) 0 = 0)
-    have hD2_sum := spectral_sum_diagonal (fun k : Fin 2 ↦ if k = 0 then r else -r) hD2_herm
-      (by simp : max (0 : ℝ) 0 = 0)
+    have hsum := spectral_sum_eq_of_charpoly_mul_X_pow (f := fun x : ℝ ↦ max x 0)
+      (P₀.isHermitian.sub P₁.isHermitian) hD2_herm hcp_syl (by simp)
+    have hD2_sum := spectral_sum_diagonal (f := fun x : ℝ ↦ max x 0)
+      (fun k : Fin 2 ↦ if k = 0 then r else -r) hD2_herm (by simp)
     rw [traceDist_eq_hockeyStick_one, hockeyStick_eq_posPartTrace,
       posPartTrace_eq_of_eq _ (P₀.isHermitian.sub P₁.isHermitian) (by simp)]
     unfold posPartTrace
     rw [hsum, hD2_sum, Fin.sum_univ_two]
-    simp only [↓reduceIte, Fin.one_eq_zero_iff, OfNat.ofNat_ne_zero]
+    simp only [↓reduceIte, h10]
     have hr_nn : 0 ≤ r := Real.sqrt_nonneg _
     rw [max_eq_left hr_nn, max_eq_right (by linarith)]
     ring
@@ -678,10 +685,12 @@ theorem posPartTrace_eq_sSup {A : Matrix d d ℂ} (hA : A.IsHermitian) :
       simp only [indP]; split_ifs <;> norm_num
     have hEq : 1 - P = U * Matrix.diagonal (fun i ↦ ((1 - indP i : ℝ) : ℂ)) * star U := by
       have h1 : (1 : Matrix d d ℂ) = U * Matrix.diagonal (fun _ : d ↦ (1 : ℂ)) * star U := by
-        rw [Matrix.diagonal_one, Matrix.mul_one, Unitary.coe_mul_star_self]
+        rw [Matrix.diagonal_one, Matrix.mul_one]
+        exact (Unitary.coe_mul_star_self hA.eigenvectorUnitary).symm
       rw [h1]
       simp only [P, ← Matrix.sub_mul, ← Matrix.mul_sub]
-      congr 2; ext i j; simp [Matrix.diagonal_apply]
+      congr 2; ext i j; simp only [Matrix.sub_apply, Matrix.diagonal_apply]
+      split_ifs <;> simp
     rw [hEq]
     simpa [Matrix.star_eq_conjTranspose] using hD.mul_mul_conjTranspose_same U
   have hPA : ((P * A).trace).re = posPartTrace hA := by
@@ -707,7 +716,8 @@ theorem posPartTrace_eq_sSup {A : Matrix d d ℂ} (hA : A.IsHermitian) :
     have htr1 : ((Λ * A).trace).re =
         ((Λ * posPartMat hA).trace).re - ((Λ * negPartMat hA).trace).re := by
       have hA_eq : A = posPartMat hA - negPartMat hA := (posPartMat_sub_negPartMat hA).symm
-      rw [hA_eq, Matrix.mul_sub, Matrix.trace_sub, Complex.sub_re]
+      conv_lhs => rw [hA_eq]
+      rw [Matrix.mul_sub, Matrix.trace_sub, Complex.sub_re]
     have hneg_nn : 0 ≤ ((Λ * negPartMat hA).trace).re :=
       re_trace_mul_nonneg_of_posSemidef hΛ (negPartMat_posSemidef hA)
     have hdiff_nn : 0 ≤ (((1 - Λ) * posPartMat hA).trace).re :=

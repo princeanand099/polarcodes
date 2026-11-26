@@ -497,7 +497,7 @@ theorem prop_2_2_D2_var_isoEquiv {d₁ d₂ : Type u} [Fintype d₁] [DecidableE
       if v = v' then
         ((Real.sqrt 2 : ℂ)⁻¹) *
           (if v = false then ρ₀.sqrtMat i₁ j₁ * σ₀.sqrtMat i₂ j₂
-           else ρ₁.sqrtMat i₁ j₁ * σ₁.sqrtMat i₂ j₂)
+           else ρ₁.sqrtMat i₁ j₁ * σ₀.sqrtMat i₂ j₂)
       else 0
   let A₁ : Matrix (Bool × (d₁ × d₂)) (Bool × (d₁ × d₂)) ℂ :=
     Matrix.of fun (v, i₁, i₂) (v', j₁, j₂) ↦
@@ -871,7 +871,7 @@ theorem prop_2_2_D2_var_isoEquiv {d₁ d₂ : Type u} [Fintype d₁] [DecidableE
   · rw [hmat₁ b, ← hstep2 b]
     calc V₂ * _ * V₂ᴴ = V₂ * ((Pᴴ * P) * _ * (Pᴴ * P)) * V₂ᴴ := by rw [hP_iso, Matrix.one_mul, Matrix.mul_one]
       _ = (V₂ * Pᴴ) * (P * _ * Pᴴ) * (V₂ * Pᴴ)ᴴ := by
-            simp only [Matrix.conjTranspose_mul, Matrix.conjTranspose_conjTranspose, Matrix.mul_assoc]
+            cases b <;> simp only [Matrix.conjTranspose_mul, Matrix.conjTranspose_conjTranspose, Matrix.mul_assoc]
 
 /-- **Proposition 2.2 (D2, Variable-Node Channel-Level Duality)**:
 `(W₁ ⊛ W₂)⊥ ≃ W₁⊥ ⊠ W₂⊥` as reversible CPTP-equivalent c-q channels. -/

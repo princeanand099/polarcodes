@@ -142,8 +142,15 @@ private lemma relEntropy_toReal_eq_trace_log_posDef {α : Type*} [Fintype α] [D
                 Matrix.diagonal (fun j ↦ (Real.log (σ.eigvals j) : ℂ))).trace := by
                 simp only [W, star_mul, star_star, Matrix.mul_assoc]
       rw [hcy]
-      simp only [Matrix.trace, Matrix.diag, Matrix.mul_apply, Matrix.mul_diagonal,
-        Matrix.diagonal_mul, Matrix.star_apply, Function.comp_apply]
+      have hmul_d : (W * Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) * star W *
+          Matrix.diagonal (fun j ↦ (Real.log (σ.eigvals j) : ℂ))).trace =
+          ∑ j : α, ∑ i : α, W j i * (ρ.eigvals i : ℂ) * star (W j i) * (Real.log (σ.eigvals j) : ℂ) := by
+        simp only [Matrix.trace, Matrix.diag, Matrix.mul_diagonal]
+        apply Finset.sum_congr rfl; intro j _
+        rw [Matrix.mul_apply, Finset.sum_mul]
+        apply Finset.sum_congr rfl; intro i _
+        simp [Matrix.mul_diagonal, Matrix.star_apply]
+      rw [hmul_d]
       rw [Finset.sum_comm]
       apply Finset.sum_congr rfl; intro i _
       apply Finset.sum_congr rfl; intro j _
@@ -242,7 +249,10 @@ private lemma relEntropy_le_neg_logb_of_scale {α : Type*} [Fintype α] [Decidab
                 Pi.single_apply, eq_comm] using h
             have h2 : Matrix.diagonal (Complex.ofReal ∘ hH.eigenvalues) *ᵥ Pi.single i (1 : ℂ) =
                 Pi.single i (hH.eigenvalues i : ℂ) := by
-              ext k; simp [Matrix.mulVec_diagonal, Pi.single_apply]
+              ext k; simp only [Matrix.mulVec_diagonal, Pi.single_apply, Function.comp_apply]
+              split_ifs with hk
+              · subst hk; simp
+              · simp
             have h3 : star v ⬝ᵥ (U *ᵥ Pi.single i (hH.eigenvalues i : ℂ)) =
                 (star U *ᵥ v) i * (hH.eigenvalues i : ℂ) := by
               simp only [dotProduct, Matrix.mulVec, Pi.star_apply, Pi.single_apply, mul_ite, mul_zero,
@@ -251,9 +261,9 @@ private lemma relEntropy_le_neg_logb_of_scale {α : Type*} [Fintype α] [Decidab
               apply Finset.sum_congr rfl; intro k _; simp [v]; ring
             calc star v ⬝ᵥ ((ρ.mat - (s : ℂ) • M.mat) *ᵥ v)
                 = star v ⬝ᵥ ((U * Matrix.diagonal (Complex.ofReal ∘ hH.eigenvalues) * star U) *ᵥ v) := by
-                    rw [hspec]
+                    conv_lhs => rw [hspec]
               _ = star v ⬝ᵥ (U *ᵥ (Matrix.diagonal (Complex.ofReal ∘ hH.eigenvalues) *ᵥ (star U *ᵥ v))) := by
-                    simp only [Matrix.mulVec_mulVec]
+                    rw [Matrix.mul_assoc, ← Matrix.mulVec_mulVec, ← Matrix.mulVec_mulVec]
               _ = (hH.eigenvalues i : ℂ) := by rw [h1, h2, h3, h1]; simp
           rw [Matrix.neg_mulVec, dotProduct_neg, hv] at hq
           rw [Complex.le_def] at hq
@@ -286,14 +296,14 @@ private lemma relEntropy_le_neg_logb_of_scale {α : Type*} [Fintype α] [Decidab
       (Set.disjoint_left.mpr fun x h1 h2 ↦ by
         rcases h2 with h2 | h2
         · linarith [h1.2, h2.1]
-        · linarith [h1.2, h2]),
+        · linarith [h1.2, h2, h1c_ge1]),
       lintegral_union measurableSet_Ici
       (Set.disjoint_left.mpr fun x h1 h2 ↦ not_le.mpr h1.2 h2)]
     have hz : ∫⁻ s in Ici (1 / c), ENNReal.ofReal (g s) ∂volume = 0 := by
-      apply setLIntegral_eq_zero measurableSet_Ici; intro s hs
-      have h1 : ¬ s < 1 := not_lt.mpr (le_trans h1c_ge1 hs)
-      have h2 : ¬ s < 1 / c := not_lt.mpr hs
-      simp only [g, h1, h2, ↓reduceIte, ENNReal.ofReal_zero]
+      rw [setLIntegral_congr_fun measurableSet_Ici (g := fun _ ↦ 0) (fun s hs ↦ by
+        have h1 : ¬ s < 1 := not_lt.mpr (le_trans h1c_ge1 hs)
+        have h2 : ¬ s < 1 / c := not_lt.mpr hs
+        simp only [g, h1, h2, ↓reduceIte, ENNReal.ofReal_zero]), lintegral_zero]
     rw [hz, add_zero]
     congr 1
     · apply setLIntegral_congr_fun measurableSet_Ioo; intro s hs
@@ -307,7 +317,7 @@ private lemma relEntropy_le_neg_logb_of_scale {α : Type*} [Fintype α] [Decidab
       ENNReal.ofReal (-Real.log c - (1 - c)) := by
     have hcont : ContinuousOn (fun s : ℝ ↦ 1 / s - c) (Icc 1 (1 / c)) := by
       refine ContinuousOn.sub ?_ continuousOn_const
-      exact continuousOn_const.div continuousOn_id fun s hs ↦ ne_of_gt (by dsimp; linarith [hs.1])
+      exact continuousOn_const.div continuousOn_id fun s hs ↦ ne_of_gt (by linarith [hs.1])
     have hnn_g : ∀ s ∈ Ioc (1 : ℝ) (1 / c), 0 ≤ 1 / s - c := by
       intro s hs; have h := (le_div_iff₀ (by linarith [hs.1] : (0 : ℝ) < s)).mpr
         (by linarith [(le_div_iff₀ hc0).mp hs.2] : c * s ≤ 1)
@@ -320,7 +330,7 @@ private lemma relEntropy_le_neg_logb_of_scale {α : Type*} [Fintype α] [Decidab
       ← intervalIntegral.integral_of_le h1c_ge1]
     congr 1
     have hinv_int : IntervalIntegrable (fun s : ℝ ↦ (1 : ℝ) / s) volume 1 (1 / c) :=
-      (continuousOn_const.div continuousOn_id fun s hs ↦ ne_of_gt (by dsimp; linarith [hs.1])).intervalIntegrable_of_Icc h1c_ge1
+      (continuousOn_const.div continuousOn_id fun s hs ↦ ne_of_gt (by linarith [hs.1])).intervalIntegrable_of_Icc h1c_ge1
     have hsub : ∫ s in (1 : ℝ)..(1 / c), (1 / s - c) =
         (∫ s in (1 : ℝ)..(1 / c), (1 / s)) - (∫ _ in (1 : ℝ)..(1 / c), c) :=
       intervalIntegral.integral_sub hinv_int intervalIntegrable_const
@@ -454,7 +464,7 @@ private lemma vonNeumannEntropy_mix_bounds {α : Type*} [Fintype α] [DecidableE
   have hseq_tend : Tendsto seq atTop (𝓝[>] 0) := by
     rw [tendsto_nhdsWithin_iff]
     refine ⟨?_, Eventually.of_forall fun k ↦ hseq0 k⟩
-    have hcomp := tendsto_one_div_add_atTop_nhds_zero_nat.comp (tendsto_add_atTop_nat 1)
+    have hcomp := (tendsto_one_div_add_atTop_nhds_zero_nat (𝕜 := ℝ)).comp (tendsto_add_atTop_nat 1)
     exact hcomp.congr fun k ↦ by simp only [Function.comp_apply, seq, Nat.cast_add, Nat.cast_one]; ring_nf
   have hT : ∀ A : DensityOp α,
       Tendsto (fun k ↦ vonNeumannEntropy (DensityOp.mix (seq k) (le_of_lt (hseq0 k))
@@ -514,13 +524,15 @@ private lemma continuous_negPartTrace_pencil_aux {α : Type*} [Fintype α] [Deci
     have hB : ((b : ℂ) • (((1 - y : ℝ) : ℂ) • ρ.mat + (y : ℂ) • σ.mat)).IsHermitian := by
       rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal,
           (pencil_isHermitian y ρ σ).eq]
+    dsimp only
+    simp only [smul_eq_mul]
     rw [negPartTrace_eq_of_eq (pencil_isHermitian (a * x + b * y) ρ σ) (hA.add hB) hmat]
     calc negPartTrace (hA.add hB) ≤ negPartTrace hA + negPartTrace hB := negPartTrace_add_le hA hB
       _ = a * negPartTrace (pencil_isHermitian x ρ σ) + b * negPartTrace (pencil_isHermitian y ρ σ) := by
           rw [negPartTrace_smul_nonneg ha (pencil_isHermitian x ρ σ),
               negPartTrace_smul_nonneg hb (pencil_isHermitian y ρ σ)]
   rw [← continuousOn_univ]
-  exact hconv.continuousOn isOpen_univ
+  simpa [interior_univ] using hconv.continuousOn_interior
 
 private lemma relEntropy_frenkel_integral_of_posDef_right {α : Type*} [Fintype α] [DecidableEq α]
     {ρ σ : DensityOp α} (hσ : σ.mat.PosDef) :
@@ -551,7 +563,7 @@ private lemma relEntropy_frenkel_integral_of_posDef_right {α : Type*} [Fintype 
       by simp only [Complex.add_im, Complex.mul_im, Complex.ofReal_re, Complex.ofReal_im,
       zero_mul, add_zero, h1.2.symm, h2'.2.symm, mul_zero]⟩
   have hε_tend : Tendsto ε atTop (𝓝 0) := by
-    have hcomp := tendsto_one_div_add_atTop_nhds_zero_nat.comp (tendsto_add_atTop_nat 1)
+    have hcomp := (tendsto_one_div_add_atTop_nhds_zero_nat (𝕜 := ℝ)).comp (tendsto_add_atTop_nat 1)
     exact hcomp.congr fun k ↦ by simp only [Function.comp_apply, ε, Nat.cast_add, Nat.cast_one]; ring_nf
   have hS_tend : Tendsto (fun n ↦ vonNeumannEntropy (ρn n)) atTop (𝓝 (vonNeumannEntropy ρ)) := by
     have hlow : Tendsto (fun n ↦ (1 - ε n) * vonNeumannEntropy ρ + ε n * vonNeumannEntropy σ)
@@ -618,7 +630,8 @@ private lemma relEntropy_frenkel_integral_of_posDef_right {α : Type*} [Fintype 
     let φ : ℝ → ℝ := fun t ↦ (1 - ε n) * t + ε n
     have hderiv : ∀ t ∈ (Set.univ : Set ℝ), HasDerivWithinAt φ (1 - ε n) Set.univ t := fun t _ ↦ by
       have h1 : HasDerivAt φ (1 - ε n) t := by
-        simpa using ((hasDerivAt_id t).const_mul (1 - ε n)).add (hasDerivAt_const t (ε n))
+        convert ((hasDerivAt_id t).const_mul (1 - ε n)).add (hasDerivAt_const t (ε n)) using 1
+        simp
       exact h1.hasDerivWithinAt
     have hinj : Set.InjOn φ Set.univ := fun t₁ _ t₂ _ h ↦ by
       simp only [φ] at h
@@ -632,7 +645,7 @@ private lemma relEntropy_frenkel_integral_of_posDef_right {α : Type*} [Fintype 
         (|(s - ε n) / (1 - ε n)| * ((s - ε n) / (1 - ε n) - 1) ^ 2)))
     have hsub := lintegral_image_eq_lintegral_abs_deriv_mul (s := Set.univ) (f := φ) (f' := fun _ ↦ 1 - ε n)
       MeasurableSet.univ hderiv hinj F
-    rw [himg, Measure.restrict_univ, Measure.restrict_univ] at hsub
+    rw [himg, Measure.restrict_univ] at hsub
     have hF_comp : ∀ t : ℝ, ENNReal.ofReal |1 - ε n| * F (φ t) =
         ENNReal.ofReal (negPartTrace (pencil_isHermitian t (ρn n) σ) / (|t| * (t - 1) ^ 2)) := by
       intro t
@@ -642,7 +655,8 @@ private lemma relEntropy_frenkel_integral_of_posDef_right {α : Type*} [Fintype 
     simp_rw [hF_comp] at hsub
     rw [← hsub]
     apply lintegral_congr_ae
-    have hae : ∀ᵐ s ∂volume, s ∉ ({(0 : ℝ), 1} : Set ℝ) := by rw [ae_iff]; simp
+    have hae : ∀ᵐ s ∂volume, s ∉ ({(0 : ℝ), 1} : Set ℝ) :=
+      (Set.toFinite ({(0 : ℝ), 1} : Set ℝ)).countable.ae_notMem volume
     filter_upwards [hae] with s hs
     simp only [mem_singleton_iff, mem_insert_iff, not_or] at hs
     have hpencil_eq : negPartTrace (pencil_isHermitian ((s - ε n) / (1 - ε n)) (ρn n) σ) =
@@ -753,7 +767,8 @@ private lemma relEntropy_frenkel_integral_of_posDef_right {α : Type*} [Fintype 
         ∫⁻ s : ℝ, ENNReal.ofReal (negPartTrace (pencil_isHermitian s ρ σ) / (|s| * (s - 1) ^ 2)) ∂volume := by
       rw [← MeasureTheory.lintegral_iSup hG_meas hG_mono]
       apply lintegral_congr_ae
-      have hae : ∀ᵐ s ∂volume, s ∉ ({(0 : ℝ), 1} : Set ℝ) := by rw [ae_iff]; simp
+      have hae : ∀ᵐ s ∂volume, s ∉ ({(0 : ℝ), 1} : Set ℝ) :=
+        (Set.toFinite ({(0 : ℝ), 1} : Set ℝ)).countable.ae_notMem volume
       filter_upwards [hae] with s hs
       simp only [mem_singleton_iff, mem_insert_iff, not_or] at hs
       exact hG_sup s hs.1 hs.2
@@ -912,8 +927,8 @@ theorem relEntropy_frenkel_integral_of_suppSubset {ρ σ : DensityOp d} (hsupp :
       have hVB : Vᴴ * (V * B) = B := by rw [← Matrix.mul_assoc, hVHV, Matrix.one_mul]
       rw [hVB] at h; exact h
     rw [hmat] at hcp
-    exact spectral_sum_eq_of_charpoly_mul_X_pow (pencil_isHermitian t ρ σ) (pencil_isHermitian t ρ' σ')
-      hcp (by simp : max (-(0 : ℝ)) 0 = 0)
+    exact spectral_sum_eq_of_charpoly_mul_X_pow (f := fun x : ℝ ↦ max (-x) 0)
+      (pencil_isHermitian t ρ σ) (pencil_isHermitian t ρ' σ') hcp (by simp)
   have hrel_eq : relEntropy ρ σ = relEntropy ρ' σ' := by
     have hS_eq : vonNeumannEntropy ρ = vonNeumannEntropy ρ' := by
       have hcp : ρ.mat.charpoly * Polynomial.X ^ Fintype.card d' =
@@ -964,10 +979,14 @@ theorem relEntropy_frenkel_integral_of_suppSubset {ρ σ : DensityOp d} (hsupp :
         ext i j
         have hL : (V * Matrix.diagonal (fun k : d' ↦ (Real.log (σ.eigvals k.1) : ℂ)) * Vᴴ) i j =
             ∑ k : d', U i k.1 * (Real.log (σ.eigvals k.1) : ℂ) * star (U j k.1) := by
-          simp [V, Matrix.mul_apply, Matrix.mul_diagonal, Matrix.conjTranspose_apply]
+          rw [Matrix.mul_apply]
+          apply Finset.sum_congr rfl; intro k _
+          rw [Matrix.mul_diagonal]; simp [V, Matrix.conjTranspose_apply]
         have hR : Lσ i j = ∑ k : d, U i k *
             (if σ.eigvals k = 0 then (0 : ℂ) else (Real.log (σ.eigvals k) : ℂ)) * star (U j k) := by
-          simp [Lσ, Matrix.mul_apply, Matrix.mul_diagonal, Matrix.star_apply]
+          simp only [Lσ, Matrix.mul_apply]
+          apply Finset.sum_congr rfl; intro k _
+          rw [Matrix.mul_diagonal]; simp [Matrix.star_apply]
         rw [hL, hR]
         rw [Finset.sum_coe_sort S_pos (fun k ↦ U i k * (Real.log (σ.eigvals k) : ℂ) * star (U j k))]
         symm
@@ -1024,9 +1043,14 @@ theorem relEntropy_frenkel_integral_of_suppSubset {ρ σ : DensityOp d} (hsupp :
             _ = (W * Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) * star W * Matrix.diagonal dσ).trace := by
                   simp only [W, star_mul, star_star, Matrix.mul_assoc]
         rw [hcy]
-        simp only [Matrix.trace, Matrix.diag, Matrix.mul_apply, Matrix.mul_diagonal,
-          Matrix.diagonal_mul, Matrix.star_apply, Function.comp_apply]
-        rw [Finset.sum_comm]
+        have hmul_d : (W * Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) * star W * Matrix.diagonal dσ).trace =
+            ∑ j : d, ∑ i : d, W j i * (ρ.eigvals i : ℂ) * star (W j i) * dσ j := by
+          simp only [Matrix.trace, Matrix.diag, Matrix.mul_diagonal]
+          apply Finset.sum_congr rfl; intro j _
+          rw [Matrix.mul_apply, Finset.sum_mul]
+          apply Finset.sum_congr rfl; intro i _
+          simp [Matrix.mul_diagonal, Matrix.star_apply]
+        rw [hmul_d, Finset.sum_comm]
         apply Finset.sum_congr rfl; intro i _; apply Finset.sum_congr rfl; intro j _
         have hsq : W j i * star (W j i) = ((‖W j i‖ ^ 2 : ℝ) : ℂ) := by
           rw [Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
