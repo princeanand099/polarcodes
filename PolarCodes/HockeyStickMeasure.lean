@@ -40,7 +40,8 @@ theorem lemma_3_2_hockeyStick_measure {ρ σ : DensityOp d}
       ((relEntropy ρ σ).toReal = ∫ t, (t * Real.logb 2 t - (t - 1) / Real.log 2) ∂μ) ∧
       ((relEntropy σ ρ).toReal = ∫ t, (-Real.logb 2 t + (t - 1) / Real.log 2) ∂μ) ∧
       (qjs ρ σ = ∫ t, (t / 2 * Real.logb 2 (2 * t / (1 + t)) +
-        1 / 2 * Real.logb 2 (2 / (1 + t))) ∂μ) := by
+        1 / 2 * Real.logb 2 (2 / (1 + t))) ∂μ) ∧
+      relEntropy ρ σ ≠ ⊤ ∧ relEntropy σ ρ ≠ ⊤ := by
   obtain ⟨a, b, ha, hab, hleft, hright⟩ := hockeyStick_bounds_posDef hρ hσ
   let f : ℝ → ℝ := fun s ↦ hockeyStick s ρ σ
   have hf_conv : ConvexOn ℝ univ f := hockeyStick_convexOn ρ σ
@@ -141,7 +142,7 @@ theorem lemma_3_2_hockeyStick_measure {ρ σ : DensityOp d}
       rw [hsplit, measure_union hdisj measurableSet_Ioi, hsupp_right, add_zero,
         StieltjesFunction.measure_Ioc, hF_right b le_rfl]
       congr 1; show 1 - (g u + 1) = -g u; ring
-  -- Hockey-stick representation: `hockeyStick s ρ σ = ∫ t, max (t - s) 0 ∂μ`
+  -- Hockey-stick representation: `f s = ∫ t, max (t - s) 0 ∂μ`
   have hrep : ∀ s : ℝ, hockeyStick s ρ σ = ∫ t, max (t - s) 0 ∂μ := by
     intro s
     rcases le_or_gt b s with hbs | hsb
@@ -250,7 +251,7 @@ theorem lemma_3_2_hockeyStick_measure {ρ σ : DensityOp d}
       · apply setLIntegral_congr_fun measurableSet_Ioi
         intro s hs; dsimp only; rw [max_eq_right (by linarith [Set.mem_Ioi.mp hs]), sub_zero]
     rw [hsplit] at h38
-    -- Express `hockeyStick s ρ σ - (1 - s) = ∫ max (s - t) 0 ∂μ` for `s ∈ (0, 1]`
+    -- Express `f s - (1 - s) = ∫ max (s - t) 0 ∂μ` for `s ∈ (0, 1]`
     have hleft_int : ∀ s ∈ Ioc (0 : ℝ) 1,
         ENNReal.ofReal ((hockeyStick s ρ σ - (1 - s)) / s) =
           ∫⁻ t, ENNReal.ofReal (max (s - t) 0 / s) ∂μ := by
@@ -757,6 +758,86 @@ theorem lemma_3_2_hockeyStick_measure {ρ σ : DensityOp d}
     rw [← integral_add hI1 hI2, ← integral_div]
     apply integral_congr_ae; filter_upwards with t
     simp only [Real.logb]; ring
-  exact ⟨a, b, μ, ha, hab, hprob, hsupp, hrep, hmean, hEq34, hEq35, hEq36⟩
+  have hne1 : relEntropy ρ σ ≠ ⊤ := by
+    have hs : suppSubset ρ σ := fun i j _ h0 ↦ absurd h0 (ne_of_gt (hσ.eigenvalues_pos j))
+    unfold relEntropy; rw [if_pos hs]; exact ENNReal.ofReal_ne_top
+  have hne2 : relEntropy σ ρ ≠ ⊤ := by
+    have hs : suppSubset σ ρ := fun i j _ h0 ↦ absurd h0 (ne_of_gt (hρ.eigenvalues_pos j))
+    unfold relEntropy; rw [if_pos hs]; exact ENNReal.ofReal_ne_top
+  exact ⟨a, b, μ, ha, hab, hprob, hsupp, hrep, hmean, hEq34, hEq35, hEq36, hne1, hne2⟩
+
+/-- For any two full-rank density operators `ρ, σ ≻ 0`, `QJS(ρ, σ) < 1`. -/
+lemma qjs_lt_one_posDef {α : Type*} [Fintype α] [DecidableEq α]
+    {ρ σ : DensityOp α} (hρ : ρ.mat.PosDef) (hσ : σ.mat.PosDef) :
+    qjs ρ σ < 1 := by
+  obtain ⟨a, b, μ, ha, hab, hprob, hsuppμ, _, hmean, _, _, hEq36, _, _⟩ :=
+    lemma_3_2_hockeyStick_measure hρ hσ
+  rw [hEq36]
+  have hlt_pt : ∀ s ∈ Icc a b,
+      s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s)) < (1 + s) / 2 := by
+    intro s hs
+    have hs0 : 0 < s := lt_of_lt_of_le ha hs.1
+    have h1 : Real.logb 2 (2 * s / (1 + s)) < 1 := by
+      rw [Real.logb_lt_iff_lt_rpow (by norm_num : (1 : ℝ) < 2) (by positivity), Real.rpow_one,
+        div_lt_iff₀ (by linarith)]; linarith
+    have h2 : Real.logb 2 (2 / (1 + s)) < 1 := by
+      rw [Real.logb_lt_iff_lt_rpow (by norm_num : (1 : ℝ) < 2) (by positivity), Real.rpow_one,
+        div_lt_iff₀ (by linarith)]; linarith
+    nlinarith
+  have hcont_diff : ContinuousOn (fun s : ℝ ↦
+      (1 + s) / 2 - (s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s)))) (Icc a b) := by
+    refine ContinuousOn.sub (by fun_prop) (ContinuousOn.add ?_ ?_)
+    · refine (continuousOn_id.div_const 2).mul (ContinuousOn.div_const ?_ _)
+      refine Real.continuousOn_log.comp ?_ ?_
+      · exact (continuousOn_const.mul continuousOn_id).div (continuousOn_const.add continuousOn_id)
+          fun s hs ↦ ne_of_gt (by linarith [lt_of_lt_of_le ha hs.1])
+      · intro s hs; exact ne_of_gt (div_pos (by linarith [lt_of_lt_of_le ha hs.1])
+          (by linarith [lt_of_lt_of_le ha hs.1]))
+    · refine continuousOn_const.mul (ContinuousOn.div_const ?_ _)
+      refine Real.continuousOn_log.comp ?_ ?_
+      · exact continuousOn_const.div (continuousOn_const.add continuousOn_id)
+          fun s hs ↦ ne_of_gt (by linarith [lt_of_lt_of_le ha hs.1])
+      · intro s hs; exact ne_of_gt (div_pos two_pos (by linarith [lt_of_lt_of_le ha hs.1]))
+  obtain ⟨t₀, ht₀, hmin⟩ := isCompact_Icc.exists_isMinOn ⟨a, left_mem_Icc.mpr hab⟩ hcont_diff
+  set δ := (1 + t₀) / 2 - (t₀ / 2 * Real.logb 2 (2 * t₀ / (1 + t₀)) + 1 / 2 * Real.logb 2 (2 / (1 + t₀)))
+  have hδ_pos : 0 < δ := sub_pos.mpr (hlt_pt t₀ ht₀)
+  have hI_lhs : Integrable (fun s : ℝ ↦
+      s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s))) μ := by
+    have hcont : ContinuousOn (fun s : ℝ ↦
+        s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s))) (Icc a b) := by
+      have := (show ContinuousOn (fun s : ℝ ↦ (1 + s) / 2) (Icc a b) by fun_prop).sub hcont_diff
+      exact this.congr fun s _ ↦ by dsimp only [Pi.sub_apply]; ring
+    obtain ⟨M, hM⟩ := isCompact_Icc.exists_bound_of_continuousOn hcont
+    have hm : AEStronglyMeasurable (fun s : ℝ ↦
+        s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s))) μ := by
+      have hrest : μ.restrict (Icc a b) = μ := Measure.restrict_eq_self_of_ae_mem (ae_iff.mpr hsuppμ)
+      rw [← hrest]; exact hcont.aestronglyMeasurable measurableSet_Icc
+    refine Integrable.mono' (integrable_const M) hm ?_
+    filter_upwards [ae_iff.mpr hsuppμ] with s hs
+    exact hM s hs
+  have hI_rhs : Integrable (fun s : ℝ ↦ (1 + s) / 2) μ := by
+    have hcont : ContinuousOn (fun s : ℝ ↦ (1 + s) / 2) (Icc a b) := by fun_prop
+    obtain ⟨M, hM⟩ := isCompact_Icc.exists_bound_of_continuousOn hcont
+    refine Integrable.mono' (integrable_const M) (by fun_prop) ?_
+    filter_upwards [ae_iff.mpr hsuppμ] with s hs
+    exact hM s hs
+  have hint_le : ∫ s, (s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s))) ∂μ ≤
+      ∫ s, ((1 + s) / 2 - δ) ∂μ := by
+    apply integral_mono_ae hI_lhs (hI_rhs.sub (integrable_const δ))
+    filter_upwards [ae_iff.mpr hsuppμ] with s hs
+    have hle : δ ≤ (1 + s) / 2 - (s / 2 * Real.logb 2 (2 * s / (1 + s)) + 1 / 2 * Real.logb 2 (2 / (1 + s))) := hmin hs
+    dsimp only [Pi.sub_apply]; linarith
+  have hrhs_val : ∫ s, ((1 + s) / 2 - δ) ∂μ = 1 - δ := by
+    have hint_s : Integrable (fun s : ℝ ↦ s) μ := by
+      refine Integrable.mono' (integrable_const b)
+        (continuous_id : Continuous (fun s : ℝ ↦ s)).aestronglyMeasurable ?_
+      filter_upwards [ae_iff.mpr hsuppμ] with s hs
+      rw [Real.norm_of_nonneg (by linarith [hs.1])]; exact hs.2
+    rw [integral_sub hI_rhs (integrable_const δ), integral_div,
+      integral_add (integrable_const 1) hint_s, integral_const, smul_eq_mul, hmean,
+      show μ.real univ = 1 by simp [Measure.real],
+      integral_const, smul_eq_mul, show μ.real univ = 1 by simp [Measure.real]]
+    ring
+  linarith
 
 end PolarCodes
