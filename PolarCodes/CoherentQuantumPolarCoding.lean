@@ -305,7 +305,7 @@ lemma traceDist_pureState_eq {α : Type*} [Fintype α] [DecidableEq α]
                 rw [Finset.sum_comm]
                 apply Finset.sum_congr rfl; intro k _
                 apply Finset.sum_congr rfl; intro l _; ring
-      -- Eigenvalues of `‖c‖² • P₀.mat`: trace of `√(‖c‖² • P₀)` = `‖c‖ * Tr(√P₀) = `‖c‖ * Tr(P₀) = ‖c‖`!
+      -- Eigenvalues of `‖c‖² • P₀.mat`: trace of `√(‖c‖² • P₀)` = `‖c‖ * Tr(√P₀) = ‖c‖ * Tr(P₀) = ‖c‖`!
       unfold rootFidelity
       have hH := posSemidef_sqrt_mul_sqrt P₀ P₁ |>.isHermitian
       have hP0_eigs : ∑ i : α, Real.sqrt (P₀.isHermitian.eigenvalues i) = 1 := by
@@ -896,7 +896,9 @@ private lemma productState_comp_eq_tensorPow_partialTrace (𝒩 : CPTPMap.{0} Bo
     simp only [ampChannel, CPTPMap.complementary, CPTPMap.apply, CPTPMap.toLinearMap,
       partialTrace₂Mat, CQChannel.ketBraBool, LinearMap.coe_mk, AddHom.coe_mk, Matrix.of_apply]
     apply Finset.sum_congr rfl; intro y _
-    cases x i <;> simp [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply, Fintype.sum_bool]
+    rw [Matrix.mul_apply]
+    simp_rw [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply]
+    cases x i <;> simp [Fintype.sum_bool]
   exact hcomp
 
 set_option maxHeartbeats 2400000 in
@@ -1359,7 +1361,7 @@ theorem exists_coherent_css_decoder (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
               star (V_isom (y, e) (arikanTransform n (wiretapWord infoSet randSet assistSet uF m r' a)))
         trans (∑ m : M, ∑ e : E, (star ν * ν) * t m e)
         · exact Finset.sum_congr rfl fun m _ ↦ Finset.sum_congr rfl fun e _ ↦ hterm v m e
-        · simp_rw [← Finset.mul_sum]
+        · simp_rw [← Finset.mul_sum]; rfl
       simp_rw [hsingle, ← Finset.mul_sum]
       let g : M → E → A → R → R → ℂ := fun m e a r' r₂ ↦
         ∑ y : Y, ∑ y₁ : Y,
