@@ -623,8 +623,8 @@ private lemma polarChannelTree_transpose_perm {α : Type} [Fintype α] [Decidabl
       simp only [CQChannel.varCombine, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor,
         CQChannel.ketBraBool, Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply,
         smul_eq_mul]
-      rw [he' false x₁ y₁, he' false x₂ y₂, he' true x₁ y₁, he' true x₂ y₂]
-      cases c <;> cases v₁ <;> cases v₂ <;> simp
+      rw [he' c x₁ y₁, he' c x₂ y₂, he' (!c) x₁ y₁]
+      cases v₁ <;> cases v₂ <;> simp
     · rw [polarChannelTree_succ_false W.transpose b hb, polarChannelTree_succ_false W b hb]
       dsimp only [BundledCQChannel.minus]
       refine ⟨Equiv.prodCongr e e, fun c ⟨x₁, x₂⟩ ⟨y₁, y₂⟩ ↦ ?_⟩
@@ -636,8 +636,7 @@ private lemma polarChannelTree_transpose_perm {α : Type} [Fintype α] [Decidabl
           ((polarChannelTree W.transpose k (Fin.init b)).ch.out c).mat x y := he
       simp only [CQChannel.checkCombine, DensityOp.midpoint, DensityOp.mix, DensityOp.tensor,
         Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply, smul_eq_mul]
-      rw [he' false x₁ y₁, he' false x₂ y₂, he' true x₁ y₁, he' true x₂ y₂]
-      cases c <;> simp
+      rw [he' c x₁ y₁, he' false x₂ y₂, he' (!c) x₁ y₁, he' true x₂ y₂]
 
 private lemma polarChannelTree_transpose_traceDist {α : Type} [Fintype α] [DecidableEq α]
     (W : CQChannel α) (n : ℕ) (b : Fin n → Bool) :
