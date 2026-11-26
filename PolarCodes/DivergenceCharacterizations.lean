@@ -275,9 +275,9 @@ theorem qjs_eq_avg_relEntropy (ρ σ : DensityOp d) :
         rw [Finset.sum_comm]
         apply Finset.sum_congr rfl; intro i _
         apply Finset.sum_congr rfl; intro j _
-        rw [mul_comm (W j i) (A.eigvals i : ℂ), mul_assoc, ← mul_assoc (W j i),
-          Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
-        ring
+        have hnorm : W j i * star (W j i) = ((‖W j i‖ ^ 2 : ℝ) : ℂ) := by
+          rw [Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
+        linear_combination ((A.eigvals i : ℂ) * dm j) * hnorm
       rw [hW_def, Complex.re_sum]
       apply Finset.sum_congr rfl; intro i _
       rw [Complex.re_sum]
@@ -634,7 +634,6 @@ private lemma qjs_eq_one_iff_mp (ρ σ : DensityOp d) (h1 : qjs ρ σ = 1) :
         = (ρ.sqrtMat * ρ.sqrtMat) * (σ.sqrtMat * σ.sqrtMat) := by rw [ρ.sqrtMat_mul_self, σ.sqrtMat_mul_self]
       _ = ρ.sqrtMat * (ρ.sqrtMat * σ.sqrtMat) * σ.sqrtMat := by simp only [Matrix.mul_assoc]
       _ = 0 := by rw [hprod0', Matrix.mul_zero, Matrix.zero_mul]
-
 private lemma sum_c2_sqrtMat_mul {d : Type*} [Fintype d] [DecidableEq d]
     (ρ : DensityOp d) (i j : d) :
     ∑ k : d, ((Real.sqrt 2 : ℝ) : ℂ)⁻¹ * ρ.sqrtMat i k *
@@ -924,9 +923,10 @@ theorem rootFidelity_block_diagonal {ι : Type*} [Fintype ι] [DecidableEq ι]
       have hUdiag : ∀ a b, (Ublk * Matrix.diagonal (Complex.ofReal ∘ lam)) a b = Ublk a b * (lam b : ℂ) :=
         fun a b ↦ by rw [Matrix.mul_diagonal]; rfl
       ext ⟨x₁, i₁⟩ ⟨x₂, i₂⟩
-      simp only [Matrix.mul_apply, Matrix.conjTranspose_apply]
-      simp_rw [hUdiag, hRsq_apply, hUblk_apply, hS_apply]
-      simp only [Fintype.sum_prod_type]
+      rw [Matrix.mul_apply, Matrix.mul_apply]
+      simp_rw [hUdiag]
+      simp only [Rsq, Ublk, S, blockDiagState, Matrix.mul_apply, Matrix.conjTranspose_apply,
+        Matrix.of_apply, Fintype.sum_prod_type]
       by_cases hx : x₁ = x₂
       · subst hx
         have hLHS : ∑ a : ι, ∑ k : d,
