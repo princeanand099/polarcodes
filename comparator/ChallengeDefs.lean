@@ -631,22 +631,26 @@ noncomputable def unpolarizedSet {d : Type} [Fintype d] [DecidableEq d]
   Finset.univ \ (goodSet W n δ ∪ veryNoisySet W n δ)
 
 structure CSSPrivatePolarCode {d : Type} [Fintype d] [DecidableEq d]
-    (𝒩 : CPTPMap Bool d) (n : ℕ) where
+    (𝒩 : CPTPMap Bool d) (n : ℕ) (thresh : ℝ) where
   ampCode : CosetPolarCode (ampChannel 𝒩) n
   phaseCode : CosetPolarCode (phaseChannel 𝒩) n
   infoSet_align : phaseCode.infoSet = ampCode.infoSet.image (dualIndex n)
   assistanceSet : Finset (Fin (2 ^ n))
+  assistanceSet_spec : assistanceSet =
+    Finset.univ.filter (fun i : Fin (2 ^ n) ↦
+      i ∉ goodSet (ampChannel 𝒩) n thresh ∧
+      dualIndex n i ∉ goodSet (phaseChannel 𝒩) n thresh)
 
 noncomputable def CSSPrivatePolarCode.rate {d : Type} [Fintype d] [DecidableEq d]
-    {𝒩 : CPTPMap Bool d} {n : ℕ} (C : CSSPrivatePolarCode 𝒩 n) : ℝ :=
+    {𝒩 : CPTPMap Bool d} {n : ℕ} {thresh : ℝ} (C : CSSPrivatePolarCode 𝒩 n thresh) : ℝ :=
   C.ampCode.rate
 
 noncomputable def CSSPrivatePolarCode.assistanceRate {d : Type} [Fintype d] [DecidableEq d]
-    {𝒩 : CPTPMap Bool d} {n : ℕ} (C : CSSPrivatePolarCode 𝒩 n) : ℝ :=
+    {𝒩 : CPTPMap Bool d} {n : ℕ} {thresh : ℝ} (C : CSSPrivatePolarCode 𝒩 n thresh) : ℝ :=
   (C.assistanceSet.card : ℝ) / (2 : ℝ) ^ n
 
-noncomputable def CSSPrivatePolarCode.combinedError {d : Type} [Fintype d] [DecidableEq d]
-    {𝒩 : CPTPMap Bool d} {n : ℕ} (C : CSSPrivatePolarCode 𝒩 n) : ℝ :=
+noncomputable def CSSPrivatePolarCode.ampPhaseErrorSum {d : Type} [Fintype d] [DecidableEq d]
+    {𝒩 : CPTPMap Bool d} {n : ℕ} {thresh : ℝ} (C : CSSPrivatePolarCode 𝒩 n thresh) : ℝ :=
   C.ampCode.avgBlockError + C.phaseCode.avgBlockError
 
 end PolarCodesChallenge
