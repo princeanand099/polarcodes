@@ -6,22 +6,19 @@ Authors: Prince Anand
 import PolarCodes.Bhattacharyya
 
 /-!
-# Frenkel's Integral Formula, Data Processing Inequality, and Lemma 5.1(a)
+# Spectral Decomposition, Positive/Negative Trace Parts, and Sylvester's Law of Inertia
 
 This module proves:
-1. Positive/negative spectral trace parts `posPartTrace`, `negPartTrace` and Frenkel's
-   contraction lemma (`negPartTrace_map_le`) for positive trace-nonincreasing linear maps,
-   instantiated on the subsystem trace `partialTrace₂Mat`.
-2. Sylvester's Law of Inertia (`negEigCount_congruence`) for Hermitian matrices under
+1. Positive/negative spectral parts (`posPartMat`, `negPartMat`) and traces (`posPartTrace`,
+   `negPartTrace`), along with the shared spectral reconstruction lemma `density_spectral_eq`.
+2. Frenkel's contraction lemma (`negPartTrace_map_le`) for positive trace-nonincreasing linear maps,
+   instantiated on the second-factor trace `partialTrace₂Mat`.
+3. Sylvester's Law of Inertia (`negEigCount_congruence`) for Hermitian matrices under
    invertible congruence `P * A * Pᴴ`.
-3. **Frenkel's Integral Formula (Eq. 3.7)** (`relEntropy_frenkel_integral`) and its
-   **Hockey-Stick Form (Eq. 3.8)** (`relEntropy_hockeyStick_integral`) for full-rank states,
-   proved purely real-analytically via the congruence `X(t, r) = (ρ + r I)^{1/2}(I + t M(r))(ρ + r I)^{1/2}`,
-   Sylvester's inertia, layer-cake representation, elementary rational fractions, and Tonelli's theorem.
-4. **Data Processing Inequality (DPI)** for `relEntropy` and `qjs` under `partialTrace₂`
-   (`relEntropy_partialTrace₂_le`, `qjs_partialTrace₂_le`).
-5. **Lemma 5.1(a)** (`condEntropy_ge_one_sub_h2`, `fidelityParam_le_sqrt_condEntropy`,
-   `condEntropy_le_logb_one_add_fidelityParam`).
+
+(Frenkel's integral formula, the hockey-stick integral, DPI, and Lemma 5.1(a) live in
+`FrenkelIntegral.lean`, `HockeyStick.lean`, and `DataProcessing.lean`; the hockey-stick
+variational equality and `posPartMat_mul_negPartMat` live in `PhiAndFuchs.lean`.)
 -/
 
 open Matrix BigOperators Real
@@ -145,7 +142,7 @@ lemma negPartTrace_eq_posPartTrace_neg {A : Matrix d d ℂ} (hA : A.IsHermitian)
       Unitary.coe_star_mul_self hA.eigenvectorUnitary, Matrix.one_mul]
   symm
   trans ∑ i : d, max (hD_herm.eigenvalues i) 0
-  · exact spectral_sum_eq_of_charpoly_mul_X_pow (f := fun x ↦ max x 0) hneg hD_herm (k := 0) (l := 0)
+  · exact spectral_sum_eq_of_charpoly_mul_X_pow hneg hD_herm (k := 0) (l := 0)
       (by rw [pow_zero, mul_one, mul_one, hcp]) (max_self 0)
   · exact spectral_sum_diagonal (f := fun x ↦ max x 0) lam hD_herm (max_self 0)
 
@@ -169,7 +166,7 @@ lemma posPartTrace_smul_nonneg {c : ℝ} (hc : 0 ≤ c) {A : Matrix d d ℂ} (hA
       Unitary.coe_star_mul_self hA.eigenvectorUnitary, Matrix.one_mul]
   trans ∑ i : d, max (lam i) 0
   · trans ∑ i : d, max (hD_herm.eigenvalues i) 0
-    · exact spectral_sum_eq_of_charpoly_mul_X_pow (f := fun x ↦ max x 0) hcA hD_herm (k := 0) (l := 0)
+    · exact spectral_sum_eq_of_charpoly_mul_X_pow hcA hD_herm (k := 0) (l := 0)
         (by rw [pow_zero, mul_one, mul_one, hcp]) (max_self 0)
     · exact spectral_sum_diagonal (f := fun x ↦ max x 0) lam hD_herm (max_self 0)
   · rw [Finset.mul_sum]
@@ -249,7 +246,9 @@ lemma posPartTrace_le_trace_of_le {A B : Matrix d d ℂ} (hA : A.IsHermitian)
         Matrix.diagonal (fun i : d ↦ ((1 - indP i : ℝ) : ℂ)) = 1 := by
       ext i j; simp only [Matrix.add_apply, Matrix.diagonal_apply, Matrix.one_apply]
       split_ifs
+
       · push_cast; ring
+
       · simp
     rw [hD, Matrix.mul_one]; exact Unitary.coe_mul_star_self hA.eigenvectorUnitary
   have hPA : (P * A).trace = (posPartTrace hA : ℂ) := by
@@ -406,11 +405,13 @@ lemma finrank_le_negEigCount {A : Matrix d d ℂ} (hA : A.IsHermitian)
     Module.finrank ℂ W ≤ negEigCount hA := by
   set U : Matrix d d ℂ := (hA.eigenvectorUnitary : Matrix d d ℂ)
   let S_pos : Finset d := Finset.univ.filter fun i : d ↦ 0 ≤ hA.eigenvalues i
+  -- Subspace `V_pos` of vectors whose coordinates along `U` vanish outside `S_pos`
   let V_pos : Submodule ℂ (d → ℂ) :=
     { carrier := {x : d → ℂ | ∀ i : d, hA.eigenvalues i < 0 → ((star U).mulVec x) i = 0}
       add_mem' := fun hx hy i hi ↦ by rw [Matrix.mulVec_add, Pi.add_apply, hx i hi, hy i hi, add_zero]
       zero_mem' := fun i _ ↦ by simp
       smul_mem' := fun c x hx i hi ↦ by rw [Matrix.mulVec_smul, Pi.smul_apply, hx i hi, smul_zero] }
+  -- On `V_pos`, `Re ⟨x, A x⟩ ≥ 0`
   have hV_nonneg : ∀ x ∈ V_pos, 0 ≤ (star x ⬝ᵥ A.mulVec x).re := by
     intro x hx
     rw [re_quadForm_spectral hA x]
@@ -418,11 +419,13 @@ lemma finrank_le_negEigCount {A : Matrix d d ℂ} (hA : A.IsHermitian)
     by_cases hlt : hA.eigenvalues i < 0
     · rw [hx i hlt]; simp
     · exact mul_nonneg (le_of_not_gt hlt) (sq_nonneg _)
+  -- Hence `W ⊓ V_pos = ⊥`
   have hinf : W ⊓ V_pos = ⊥ := by
     rw [Submodule.eq_bot_iff]
     intro x ⟨hxW, hxV⟩
     by_contra hne
     linarith [hneg x hxW hne, hV_nonneg x hxV]
+  -- Compute `finrank V_pos = S_pos.card` via the linear equiv `star U`
   let eU : (d → ℂ) ≃ₗ[ℂ] (d → ℂ) :=
     LinearEquiv.ofLinear (Matrix.toLin' (star U)) (Matrix.toLin' U)
       (LinearMap.ext fun v ↦ by simp [Matrix.toLin'_apply, Matrix.mulVec_mulVec, U, Unitary.coe_star_mul_self hA.eigenvectorUnitary])
@@ -543,7 +546,7 @@ theorem negEigCount_congruence {A P Q : Matrix d d ℂ} (hA : A.IsHermitian)
           Matrix.one_mulVec, Matrix.mulVec_zero] at this
         exact this
       obtain ⟨i₀, hi₀⟩ : ∃ i₀ : d, ((star U).mulVec x) i₀ ≠ 0 := by
-        by_contra hall; push Not at hall; exact hy_ne (funext hall)
+        by_contra hall; push_neg at hall; exact hy_ne (funext hall)
       have hlt₀ : hX.eigenvalues i₀ < 0 := by
         by_contra hge; exact hi₀ (hx i₀ (le_of_not_gt hge))
       have hterm_lt : hX.eigenvalues i₀ * ‖((star U).mulVec x) i₀‖ ^ 2 < 0 :=
@@ -601,5 +604,14 @@ theorem negEigCount_congruence {A P Q : Matrix d d ℂ} (hA : A.IsHermitian)
         _ = A := by rw [Matrix.conjTranspose_one, Matrix.one_mul, Matrix.mul_one]
     exact hle hB hA hQP hPQ hAeq
   · exact hle hA hB hPQ hQP rfl
+
+
+/-- Spectral decomposition of a density operator `ρ = U_ρ diag(λ_i) U_ρ†`. -/
+lemma density_spectral_eq (ρ : DensityOp d) :
+    ρ.mat = (ρ.eigUnitary : Matrix d d ℂ) *
+      Matrix.diagonal (Complex.ofReal ∘ ρ.eigvals) *
+      star (ρ.eigUnitary : Matrix d d ℂ) := by
+  simpa [DensityOp.eigUnitary, DensityOp.eigvals, Matrix.star_eq_conjTranspose,
+    Unitary.conjStarAlgAut_apply] using ρ.isHermitian.spectral_theorem
 
 end PolarCodes

@@ -46,7 +46,7 @@ def pauliZTensorI (d : Type*) [Fintype d] [DecidableEq d] :
       apply Finset.sum_eq_zero
       intro r _
       by_cases h1 : p = r
-      · subst h1; simp [Ne.symm hpq]
+      · subst h1; simp [hpq]
       · simp [h1]⟩
 
 /-- Qubit dephasing channel `(Z_p ⊗ id)(Ψ) = (1 - p) Ψ + p (Z ⊗ I) Ψ (Z ⊗ I)` for `p ∈ [0, 1]`. -/
@@ -64,7 +64,7 @@ lemma dephaseState_apply (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1)
   have hconj :
       (∑ x : Bool × d, (∑ y : Bool × d,
           (if (b₁, i) = y then (if b₁ = false then (1 : ℂ) else -1) else 0) * Ψ.mat y x) *
-        star (if (b₂, j) = x then (if b₂ = false then (1 : ℂ) else -1) else 0)) =
+        star (if x = (b₂, j) then (if x.1 = false then (1 : ℂ) else -1) else 0)) =
       (if b₁ = false then (1 : ℂ) else -1) * Ψ.mat (b₁, i) (b₂, j) *
         (if b₂ = false then (1 : ℂ) else -1) := by
     rw [Finset.sum_eq_single (b₂, j)]
@@ -72,7 +72,7 @@ lemma dephaseState_apply (p : ℝ) (hp0 : 0 ≤ p) (hp1 : p ≤ 1)
       · cases b₂ <;> simp
       · intro y _ hy; simp [Ne.symm hy]
       · intro h; exact absurd (Finset.mem_univ _) h
-    · intro x _ hx; simp [Ne.symm hx]
+    · intro x _ hx; simp [hx]
     · intro h; exact absurd (Finset.mem_univ _) h
   rw [hconj]
   cases b₁ <;> cases b₂ <;> simp <;> push_cast <;> ring
@@ -173,7 +173,8 @@ noncomputable def gramState (ρ₀ ρ₁ : DensityOp d) : DensityOp (Bool × d) 
         rw [Finset.mul_sum]
         apply Finset.sum_congr rfl; intro k _
         rw [star_mul']
-        calc _ = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) * (star (M k i) * M k j) := by ring
+        calc star (M k i) * star ((Real.sqrt 2 : ℂ)⁻¹) * (((Real.sqrt 2 : ℂ)⁻¹) * M k j)
+            = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) * (star (M k i) * M k j) := by ring
           _ = (1 / 2 : ℂ) * (star (M k i) * M k j) := by rw [hsq2]
       rw [hrew ρ₀.sqrtMat, hrew ρ₁.sqrtMat, h0, h1]
       push_cast; ring
@@ -202,15 +203,21 @@ theorem lemma_4_1_gram_dephasing
       exact le_trans h1 h2
     let p : ℝ := (1 - f₂) / 2
     have hp0 : 0 ≤ p := by simp only [p]; linarith
-    have hp1 : p ≤ 1 := by simp only [p]; linarith [norm_nonneg (∑ k : d₂, star (φ₀ k) * φ₁ k)]
+    have hp1 : p ≤ 1 / 2 := by simp only [p]; linarith [norm_nonneg (∑ k : d₂, star (φ₀ k) * φ₁ k)]
     vonNeumannEntropy (DensityOp.midpoint
         (DensityOp.tensor ρ₀ (pureState φ₀ hφ₀))
         (DensityOp.tensor ρ₁ (pureState φ₁ hφ₁))) =
-      vonNeumannEntropy (dephaseState p hp0 hp1 (gramState ρ₀ ρ₁)) ∧
+      vonNeumannEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₀ ρ₁)) ∧
     vonNeumannEntropy (gramState ρ₀ ρ₁) = vonNeumannEntropy (DensityOp.midpoint ρ₀ ρ₁) ∧
     vonNeumannEntropy (dephaseState (1 / 2) (by norm_num) (by norm_num) (gramState ρ₀ ρ₁)) =
       1 + (vonNeumannEntropy ρ₀ + vonNeumannEntropy ρ₁) / 2 ∧
-    dephaseCoherence 0 le_rfl (by norm_num) (gramState ρ₀ ρ₁) = 1 - qjs ρ₀ ρ₁ := by
+    dephaseCoherence 0 le_rfl (by norm_num) (gramState ρ₀ ρ₁) = 1 - qjs ρ₀ ρ₁ ∧
+    (DensityOp.midpoint
+        (DensityOp.tensor ρ₀ (pureState φ₀ hφ₀))
+        (DensityOp.tensor ρ₁ (pureState φ₁ hφ₁))).mat.charpoly *
+      Polynomial.X ^ Fintype.card (Bool × d₁) =
+      (dephaseState p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₀ ρ₁)).mat.charpoly *
+        Polynomial.X ^ Fintype.card (d₁ × d₂) := by
   intro f₂ hf₂_le p hp0 hp1
   have hsq2 : star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹) = (1 / 2 : ℂ) := by
     rw [← Complex.ofReal_inv, Complex.star_def, Complex.conj_ofReal, ← Complex.ofReal_mul,
@@ -247,7 +254,8 @@ theorem lemma_4_1_gram_dephasing
         rw [Finset.mul_sum]
         apply Finset.sum_congr rfl; intro k _
         rw [star_mul']
-        calc _ = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) * (star (M k i) * M k j) := by ring
+        calc star (M k i) * star ((Real.sqrt 2 : ℂ)⁻¹) * (((Real.sqrt 2 : ℂ)⁻¹) * M k j)
+            = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) * (star (M k i) * M k j) := by ring
           _ = (1 / 2 : ℂ) * (star (M k i) * M k j) := by rw [hsq2]
       rw [hrew ρ₀.sqrtMat, hrew ρ₁.sqrtMat, h0, h1]; push_cast; ring
     have hcp := charpoly_mul_conjTranspose_eq (gramFactor ρ₀ ρ₁)
@@ -279,7 +287,8 @@ theorem lemma_4_1_gram_dephasing
             (1 / 2 : ℂ) * ∑ k : d₁, ρ₀.sqrtMat i k * star (ρ₀.sqrtMat j k) := by
           rw [Finset.mul_sum]; apply Finset.sum_congr rfl; intro k _
           rw [star_mul']
-          calc _ = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) *
+          calc ((Real.sqrt 2 : ℂ)⁻¹) * ρ₀.sqrtMat i k * (star (ρ₀.sqrtMat j k) * star ((Real.sqrt 2 : ℂ)⁻¹))
+              = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) *
                   (ρ₀.sqrtMat i k * star (ρ₀.sqrtMat j k)) := by ring
             _ = (1 / 2 : ℂ) * (ρ₀.sqrtMat i k * star (ρ₀.sqrtMat j k)) := by rw [hsq2']
         rw [hrew, h0]; push_cast; ring
@@ -297,7 +306,8 @@ theorem lemma_4_1_gram_dephasing
             (1 / 2 : ℂ) * ∑ k : d₁, ρ₁.sqrtMat i k * star (ρ₁.sqrtMat j k) := by
           rw [Finset.mul_sum]; apply Finset.sum_congr rfl; intro k _
           rw [star_mul']
-          calc _ = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) *
+          calc ((Real.sqrt 2 : ℂ)⁻¹) * ρ₁.sqrtMat i k * (star (ρ₁.sqrtMat j k) * star ((Real.sqrt 2 : ℂ)⁻¹))
+              = (((Real.sqrt 2 : ℂ)⁻¹) * star ((Real.sqrt 2 : ℂ)⁻¹)) *
                   (ρ₁.sqrtMat i k * star (ρ₁.sqrtMat j k)) := by ring
             _ = (1 / 2 : ℂ) * (ρ₁.sqrtMat i k * star (ρ₁.sqrtMat j k)) := by rw [hsq2']
         rw [hrew, h1]; push_cast; ring
@@ -340,7 +350,7 @@ theorem lemma_4_1_gram_dephasing
     rw [star_sum, Complex.star_def, Complex.conj_ofReal] at h
     rw [← h]
     apply Finset.sum_congr rfl; intro k _
-    simp only [Complex.star_def, map_mul, starRingEnd_self_apply]; ring
+    rw [star_mul', star_star]
   have hφ₀_inner : ∑ k : d₂, star (φ₀ k) * φ₀ k = 1 := by
     have h : ∀ k : d₂, star (φ₀ k) * φ₀ k = ((‖φ₀ k‖ ^ 2 : ℝ) : ℂ) := by
       intro k; rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
@@ -354,7 +364,7 @@ theorem lemma_4_1_gram_dephasing
     ((Real.sqrt 2)⁻¹ : ℂ) *
       if p.1 = false then ρ₀.sqrtMat p.2 q.1 * star (φ₀ q.2)
       else ρ₁.sqrtMat p.2 q.1 * star (ψ₁ q.2)
-  have hAAH : A * Aᴴ = (dephaseState p hp0 hp1 (gramState ρ₀ ρ₁)).mat := by
+  have hAAH : A * Aᴴ = (dephaseState p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₀ ρ₁)).mat := by
     ext ⟨b₁, i⟩ ⟨b₂, j⟩
     rw [dephaseState_apply]
     simp only [A, gramState, gramFactor, Matrix.mul_apply, Matrix.conjTranspose_apply,
@@ -429,7 +439,9 @@ theorem lemma_4_1_gram_dephasing
       rw [← h0, Finset.sum_mul, Finset.mul_sum]
       apply Finset.sum_congr rfl; intro x _
       simp only [star_mul', star_star]
-      calc _ = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) *
+      calc star ((Real.sqrt 2 : ℂ)⁻¹) * (star (ρ₀.sqrtMat x i₁) * φ₀ k₁) *
+            (((Real.sqrt 2 : ℂ)⁻¹) * (ρ₀.sqrtMat x i₂ * star (φ₀ k₂)))
+          = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) *
               (star (ρ₀.sqrtMat x i₁) * ρ₀.sqrtMat x i₂ * (φ₀ k₁ * star (φ₀ k₂))) := by ring
         _ = (1 / 2 : ℂ) * (star (ρ₀.sqrtMat x i₁) * ρ₀.sqrtMat x i₂ * (φ₀ k₁ * star (φ₀ k₂))) := by
               rw [hsq2]
@@ -439,23 +451,32 @@ theorem lemma_4_1_gram_dephasing
       rw [← h1, ← hψ₁_ketbra k₁ k₂, Finset.sum_mul, Finset.mul_sum]
       apply Finset.sum_congr rfl; intro x _
       simp only [star_mul', star_star]
-      calc _ = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) *
+      calc star ((Real.sqrt 2 : ℂ)⁻¹) * (star (ρ₁.sqrtMat x i₁) * ψ₁ k₁) *
+            (((Real.sqrt 2 : ℂ)⁻¹) * (ρ₁.sqrtMat x i₂ * star (ψ₁ k₂)))
+          = (star ((Real.sqrt 2 : ℂ)⁻¹) * ((Real.sqrt 2 : ℂ)⁻¹)) *
               (star (ρ₁.sqrtMat x i₁) * ρ₁.sqrtMat x i₂ * (ψ₁ k₁ * star (ψ₁ k₂))) := by ring
         _ = (1 / 2 : ℂ) * (star (ρ₁.sqrtMat x i₁) * ρ₁.sqrtMat x i₂ * (ψ₁ k₁ * star (ψ₁ k₂))) := by
               rw [hsq2]
     rw [hsum0, hsum1]; push_cast; ring
+  have hcp : (DensityOp.midpoint
+        (DensityOp.tensor ρ₀ (pureState φ₀ hφ₀))
+        (DensityOp.tensor ρ₁ (pureState φ₁ hφ₁))).mat.charpoly *
+      Polynomial.X ^ Fintype.card (Bool × d₁) =
+      (dephaseState p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₀ ρ₁)).mat.charpoly *
+        Polynomial.X ^ Fintype.card (d₁ × d₂) := by
+    have h := (charpoly_mul_conjTranspose_eq A).symm
+    rw [hAAH, hAHA] at h
+    exact h
   have hpart1 : vonNeumannEntropy (DensityOp.midpoint
         (DensityOp.tensor ρ₀ (pureState φ₀ hφ₀))
         (DensityOp.tensor ρ₁ (pureState φ₁ hφ₁))) =
-      vonNeumannEntropy (dephaseState p hp0 hp1 (gramState ρ₀ ρ₁)) := by
+      vonNeumannEntropy (dephaseState p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₀ ρ₁)) := by
     unfold vonNeumannEntropy DensityOp.eigvals
     congr 1
-    have hcp := (charpoly_mul_conjTranspose_eq A).symm
-    rw [hAAH, hAHA] at hcp
     exact spectral_sum_eq_of_charpoly_mul_X_pow
       (DensityOp.midpoint (DensityOp.tensor ρ₀ (pureState φ₀ hφ₀))
         (DensityOp.tensor ρ₁ (pureState φ₁ hφ₁))).isHermitian
-      (dephaseState p hp0 hp1 (gramState ρ₀ ρ₁)).isHermitian hcp (by simp [Real.negMulLog])
-  exact ⟨hpart1, hpart2, hpart3, hpart4⟩
+      (dephaseState p hp0 (le_trans hp1 (by norm_num)) (gramState ρ₀ ρ₁)).isHermitian hcp (by simp [Real.negMulLog])
+  exact ⟨hpart1, hpart2, hpart3, hpart4, hcp⟩
 
 end PolarCodes
