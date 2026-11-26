@@ -212,7 +212,7 @@ noncomputable def maxMixedState (d : Type*) [Fintype d] [DecidableEq d] [Nonempt
       inv_nonneg.mpr (Nat.cast_nonneg _)
     simpa [Complex.real_smul] using (Matrix.PosSemidef.one (n := d) (R := ℂ)).smul hnn
   trace_one := by
-    rw [Matrix.trace_smul, Matrix.trace_one, smul_eq_mul]
+    rw [Matrix.trace_smul, Matrix.trace_one, smul_eq_mul, Complex.ofReal_inv, Complex.ofReal_natCast]
     have hpos : (Fintype.card d : ℂ) ≠ 0 := Nat.cast_ne_zero.mpr Fintype.card_ne_zero
     exact inv_mul_cancel₀ hpos
 

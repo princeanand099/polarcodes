@@ -197,14 +197,12 @@ theorem corollary_5_5_quantum_private_polar_coding :
   dsimp only
   obtain ⟨C, hrate, hamp, hphase, hcomb, hUA, hUP, hdeg⟩ :=
     h (toPolarCPTPMap 𝒩) hε0 hε1 n hn
-  have hamp_ch : toPolarCQChannel (ampChannel 𝒩) = PolarCodes.ampChannel (toPolarCPTPMap 𝒩) := rfl
-  have hphase_ch : toPolarCQChannel (phaseChannel 𝒩) = PolarCodes.phaseChannel (toPolarCPTPMap 𝒩) := rfl
   have halign : C.phaseCode.infoSet = C.ampCode.infoSet.image (dualIndex n) := by
     rw [C.infoSet_align]
     congr 1; funext i; exact (dualIndex_eq n i).symm
   let C' : CSSPrivatePolarCode 𝒩 n :=
-    { ampCode := fromPolarCosetPolarCode (hamp_ch.symm ▸ C.ampCode)
-      phaseCode := fromPolarCosetPolarCode (hphase_ch.symm ▸ C.phaseCode)
+    { ampCode := fromPolarCosetPolarCode C.ampCode
+      phaseCode := fromPolarCosetPolarCode C.phaseCode
       infoSet_align := halign
       assistanceSet := C.assistanceSet }
   refine ⟨C', hrate, ?_, ?_, ?_, ?_, ?_, ?_⟩
@@ -212,8 +210,8 @@ theorem corollary_5_5_quantum_private_polar_coding :
   · simpa only [C', fromPolarCosetPolarCode_avgBlockError] using hphase
   · unfold CSSPrivatePolarCode.combinedError
     simpa only [C', fromPolarCosetPolarCode_avgBlockError] using hcomb
-  · rwa [unpolarizedSet_eq, hamp_ch]
-  · rwa [unpolarizedSet_eq, hphase_ch]
+  · rw [unpolarizedSet_eq]; exact hUA
+  · rw [unpolarizedSet_eq]; exact hUP
   · intro hdegN
     apply hdeg
     rcases hdegN with ⟨𝒟, h𝒟⟩

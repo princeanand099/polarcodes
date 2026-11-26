@@ -8,7 +8,7 @@ import PolarCodes
 /-!
 # Axiom Audit for `PolarCodes`
 
-Verifies via `#print axioms` that all 49 formalized theorems in the manuscript depend exclusively
+Verifies via `#print axioms` that all 50 formalized theorems in the manuscript depend exclusively
 on Lean 4's standard axioms (`propext`, `Classical.choice`, `Quot.sound`) with zero custom axioms
 and zero `sorryAx`.
 -/
