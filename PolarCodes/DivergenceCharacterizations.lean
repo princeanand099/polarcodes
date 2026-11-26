@@ -172,25 +172,29 @@ theorem qjs_eq_avg_relEntropy (ρ σ : DensityOp d) :
         Unitary.coe_star_mul_self A.eigUnitary
       have hcol : ∀ i : d, ∑ j : d, ‖(star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 = 1 := by
         intro i
-        have hW : (star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ))ᴴ *
-            (star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) = 1 := by
-          rw [Matrix.conjTranspose_mul, Matrix.mul_assoc, ← Matrix.mul_assoc (star (m.eigUnitary : Matrix d d ℂ))ᴴ,
-            ← Matrix.star_eq_conjTranspose, star_star, hUm_r,
-            Matrix.one_mul, ← Matrix.star_eq_conjTranspose, hUA_l]
+        set W : Matrix d d ℂ := star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)
+        have hW : star W * W = 1 := by
+          calc star W * W = (star (A.eigUnitary : Matrix d d ℂ) * (m.eigUnitary : Matrix d d ℂ)) *
+                (star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) := by simp [W, star_mul]
+            _ = star (A.eigUnitary : Matrix d d ℂ) * (((m.eigUnitary : Matrix d d ℂ) * star (m.eigUnitary : Matrix d d ℂ)) * (A.eigUnitary : Matrix d d ℂ)) := by
+                simp only [Matrix.mul_assoc]
+            _ = 1 := by rw [hUm_r, Matrix.one_mul, hUA_l]
         have h := congr_arg Complex.re (congr_fun (congr_fun hW i) i)
-        simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.one_apply_eq,
+        simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply_eq,
           Complex.re_sum, Complex.one_re] at h
         rw [← h]; apply Finset.sum_congr rfl; intro j _
         rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
       have hrow : ∀ j : d, ∑ i : d, ‖(star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 = 1 := by
         intro j
-        have hW : (star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) *
-            (star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ))ᴴ = 1 := by
-          rw [Matrix.conjTranspose_mul, Matrix.mul_assoc, ← Matrix.mul_assoc (A.eigUnitary : Matrix d d ℂ),
-            ← Matrix.star_eq_conjTranspose, hUA_r,
-            Matrix.one_mul, ← Matrix.star_eq_conjTranspose, star_star, hUm_l]
+        set W : Matrix d d ℂ := star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)
+        have hW : W * star W = 1 := by
+          calc W * star W = (star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) *
+                (star (A.eigUnitary : Matrix d d ℂ) * (m.eigUnitary : Matrix d d ℂ)) := by simp [W, star_mul]
+            _ = star (m.eigUnitary : Matrix d d ℂ) * (((A.eigUnitary : Matrix d d ℂ) * star (A.eigUnitary : Matrix d d ℂ)) * (m.eigUnitary : Matrix d d ℂ)) := by
+                simp only [Matrix.mul_assoc]
+            _ = 1 := by rw [hUA_r, Matrix.one_mul, hUm_l]
         have h := congr_arg Complex.re (congr_fun (congr_fun hW j) j)
-        simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.one_apply_eq,
+        simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply_eq,
           Complex.re_sum, Complex.one_re] at h
         rw [← h]; apply Finset.sum_congr rfl; intro i _
         rw [Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
@@ -248,7 +252,7 @@ theorem qjs_eq_avg_relEntropy (ρ σ : DensityOp d) :
                   star (A.eigUnitary : Matrix d d ℂ)) *
                   (((m.eigUnitary : Matrix d d ℂ) * Matrix.diagonal dm) *
                     star (m.eigUnitary : Matrix d d ℂ))).trace := by
-                  rw [density_spectral_eq A]; rfl
+                  rw [density_spectral_eq A]
             _ = (((A.eigUnitary : Matrix d d ℂ) * Matrix.diagonal (Complex.ofReal ∘ A.eigvals) *
                   star (A.eigUnitary : Matrix d d ℂ) * (m.eigUnitary : Matrix d d ℂ) *
                   Matrix.diagonal dm) * star (m.eigUnitary : Matrix d d ℂ)).trace := by
@@ -260,8 +264,8 @@ theorem qjs_eq_avg_relEntropy (ρ σ : DensityOp d) :
             _ = (W * Matrix.diagonal (Complex.ofReal ∘ A.eigvals) * Wᴴ * Matrix.diagonal dm).trace := by
                   congr 1; simp only [W, ← hW_star, Matrix.mul_assoc]
         rw [hcy]
-        simp only [Matrix.trace, Matrix.diag, Matrix.mul_apply, Matrix.mul_diagonal,
-          Matrix.diagonal_mul, Matrix.conjTranspose_apply, Function.comp_apply]
+        simp only [Matrix.trace, Matrix.diag]
+        simp only [Matrix.mul_diagonal, Matrix.mul_apply, Matrix.conjTranspose_apply, Function.comp_apply]
         rw [Finset.sum_comm]
         apply Finset.sum_congr rfl; intro i _
         apply Finset.sum_congr rfl; intro j _
@@ -282,13 +286,15 @@ theorem qjs_eq_avg_relEntropy (ρ σ : DensityOp d) :
       Unitary.coe_star_mul_self A.eigUnitary
     have hcol : ∀ i : d, ∑ j : d, ‖(star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) j i‖ ^ 2 = 1 := by
       intro i
-      have hW : (star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ))ᴴ *
-          (star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) = 1 := by
-        rw [Matrix.conjTranspose_mul, Matrix.mul_assoc, ← Matrix.mul_assoc (star (m.eigUnitary : Matrix d d ℂ))ᴴ,
-          ← Matrix.star_eq_conjTranspose, star_star, hUm_r,
-          Matrix.one_mul, ← Matrix.star_eq_conjTranspose, hUA_l]
+      set W : Matrix d d ℂ := star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)
+      have hW : star W * W = 1 := by
+        calc star W * W = (star (A.eigUnitary : Matrix d d ℂ) * (m.eigUnitary : Matrix d d ℂ)) *
+              (star (m.eigUnitary : Matrix d d ℂ) * (A.eigUnitary : Matrix d d ℂ)) := by simp [W, star_mul]
+          _ = star (A.eigUnitary : Matrix d d ℂ) * (((m.eigUnitary : Matrix d d ℂ) * star (m.eigUnitary : Matrix d d ℂ)) * (A.eigUnitary : Matrix d d ℂ)) := by
+              simp only [Matrix.mul_assoc]
+          _ = 1 := by rw [hUm_r, Matrix.one_mul, hUA_l]
       have h := congr_arg Complex.re (congr_fun (congr_fun hW i) i)
-      simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.one_apply_eq,
+      simp only [Matrix.mul_apply, Matrix.star_apply, Matrix.one_apply_eq,
         Complex.re_sum, Complex.one_re] at h
       rw [← h]; apply Finset.sum_congr rfl; intro j _
       rw [mul_comm, Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_re]
@@ -597,16 +603,16 @@ theorem qjs_eq_one_iff (ρ σ : DensityOp d) :
         ext i j; simp [Matrix.diagonal_apply, hM_eig0]
       rw [hd0, Matrix.mul_zero, Matrix.zero_mul]
     have hprod0 : σ.sqrtMat * ρ.sqrtMat = 0 := by
-      have htr0 : ((σ.sqrtMat * ρ.sqrtMat)ᴴ * (σ.sqrtMat * ρ.sqrtMat)).trace = 0 := by
-        have heq : (σ.sqrtMat * ρ.sqrtMat)ᴴ * (σ.sqrtMat * ρ.sqrtMat) = M := by
-          simp only [M, Matrix.conjTranspose_mul, ρ.sqrtMat_isHermitian.eq, σ.sqrtMat_isHermitian.eq,
+      set Z := σ.sqrtMat * ρ.sqrtMat
+      have htr0 : (Zᴴ * Z).trace = 0 := by
+        have heq : Zᴴ * Z = M := by
+          simp only [Z, M, Matrix.conjTranspose_mul, ρ.sqrtMat_isHermitian.eq, σ.sqrtMat_isHermitian.eq,
             Matrix.mul_assoc, ← Matrix.mul_assoc σ.sqrtMat σ.sqrtMat, σ.sqrtMat_mul_self]
         rw [heq, hM0, Matrix.trace_zero]
-      have hsum0 : ∑ i : d, ∑ j : d, ‖(σ.sqrtMat * ρ.sqrtMat) i j‖ ^ 2 = 0 := by
-        set Z := σ.sqrtMat * ρ.sqrtMat
+      have hsum0 : ∑ i : d, ∑ j : d, ‖Z i j‖ ^ 2 = 0 := by
         have hre := congr_arg Complex.re htr0
         have hre' : ∑ j : d, ∑ i : d, (star (Z i j) * Z i j).re = 0 := by
-          simpa [Z, Matrix.trace, Matrix.diag, Matrix.mul_apply, Matrix.conjTranspose_apply,
+          simpa [Matrix.trace, Matrix.diag, Matrix.mul_apply, Matrix.conjTranspose_apply,
             Complex.re_sum, Complex.zero_re] using hre
         rw [Finset.sum_comm, ← hre']
         apply Finset.sum_congr rfl; intro j _
@@ -811,40 +817,6 @@ theorem rootFidelity_block_diagonal {ι : Type*} [Fintype ι] [DecidableEq ι]
       (Matrix.diagonal (Complex.ofReal ∘ lam)).charpoly := by
     let Rsq : Matrix (ι × d) (ι × d) ℂ := Matrix.of fun a b ↦
       if a.1 = b.1 then ((Real.sqrt (p a.1) : ℝ) : ℂ) * (ρ a.1).sqrtMat a.2 b.2 else 0
-    have hRsq_herm : Rsq.IsHermitian := by
-      ext a b
-      simp only [Rsq, Matrix.conjTranspose_apply, Matrix.of_apply]
-      split_ifs with h1 h2
-      · subst h1
-        rw [star_mul', Complex.star_def, Complex.conj_ofReal, mul_comm]
-        have h := congr_fun (congr_fun (ρ a.1).sqrtMat_isHermitian.eq a.2) b.2
-        simpa [Matrix.conjTranspose_apply] using congr_arg (((Real.sqrt (p a.1) : ℝ) : ℂ) * ·) h
-      · exact absurd h1.symm h2
-      · exact absurd h2.symm h1
-      · simp
-    have hRsq_psd : Rsq.PosSemidef := by
-      refine ⟨hRsq_herm, fun v ↦ ?_⟩
-      simp only [dotProduct, Matrix.mulVec, Rsq, Matrix.of_apply, Fintype.sum_prod_type]
-      have h1 : ∑ x : ι, ∑ i : d, star (v (x, i)) *
-          ∑ y : ι, ∑ j : d, (if x = y then ((Real.sqrt (p x) : ℝ) : ℂ) * (ρ x).sqrtMat i j else 0) * v (y, j) =
-          ∑ x : ι, ((Real.sqrt (p x) : ℝ) : ℂ) *
-            (star (fun i ↦ v (x, i)) ⬝ᵥ ((ρ x).sqrtMat *ᵥ (fun i ↦ v (x, i)))) := by
-        apply Finset.sum_congr rfl; intro x _
-        simp only [dotProduct, Matrix.mulVec, Pi.star_apply, Finset.mul_sum]
-        apply Finset.sum_congr rfl; intro i _
-        rw [Finset.sum_eq_single x]
-        · simp only [↓reduceIte, Finset.mul_sum]; apply Finset.sum_congr rfl; intro j _; ring
-        · intro y _ hne; apply Finset.sum_eq_zero; intro j _; simp [Ne.symm hne]
-        · intro h; exact absurd (Finset.mem_univ x) h
-      rw [h1]
-      exact Finset.sum_nonneg fun x _ ↦ by
-        have hq := (ρ x).sqrtMat_posSemidef.2 (fun i ↦ v (x, i))
-        have hre : (((Real.sqrt (p x) : ℝ) : ℂ) * (star (fun i ↦ v (x, i)) ⬝ᵥ ((ρ x).sqrtMat *ᵥ (fun i ↦ v (x, i))))).re =
-            Real.sqrt (p x) * (star (fun i ↦ v (x, i)) ⬝ᵥ ((ρ x).sqrtMat *ᵥ (fun i ↦ v (x, i)))).re := by
-          simp [Complex.mul_re]
-        have him : (((Real.sqrt (p x) : ℝ) : ℂ) * (star (fun i ↦ v (x, i)) ⬝ᵥ ((ρ x).sqrtMat *ᵥ (fun i ↦ v (x, i))))).im = 0 := by
-          simp [Complex.mul_im, (Complex.le_def.mp hq).2]
-        rw [Complex.le_def]; exact ⟨by rw [hre]; exact mul_nonneg (Real.sqrt_nonneg _) (Complex.le_def.mp hq).1, by simp [him]⟩
     have hRsq_sq : Rsq * Rsq = R.mat := by
       ext ⟨x₁, i₁⟩ ⟨x₂, i₂⟩
       simp only [Rsq, R, blockDiagState, Matrix.mul_apply, Matrix.of_apply, Fintype.sum_prod_type]
@@ -869,7 +841,14 @@ theorem rootFidelity_block_diagonal {ι : Type*} [Fintype ι] [DecidableEq ι]
         by_cases hy : x₁ = y
         · subst hy; simp [hx]
         · simp [hy]
-    have hRsq_eq : R.sqrtMat = Rsq := (R.sqrtMat_unique Rsq hRsq_psd hRsq_sq).symm
+    have hcp_eq_Rsq : (R.sqrtMat * S.mat * R.sqrtMat).charpoly = (Rsq * S.mat * Rsq).charpoly := by
+      have h1 : (R.sqrtMat * S.mat * R.sqrtMat).charpoly = (R.mat * S.mat).charpoly := by
+        rw [Matrix.mul_assoc, Matrix.charpoly_mul_comm, Matrix.mul_assoc, R.sqrtMat_mul_self,
+          Matrix.charpoly_mul_comm]
+      have h2 : (Rsq * S.mat * Rsq).charpoly = (R.mat * S.mat).charpoly := by
+        rw [Matrix.mul_assoc, Matrix.charpoly_mul_comm, Matrix.mul_assoc, hRsq_sq,
+          Matrix.charpoly_mul_comm]
+      exact h1.trans h2.symm
     let Ublk : Matrix (ι × d) (ι × d) ℂ := Matrix.of fun a b ↦
       if h : a.1 = b.1 then
         ((posSemidef_sqrt_mul_sqrt (ρ a.1) (σ a.1)).isHermitian.eigenvectorUnitary : Matrix d d ℂ) a.2 b.2
@@ -893,11 +872,11 @@ theorem rootFidelity_block_diagonal {ι : Type*} [Fintype ι] [DecidableEq ι]
         by_cases hy : y = x₁
         · subst hy; simp [hx]
         · simp [hy]
-    have hdiag_eq : R.sqrtMat * S.mat * R.sqrtMat =
+    have hdiag_eq : Rsq * S.mat * Rsq =
         Ublk * Matrix.diagonal (Complex.ofReal ∘ lam) * Ublkᴴ := by
-      rw [hRsq_eq]
       ext ⟨x₁, i₁⟩ ⟨x₂, i₂⟩
-      simp only [Matrix.mul_apply, Matrix.mul_diagonal, Matrix.conjTranspose_apply,
+      simp only [Matrix.mul_diagonal]
+      simp only [Matrix.mul_apply, Matrix.conjTranspose_apply,
         Rsq, S, blockDiagState, Ublk, Matrix.of_apply, Function.comp_apply, Fintype.sum_prod_type]
       by_cases hx : x₁ = x₂
       · subst hx
@@ -934,8 +913,9 @@ theorem rootFidelity_block_diagonal {ι : Type*} [Fintype ι] [DecidableEq ι]
           · simp only [↓reduceDIte, lam]
             have hspec := (posSemidef_sqrt_mul_sqrt (ρ x₁) (σ x₁)).isHermitian.spectral_theorem
             have hspec_ij := congr_fun (congr_fun hspec i₁) i₂
-            simp only [Unitary.conjStarAlgAut_apply, Matrix.mul_apply, Matrix.mul_diagonal,
-              Matrix.star_apply, Function.comp_apply] at hspec_ij
+            rw [Unitary.conjStarAlgAut_apply] at hspec_ij
+            simp only [Matrix.mul_diagonal] at hspec_ij
+            simp only [Matrix.mul_apply, Matrix.star_apply, Function.comp_apply] at hspec_ij
             rw [hspec_ij, Finset.mul_sum]
             apply Finset.sum_congr rfl; intro k _; push_cast; ring
           · intro a _ hne; apply Finset.sum_eq_zero; intro k _; simp [Ne.symm hne]
@@ -970,7 +950,7 @@ theorem rootFidelity_block_diagonal {ι : Type*} [Fintype ι] [DecidableEq ι]
           · subst ha; simp [Ne.symm hx]
           · simp [ha]
         rw [hLHS, hRHS]
-    rw [hdiag_eq, Matrix.charpoly_mul_comm, ← Matrix.mul_assoc, hUblk_l, Matrix.one_mul]
+    rw [hcp_eq_Rsq, hdiag_eq, Matrix.charpoly_mul_comm, ← Matrix.mul_assoc, hUblk_l, Matrix.one_mul]
   unfold rootFidelity
   have hsum := spectral_sum_eq_of_charpoly_mul_X_pow (f := Real.sqrt) (k := 0) (l := 0)
     (posSemidef_sqrt_mul_sqrt R S).isHermitian hD_herm (by rw [hcp_RS]) Real.sqrt_zero
