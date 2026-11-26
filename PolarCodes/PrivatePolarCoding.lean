@@ -154,7 +154,7 @@ lemma CQChannel.ChannelEquiv.traceDist_eq {d₁ d₂ : Type u}
     [Fintype d₁] [DecidableEq d₁] [Fintype d₂] [DecidableEq d₂]
     {W₁ : CQChannel d₁} {W₂ : CQChannel d₂} (h : W₁.ChannelEquiv W₂) :
     traceDist (W₁.out false) (W₁.out true) = traceDist (W₂.out false) (W₂.out true) := by
-  rcases h with ⟨⟨ℰ₁, h₁⟩, ⟨ℰ₂, h₂⟩⟩
+  rcases h with ⟨ℰ₁, ℰ₂, h₁, h₂⟩
   refine le_antisymm ?_ ?_
   · have hle := traceDist_cptp_le ℰ₂ (W₂.out false) (W₂.out true)
     have hf : ℰ₂.apply (W₂.out false) = W₁.out false := densityOp_eq_of_mat (h₂ false)
@@ -177,7 +177,7 @@ lemma traceDist_transpose (ρ σ : DensityOp d) :
   exact spectral_sum_eq_of_charpoly_mul_X_pow (f := fun x : ℝ ↦ max x 0) (k := 0) (l := 0)
     (hockeyStick_isHermitian 1 ρ.transpose σ.transpose)
     (hockeyStick_isHermitian 1 ρ σ)
-    (by simpa using congr_arg (· * Polynomial.X ^ 0) hcp) (by simp)
+    (by simpa using hcp) (by simp)
 
 /-- Uniform block-diagonal state on `κ × α`: `|κ|⁻¹ ∑_k |k⟩⟨k| ⊗ ρ(k)`. -/
 noncomputable def uniformBlockDiag {κ α : Type*} [Fintype κ] [DecidableEq κ] [Nonempty κ]
@@ -215,9 +215,12 @@ noncomputable def uniformBlockDiag {κ α : Type*} [Fintype κ] [DecidableEq κ]
       rw [hsum]
       refine Finset.sum_nonneg fun k _ ↦ ?_
       have hq := (Matrix.posSemidef_iff_dotProduct_mulVec.mp (ρ k).posSemidef).2 (fun i ↦ v (k, i))
-      have hc : (0 : ℂ) ≤ ((Fintype.card κ : ℝ)⁻¹ : ℂ) :=
+      have hc : (0 : ℂ) ≤ (((Fintype.card κ : ℝ)⁻¹ : ℝ) : ℂ) :=
         Complex.zero_le_real.mpr (inv_nonneg.mpr (Nat.cast_nonneg _))
-      simpa using mul_nonneg hc hq
+      have hceq : (((Fintype.card κ : ℝ)⁻¹ : ℝ) : ℂ) = ((Fintype.card κ : ℂ)⁻¹) := by
+        push_cast; rfl
+      rw [← hceq]
+      exact mul_nonneg hc hq
   trace_one := by
     simp only [Matrix.trace, Matrix.diag, Matrix.of_apply, ↓reduceIte, Fintype.sum_prod_type]
     have htr : ∀ k : κ, ∑ i : α, ((Fintype.card κ : ℂ)⁻¹) * (ρ k).mat i i = ((Fintype.card κ : ℂ)⁻¹) := by
@@ -599,7 +602,7 @@ private lemma polarChannelTree_transpose_perm {α : Type} [Fintype α] [Decidabl
     obtain ⟨e, he⟩ := ih (Fin.init b)
     simp only [polarChannelTree]
     by_cases hb : b (Fin.last k) = false
-    · simp only [hb, ↓reduceIte, BundledCQChannel.minus]
+    · simp only [if_pos hb, BundledCQChannel.minus]
       refine ⟨Equiv.prodCongr e e, fun c ⟨x₁, x₂⟩ ⟨y₁, y₂⟩ ↦ ?_⟩
       simp only [Equiv.prodCongr_apply, Prod.map_apply, CQChannel.checkCombine,
         CQChannel.transpose, DensityOp.transpose, DensityOp.midpoint, DensityOp.mix,
@@ -608,7 +611,7 @@ private lemma polarChannelTree_transpose_perm {α : Type} [Fintype α] [Decidabl
       simp only [CQChannel.transpose, DensityOp.transpose, Matrix.transpose_apply] at he
       rw [he false y₁ x₁, he false y₂ x₂, he true y₁ x₁, he true y₂ x₂]
       cases c <;> simp
-    · simp only [hb, ↓reduceIte, BundledCQChannel.plus]
+    · simp only [if_neg hb, BundledCQChannel.plus]
       refine ⟨Equiv.prodCongr (Equiv.refl Bool) (Equiv.prodCongr e e), fun c ⟨v₁, x₁, x₂⟩ ⟨v₂, y₁, y₂⟩ ↦ ?_⟩
       simp only [Equiv.prodCongr_apply, Equiv.refl_apply, Prod.map_apply, CQChannel.varCombine,
         CQChannel.transpose, DensityOp.transpose, DensityOp.midpoint, DensityOp.mix,
@@ -643,9 +646,9 @@ private lemma polarChannelTree_symmetrize_traceDist {α : Type} [Fintype α] [De
       simp only [polarChannelTree]
       have hih := ih (Fin.init p)
       by_cases hp : p (Fin.last k) = false
-      · simp only [hp, ↓reduceIte, BundledCQChannel.minus]
+      · simp only [if_pos hp, BundledCQChannel.minus]
         exact (hih.checkCombine hih).trans (symmetrize_minusChannel_channelEquiv _)
-      · simp only [hp, ↓reduceIte, BundledCQChannel.plus]
+      · simp only [if_neg hp, BundledCQChannel.plus]
         exact (hih.varCombine hih).trans (symmetrize_plusChannel_channelEquiv _)
   rw [CQChannel.ChannelEquiv.traceDist_eq (heq n b), traceDist_symmetrize]
 
@@ -679,7 +682,7 @@ theorem synthChannel_complementary_traceDist_eq_phase_fidelityParam
     have hnot : (fun k ↦ !(!(b k))) = b := funext fun k ↦ Bool.not_not _
     have heq := polarChannelTree_dual_complement_channelEquiv (phaseChannel 𝒩) n (fun k ↦ !(b k))
     rw [hnot] at heq
-    exact (CQChannel.ChannelEquiv.traceDist_eq heq).symm
+    exact CQChannel.ChannelEquiv.traceDist_eq heq
   have h4 : traceDist (((polarChannelTree (phaseChannel 𝒩) n (fun k ↦ !(b k))).ch.dual).out false)
       (((polarChannelTree (phaseChannel 𝒩) n (fun k ↦ !(b k))).ch.dual).out true) =
       (polarChannelTree (phaseChannel 𝒩) n (fun k ↦ !(b k))).ch.fidelityParam :=
@@ -841,10 +844,10 @@ private lemma prefixSubset_succ_of_mem {N : ℕ} (S : Finset (Fin N)) {k : ℕ} 
     · exact ⟨hmem, le_rfl⟩
     · exact ⟨hjS, le_of_lt hlt⟩
 
+set_option maxHeartbeats 800000 in
 /-- **Telescoping Decoupling Lemma**: For any subset `T ⊆ Fin (2^n)`, the uniform average over
 `u : Fin (2^n) → Bool` of `T(fixedSubsetAvgState W n T u, fixedSubsetAvgState W n ∅ u)` is
 bounded by `∑ i ∈ T, (1/2) * T((synthChannel W n i).out false, (synthChannel W n i).out true)`. -/
-set_option maxHeartbeats 800000 in
 theorem avg_fixedSubset_decoupling_le {α : Type} [Fintype α] [DecidableEq α]
     (W : CQChannel α) (n : ℕ) (T : Finset (Fin (2 ^ n))) :
     ((2 : ℝ) ^ (2 ^ n))⁻¹ *
@@ -974,7 +977,7 @@ theorem avg_fixedSubset_decoupling_le {α : Type} [Fintype α] [DecidableEq α]
              (fixedSubsetAvgState W n (insert i S) (Function.update u i (!(u i)))).mat)).IsHermitian := by
           rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal, hH.eq]
         rw [posPartTrace_eq_of_eq _ hHc hdiff_u, posPartTrace_smul_nonneg_aux (by norm_num) hH]
-        congr 1
+        apply congr_arg ((1 / 2 : ℝ) * ·)
         have htd : posPartTrace hH = traceDist
             (fixedSubsetAvgState W n (insert i S) (Function.update u i (u i)))
             (fixedSubsetAvgState W n (insert i S) (Function.update u i (!(u i)))) := by
@@ -1265,7 +1268,8 @@ theorem avg_wiretapSecrecyError_le (𝒩 : CPTPMap.{0} Bool d) (n : ℕ)
     unfold wiretapSecrecyError wiretapEveJointState wiretapIdealEveState wiretapEveCondState
     rw [traceDist_uniformBlockDiag]
     simp only [Fintype.card_fun, Fintype.card_bool, Fintype.card_coe, Nat.cast_pow, Nat.cast_ofNat]
-    congr 1; apply Finset.sum_congr rfl; intro m _
+    apply congr_arg (((2 : ℝ) ^ infoSet.card)⁻¹ * ·)
+    apply Finset.sum_congr rfl; intro m _
     refine traceDist_congr rfl ?_
     dsimp only [fixedSubsetAvgState]; congr 2; ext v; simp
   simp_rw [hsec_eq]
