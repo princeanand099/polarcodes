@@ -39,6 +39,10 @@ private def toPolarCPTPMap {d₁ d₂ : Type} [Fintype d₁] [DecidableEq d₁]
     [Fintype d₂] [DecidableEq d₂] (𝒩 : CPTPMap d₁ d₂) : PolarCodes.CPTPMap.{0} d₁ d₂ :=
   ⟨𝒩.env, 𝒩.fintypeEnv, 𝒩.decEqEnv, 𝒩.isom, 𝒩.isom_eq⟩
 
+private def fromPolarCPTPMap {d₁ d₂ : Type} [Fintype d₁] [DecidableEq d₁]
+    [Fintype d₂] [DecidableEq d₂] (𝒩 : PolarCodes.CPTPMap.{0} d₁ d₂) : CPTPMap d₁ d₂ :=
+  ⟨𝒩.env, 𝒩.fintypeEnv, 𝒩.decEqEnv, 𝒩.isom, 𝒩.isom_eq⟩
+
 private def toPolarBundled (S : BundledCQChannel) : PolarCodes.BundledCQChannel.{0} :=
   ⟨S.dim, S.fintype, S.decEq, toPolarCQChannel S.ch⟩
 
@@ -271,6 +275,183 @@ private lemma unpolarizedSet_eq {d : Type} [Fintype d] [DecidableEq d]
     rw [toPolarCQChannel_dual_mat, toPolarCQChannel_eq_of_mat hmat]
   rw [h1, h2]
 
+private lemma traceDist_eq {α : Type*} [Fintype α] [DecidableEq α]
+    {ρ σ : DensityOp α} {ρ' σ' : PolarCodes.DensityOp α}
+    (hρ : ρ.mat = ρ'.mat) (hσ : σ.mat = σ'.mat) :
+    traceDist ρ σ = PolarCodes.traceDist ρ' σ' := by
+  have h1 : toPolarDensityOp ρ = ρ' := toPolarDensityOp_eq_of_mat hρ
+  have h2 : toPolarDensityOp σ = σ' := toPolarDensityOp_eq_of_mat hσ
+  rw [← h1, ← h2]
+  rfl
+
+private lemma wiretapBobError_eq {d : Type} [Fintype d] [DecidableEq d]
+    (𝒩 : CPTPMap Bool d) (n : ℕ)
+    (infoSet randSet assistSet : Finset (Fin (2 ^ n))) (uF : Fin (2 ^ n) → Bool) :
+    wiretapBobError 𝒩 n infoSet randSet assistSet uF =
+      PolarCodes.wiretapBobError (toPolarCPTPMap 𝒩) n infoSet randSet assistSet uF := by
+  unfold wiretapBobError PolarCodes.wiretapBobError qscAvgBlockError
+    PolarCodes.CosetPolarCode.avgBlockError PolarCodes.qscPolarCode
+  dsimp only
+  congr 1
+  apply Finset.sum_congr rfl; intro k _
+  congr 1
+  apply Finset.sum_congr rfl; intro m _
+  have hW : toPolarCQChannel (ampChannel 𝒩) = PolarCodes.ampChannel (toPolarCPTPMap 𝒩) :=
+    toPolarCQChannel_eq_of_mat (ampChannel_mat 𝒩)
+  have hemb : embedMsg (infoSet ∪ randSet) (bobEffectiveFrozen assistSet uF k) m =
+      PolarCodes.embedMsg (infoSet ∪ randSet) (PolarCodes.bobEffectiveFrozen assistSet uF k) m :=
+    rfl
+  have hkraus : qscPrefixKraus (ampChannel 𝒩) n (infoSet ∪ randSet) (2 ^ n) le_rfl
+        (embedMsg (infoSet ∪ randSet) (bobEffectiveFrozen assistSet uF k) m) =
+      PolarCodes.qscPrefixKraus (PolarCodes.ampChannel (toPolarCPTPMap 𝒩)) n (infoSet ∪ randSet)
+        (2 ^ n) le_rfl
+        (PolarCodes.embedMsg (infoSet ∪ randSet) (PolarCodes.bobEffectiveFrozen assistSet uF k) m) := by
+    rw [qscPrefixKraus_eq, hW, hemb]
+  have hprod : productStateMat (ampChannel 𝒩) n
+        (arikanTransform n (embedMsg (infoSet ∪ randSet) (bobEffectiveFrozen assistSet uF k) m)) =
+      (PolarCodes.productState (PolarCodes.ampChannel (toPolarCPTPMap 𝒩)) n
+        (PolarCodes.arikanTransform n
+          (PolarCodes.embedMsg (infoSet ∪ randSet) (PolarCodes.bobEffectiveFrozen assistSet uF k) m))).mat := by
+    rw [arikanTransform_eq, hemb]
+    ext r s
+    simp only [productStateMat, PolarCodes.productState, PolarCodes.productStateMat, Matrix.of_apply]
+    apply Finset.prod_congr rfl; intro j _
+    exact ampChannel_mat 𝒩 _
+  change 1 - (((qscPrefixKraus (ampChannel 𝒩) n (infoSet ∪ randSet) (2 ^ n) le_rfl
+      (embedMsg (infoSet ∪ randSet) (bobEffectiveFrozen assistSet uF k) m)).conjTranspose *
+    qscPrefixKraus (ampChannel 𝒩) n (infoSet ∪ randSet) (2 ^ n) le_rfl
+      (embedMsg (infoSet ∪ randSet) (bobEffectiveFrozen assistSet uF k) m) *
+    productStateMat (ampChannel 𝒩) n
+      (arikanTransform n (embedMsg (infoSet ∪ randSet) (bobEffectiveFrozen assistSet uF k) m))).trace).re =
+    1 - (((PolarCodes.qscPrefixKraus (PolarCodes.ampChannel (toPolarCPTPMap 𝒩)) n (infoSet ∪ randSet)
+      (2 ^ n) le_rfl
+      (PolarCodes.embedMsg (infoSet ∪ randSet) (PolarCodes.bobEffectiveFrozen assistSet uF k) m)).conjTranspose *
+    PolarCodes.qscPrefixKraus (PolarCodes.ampChannel (toPolarCPTPMap 𝒩)) n (infoSet ∪ randSet)
+      (2 ^ n) le_rfl
+      (PolarCodes.embedMsg (infoSet ∪ randSet) (PolarCodes.bobEffectiveFrozen assistSet uF k) m) *
+    (PolarCodes.productState (PolarCodes.ampChannel (toPolarCPTPMap 𝒩)) n
+      (PolarCodes.arikanTransform n
+        (PolarCodes.embedMsg (infoSet ∪ randSet) (PolarCodes.bobEffectiveFrozen assistSet uF k) m))).mat).trace).re
+  rw [hkraus, hprod]
+
+private lemma fixedSubsetAvgState_mat {α : Type*} [Fintype α] [DecidableEq α]
+    {W : CQChannel α} {W' : PolarCodes.CQChannel α}
+    (hmat : ∀ b, (W.out b).mat = (W'.out b).mat)
+    (n : ℕ) (S : Finset (Fin (2 ^ n))) (u : Fin (2 ^ n) → Bool) :
+    (fixedSubsetAvgState W n S u).mat = (PolarCodes.fixedSubsetAvgState W' n S u).mat := by
+  ext r s
+  simp only [fixedSubsetAvgState, PolarCodes.fixedSubsetAvgState, Matrix.smul_apply,
+    Matrix.sum_apply, smul_eq_mul]
+  congr 1
+  apply Finset.sum_congr rfl; intro v _
+  rw [arikanTransform_eq]
+  simp only [productStateMat, PolarCodes.productState, PolarCodes.productStateMat, Matrix.of_apply]
+  apply Finset.prod_congr rfl; intro j _
+  exact hmat _
+
+private lemma wiretapSecrecyError_eq {d : Type} [Fintype d] [DecidableEq d]
+    (𝒩 : CPTPMap Bool d) (n : ℕ)
+    (infoSet randSet assistSet : Finset (Fin (2 ^ n))) (uF : Fin (2 ^ n) → Bool) :
+    wiretapSecrecyError 𝒩 n infoSet randSet assistSet uF =
+      PolarCodes.wiretapSecrecyError (toPolarCPTPMap 𝒩) n infoSet randSet assistSet uF := by
+  unfold wiretapSecrecyError PolarCodes.wiretapSecrecyError
+  have hcomp : ∀ b, ((ampChannel 𝒩.complementary).out b).mat =
+      ((PolarCodes.ampChannel (toPolarCPTPMap 𝒩).complementary).out b).mat := fun _ ↦ rfl
+  apply traceDist_eq
+  · ext ⟨m₁, r₁⟩ ⟨m₂, r₂⟩
+    simp only [wiretapEveJointState, PolarCodes.wiretapEveJointState,
+      uniformBlockDiag, PolarCodes.uniformBlockDiag, Matrix.of_apply]
+    split_ifs
+    · congr 1
+      exact congr_fun (congr_fun (fixedSubsetAvgState_mat hcomp n _ _) r₁) r₂
+    · rfl
+  · ext ⟨m₁, r₁⟩ ⟨m₂, r₂⟩
+    simp only [wiretapIdealEveState, PolarCodes.wiretapIdealEveState,
+      uniformBlockDiag, PolarCodes.uniformBlockDiag, Matrix.of_apply]
+    split_ifs
+    · congr 1
+      exact congr_fun (congr_fun (fixedSubsetAvgState_mat hcomp n _ _) r₁) r₂
+    · rfl
+
+private lemma cssPolarEncoderIsom_eq (n : ℕ)
+    (infoSet randSet assistSet : Finset (Fin (2 ^ n)))
+    (uF : Fin (2 ^ n) → Bool) (v : randSet → Bool) :
+    cssPolarEncoderIsom n infoSet randSet assistSet uF v =
+      PolarCodes.cssPolarEncoderIsom n infoSet randSet assistSet uF v := by
+  ext x p
+  simp only [cssPolarEncoderIsom, PolarCodes.cssPolarEncoderIsom, Matrix.of_apply]
+  congr 1
+  apply Finset.sum_congr rfl; intro r _
+  rw [arikanTransform_eq]
+  rfl
+
+private lemma quantumEntanglementError_eq {d : Type} [Fintype d] [DecidableEq d]
+    (𝒩 : CPTPMap Bool d) (n : ℕ)
+    (infoSet randSet assistSet : Finset (Fin (2 ^ n)))
+    (hdisj_ir : Disjoint infoSet randSet)
+    (hdisj_ia : Disjoint infoSet assistSet)
+    (hdisj_ra : Disjoint randSet assistSet)
+    (uF : Fin (2 ^ n) → Bool) (v : randSet → Bool)
+    (𝒟 : PolarCodes.CPTPMap.{0} ((Fin (2 ^ n) → d) × (assistSet → Bool)) (infoSet → Bool)) :
+    quantumEntanglementError 𝒩 n infoSet assistSet
+        (cssPolarEncoder n infoSet randSet assistSet hdisj_ir hdisj_ia hdisj_ra uF v)
+        (fromPolarCPTPMap 𝒟) =
+      PolarCodes.quantumEntanglementError (toPolarCPTPMap 𝒩) n infoSet assistSet
+        (PolarCodes.cssPolarEncoder n infoSet randSet assistSet hdisj_ir hdisj_ia hdisj_ra uF v)
+        𝒟 := by
+  unfold quantumEntanglementError PolarCodes.quantumEntanglementError
+  apply traceDist_eq _ rfl
+  have henc_isom : (cssPolarEncoder n infoSet randSet assistSet hdisj_ir hdisj_ia hdisj_ra uF v).isom =
+      (PolarCodes.cssPolarEncoder n infoSet randSet assistSet hdisj_ir hdisj_ia hdisj_ra uF v).isom := by
+    ext p q
+    simp only [cssPolarEncoder, PolarCodes.cssPolarEncoder, Matrix.of_apply]
+    exact congr_fun (congr_fun (cssPolarEncoderIsom_eq n infoSet randSet assistSet uF v) p.1) q
+  ext i j
+  change ∑ e,
+      ((CPTPMap.tensorIdLeft (infoSet → Bool)
+        ((fromPolarCPTPMap 𝒟).seqComp
+          (((𝒩.tensorPow n).seqComp
+            (cssPolarEncoder n infoSet randSet assistSet hdisj_ir hdisj_ia hdisj_ra uF v)).tensor
+            (CPTPMap.id (assistSet → Bool))))).isom *
+        (pureState _ _).mat *
+        (CPTPMap.tensorIdLeft (infoSet → Bool)
+          ((fromPolarCPTPMap 𝒟).seqComp
+            (((𝒩.tensorPow n).seqComp
+              (cssPolarEncoder n infoSet randSet assistSet hdisj_ir hdisj_ia hdisj_ra uF v)).tensor
+              (CPTPMap.id (assistSet → Bool))))).isom.conjTranspose) (i, e) (j, e) =
+    ∑ e,
+      ((PolarCodes.CPTPMap.tensorIdLeft (infoSet → Bool)
+        (𝒟.seqComp
+          ((((toPolarCPTPMap 𝒩).tensorPow n).seqComp
+            (PolarCodes.cssPolarEncoder n infoSet randSet assistSet hdisj_ir hdisj_ia hdisj_ra uF v)).tensor
+            (PolarCodes.CPTPMap.id (assistSet → Bool))))).isom *
+        (PolarCodes.pureState _ _).mat *
+        (PolarCodes.CPTPMap.tensorIdLeft (infoSet → Bool)
+          (𝒟.seqComp
+            ((((toPolarCPTPMap 𝒩).tensorPow n).seqComp
+              (PolarCodes.cssPolarEncoder n infoSet randSet assistSet hdisj_ir hdisj_ia hdisj_ra uF v)).tensor
+              (PolarCodes.CPTPMap.id (assistSet → Bool))))).isom.conjTranspose) (i, e) (j, e)
+  have hisom_eq :
+      (CPTPMap.tensorIdLeft (infoSet → Bool)
+        ((fromPolarCPTPMap 𝒟).seqComp
+          (((𝒩.tensorPow n).seqComp
+            (cssPolarEncoder n infoSet randSet assistSet hdisj_ir hdisj_ia hdisj_ra uF v)).tensor
+            (CPTPMap.id (assistSet → Bool))))).isom =
+      (PolarCodes.CPTPMap.tensorIdLeft (infoSet → Bool)
+        (𝒟.seqComp
+          ((((toPolarCPTPMap 𝒩).tensorPow n).seqComp
+            (PolarCodes.cssPolarEncoder n infoSet randSet assistSet hdisj_ir hdisj_ia hdisj_ra uF v)).tensor
+            (PolarCodes.CPTPMap.id (assistSet → Bool))))).isom := by
+    ext p q
+    simp only [CPTPMap.tensorIdLeft, PolarCodes.CPTPMap.tensorIdLeft,
+      CPTPMap.seqComp, PolarCodes.CPTPMap.seqComp,
+      CPTPMap.tensor, PolarCodes.CPTPMap.tensor,
+      CPTPMap.tensorPow, PolarCodes.CPTPMap.tensorPow,
+      CPTPMap.id, PolarCodes.CPTPMap.id,
+      fromPolarCPTPMap, toPolarCPTPMap, Matrix.of_apply, henc_isom]
+  rw [hisom_eq]
+  rfl
+
 theorem theorem_1_1_quantum_polar_poly_blocklength :
     ∃ (μ C₀ : ℝ), 0 < μ ∧ 0 < C₀ ∧
       ∀ {d : Type} [Fintype d] [DecidableEq d] (W : CQChannel d)
@@ -396,6 +577,82 @@ theorem corollary_5_5_quantum_private_polar_coding :
     exact hcomb
   · rw [unpolarizedSet_eq (ampChannel_mat 𝒩)]; exact hUA
   · rw [unpolarizedSet_eq (phaseChannel_mat 𝒩)]; exact hUP
+  · intro hdegN
+    apply hdeg
+    rcases hdegN with ⟨𝒟, h𝒟⟩
+    exact ⟨toPolarCPTPMap 𝒟, fun ρ ↦ h𝒟 ⟨ρ.mat, ρ.posSemidef, ρ.trace_one⟩⟩
+
+theorem corollary_5_5_operational_quantum_private_polar_coding :
+    ∃ (μ C₀ : ℝ), 0 < μ ∧ 0 < C₀ ∧
+      ∀ {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap Bool d)
+        {ε : ℝ}, 0 < ε → ε < 1 →
+        ∀ (n : ℕ), C₀ * (1 / ε) ^ μ ≤ (2 : ℝ) ^ n →
+          let thresh : ℝ := (2 : ℝ) ^ (-(200 : ℝ) * ((2 : ℝ) ^ n) ^ (49047 / 100000 : ℝ))
+          let assistPinned : Finset (Fin (2 ^ n)) :=
+            Finset.univ.filter (fun i : Fin (2 ^ n) ↦
+              i ∉ goodSet (ampChannel 𝒩) n thresh ∧
+              dualIndex n i ∉ goodSet (phaseChannel 𝒩) n thresh)
+          ∃ (C_priv : OperationalPrivatePolarCode 𝒩 n)
+            (C_quant : OperationalQuantumPolarCode 𝒩 n),
+            C_priv.assistSet = assistPinned ∧
+            C_quant.assistSet = assistPinned ∧
+            symCoherentInfo 𝒩 - ε / 2 ≤ C_priv.rate ∧
+            symCoherentInfo 𝒩 - ε / 2 ≤ C_quant.rate ∧
+            C_priv.bobDecodingError ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) ∧
+            C_priv.eveSecrecyError ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) ∧
+            C_quant.entanglementError ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) ∧
+            (𝒩.IsDegradable → C_priv.secretKeyRate ≤ ε / 2 ∧ C_quant.assistanceRate ≤ ε / 2) := by
+  rcases PolarCodes.corollary_5_5_operational_quantum_private_polar_coding with ⟨μ, C₀, hμ, hC₀, h⟩
+  refine ⟨μ, C₀, hμ, hC₀, ?_⟩
+  intro d _ _ 𝒩 ε hε0 hε1 n hn
+  dsimp only
+  set thresh : ℝ := (2 : ℝ) ^ (-(200 : ℝ) * ((2 : ℝ) ^ n) ^ (49047 / 100000 : ℝ))
+  obtain ⟨C_priv, C_quant, hpa, hqa, hpr, hqr, hbob, heve, hqerr, hdeg⟩ :=
+    h (toPolarCPTPMap 𝒩) hε0 hε1 n hn
+  let C_priv' : OperationalPrivatePolarCode 𝒩 n :=
+    { infoSet := C_priv.infoSet
+      randSet := C_priv.randSet
+      assistSet := C_priv.assistSet
+      disjoint_info_rand := C_priv.disjoint_info_rand
+      disjoint_info_assist := C_priv.disjoint_info_assist
+      disjoint_rand_assist := C_priv.disjoint_rand_assist
+      publicFrozen := C_priv.publicFrozen }
+  let C_quant' : OperationalQuantumPolarCode 𝒩 n :=
+    { infoSet := C_quant.infoSet
+      randSet := C_quant.randSet
+      assistSet := C_quant.assistSet
+      disj_ir := C_quant.disj_ir
+      disj_ia := C_quant.disj_ia
+      disj_ra := C_quant.disj_ra
+      publicFrozen := C_quant.publicFrozen
+      phaseChoice := C_quant.phaseChoice
+      decoder := fromPolarCPTPMap C_quant.decoder }
+  have hassist_eq :
+      Finset.univ.filter (fun i : Fin (2 ^ n) ↦
+        i ∉ PolarCodes.goodSet (PolarCodes.ampChannel (toPolarCPTPMap 𝒩)) n thresh ∧
+        PolarCodes.dualIndex n i ∉ PolarCodes.goodSet (PolarCodes.phaseChannel (toPolarCPTPMap 𝒩)) n thresh) =
+      Finset.univ.filter (fun i : Fin (2 ^ n) ↦
+        i ∉ goodSet (ampChannel 𝒩) n thresh ∧
+        dualIndex n i ∉ goodSet (phaseChannel 𝒩) n thresh) := by
+    ext i
+    simp only [Finset.mem_filter, Finset.mem_univ, true_and,
+      goodSet_eq (ampChannel_mat 𝒩), goodSet_eq (phaseChannel_mat 𝒩), dualIndex_eq]
+  refine ⟨C_priv', C_quant', ?_, ?_, ?_, ?_, ?_, ?_, ?_, ?_⟩
+  · change C_priv.assistSet = _
+    rw [hpa, hassist_eq]
+  · change C_quant.assistSet = _
+    rw [hqa, hassist_eq]
+  · rw [symCoherentInfo_eq]; exact hpr
+  · rw [symCoherentInfo_eq]; exact hqr
+  · change wiretapBobError 𝒩 n C_priv.infoSet C_priv.randSet C_priv.assistSet C_priv.publicFrozen ≤ _
+    rw [wiretapBobError_eq]; exact hbob
+  · change wiretapSecrecyError 𝒩 n C_priv.infoSet C_priv.randSet C_priv.assistSet C_priv.publicFrozen ≤ _
+    rw [wiretapSecrecyError_eq]; exact heve
+  · change quantumEntanglementError 𝒩 n C_quant.infoSet C_quant.assistSet
+      (cssPolarEncoder n C_quant.infoSet C_quant.randSet C_quant.assistSet
+        C_quant.disj_ir C_quant.disj_ia C_quant.disj_ra C_quant.publicFrozen C_quant.phaseChoice)
+      (fromPolarCPTPMap C_quant.decoder) ≤ _
+    rw [quantumEntanglementError_eq]; exact hqerr
   · intro hdegN
     apply hdeg
     rcases hdegN with ⟨𝒟, h𝒟⟩

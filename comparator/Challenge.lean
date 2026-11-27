@@ -59,6 +59,28 @@ theorem corollary_5_5_quantum_private_polar_coding :
             (𝒩.IsDegradable → C.assistanceRate ≤ ε / 2) := by
   sorry
 
+theorem corollary_5_5_operational_quantum_private_polar_coding :
+    ∃ (μ C₀ : ℝ), 0 < μ ∧ 0 < C₀ ∧
+      ∀ {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap Bool d)
+        {ε : ℝ}, 0 < ε → ε < 1 →
+        ∀ (n : ℕ), C₀ * (1 / ε) ^ μ ≤ (2 : ℝ) ^ n →
+          let thresh : ℝ := (2 : ℝ) ^ (-(200 : ℝ) * ((2 : ℝ) ^ n) ^ (49047 / 100000 : ℝ))
+          let assistPinned : Finset (Fin (2 ^ n)) :=
+            Finset.univ.filter (fun i : Fin (2 ^ n) ↦
+              i ∉ goodSet (ampChannel 𝒩) n thresh ∧
+              dualIndex n i ∉ goodSet (phaseChannel 𝒩) n thresh)
+          ∃ (C_priv : OperationalPrivatePolarCode 𝒩 n)
+            (C_quant : OperationalQuantumPolarCode 𝒩 n),
+            C_priv.assistSet = assistPinned ∧
+            C_quant.assistSet = assistPinned ∧
+            symCoherentInfo 𝒩 - ε / 2 ≤ C_priv.rate ∧
+            symCoherentInfo 𝒩 - ε / 2 ≤ C_quant.rate ∧
+            C_priv.bobDecodingError ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) ∧
+            C_priv.eveSecrecyError ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) ∧
+            C_quant.entanglementError ≤ (2 : ℝ) ^ (-((2 : ℝ) ^ n) ^ (49 / 100 : ℝ)) ∧
+            (𝒩.IsDegradable → C_priv.secretKeyRate ≤ ε / 2 ∧ C_quant.assistanceRate ≤ ε / 2) := by
+  sorry
+
 theorem theorem_1_2a_pure {d₁ d₂ : Type} [Fintype d₁] [DecidableEq d₁]
     [Fintype d₂] [DecidableEq d₂] (W₁ : CQChannel d₁) (W₂ : CQChannel d₂)
     (hW₂ : W₂.IsPureState) :

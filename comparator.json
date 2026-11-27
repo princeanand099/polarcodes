@@ -6,6 +6,7 @@
     "PolarCodesChallenge.theorem_1_1_coding_poly_blocklength",
     "PolarCodesChallenge.corollary_5_5_simultaneous_css_polarization",
     "PolarCodesChallenge.corollary_5_5_quantum_private_polar_coding",
+    "PolarCodesChallenge.corollary_5_5_operational_quantum_private_polar_coding",
     "PolarCodesChallenge.theorem_1_2a_pure",
     "PolarCodesChallenge.theorem_1_2a_classical",
     "PolarCodesChallenge.prop_4_2_four_branch",

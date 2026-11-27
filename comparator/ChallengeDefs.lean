@@ -173,6 +173,29 @@ lemma posSemidef_sqrt_mul_sqrt (ρ σ : DensityOp d) :
 noncomputable def rootFidelity (ρ σ : DensityOp d) : ℝ :=
   ∑ i : d, Real.sqrt ((posSemidef_sqrt_mul_sqrt ρ σ).isHermitian.eigenvalues i)
 
+noncomputable def hockeyStick (γ : ℝ) (ρ σ : DensityOp d) : ℝ :=
+  ∑ i : d, max ((ρ.isHermitian.sub (by
+    rw [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def, Complex.conj_ofReal,
+      σ.isHermitian.eq] : ((γ : ℂ) • σ.mat).IsHermitian)).eigenvalues i) 0
+
+noncomputable def traceDist (ρ σ : DensityOp d) : ℝ :=
+  hockeyStick 1 ρ σ
+
+def pureState (φ : d → ℂ) (hφ : ∑ i : d, ‖φ i‖ ^ 2 = 1) : DensityOp d where
+  mat := Matrix.of (fun i j ↦ φ i * star (φ j))
+  posSemidef := by
+    let M : Matrix d Unit ℂ := Matrix.of (fun i _ ↦ φ i)
+    have hM : Matrix.of (fun i j ↦ φ i * star (φ j)) = M * Mᴴ := by
+      ext i j; simp [M, Matrix.mul_apply, Matrix.conjTranspose_apply]
+    rw [hM]
+    simpa [Matrix.conjTranspose_conjTranspose] using Matrix.posSemidef_conjTranspose_mul_self Mᴴ
+  trace_one := by
+    simp only [Matrix.trace, Matrix.diag, Matrix.of_apply]
+    have hnorm : ∀ i : d, φ i * star (φ i) = ((‖φ i‖ ^ 2 : ℝ) : ℂ) := by
+      intro i
+      rw [Complex.star_def, Complex.mul_conj, Complex.normSq_eq_norm_sq]
+    simp_rw [hnorm, ← Complex.ofReal_sum, hφ, Complex.ofReal_one]
+
 noncomputable def maxMixedState (d : Type*) [Fintype d] [DecidableEq d] [Nonempty d] :
     DensityOp d where
   mat := ((Fintype.card d : ℝ)⁻¹ : ℂ) • (1 : Matrix d d ℂ)
@@ -414,6 +437,37 @@ def arikanTransform : (n : ℕ) → (Fin (2 ^ n) → Bool) → (Fin (2 ^ n) → 
       else
         arikanTransform n (arikanOdd n u) ⟨k.val - 2 ^ n, by omega⟩
 
+lemma arikanTransform_injective : ∀ (n : ℕ), Function.Injective (arikanTransform n)
+  | 0, u₁, u₂, h => h
+  | n + 1, u₁, u₂, h => by
+      have hev : arikanTransform n (arikanEven n u₁) = arikanTransform n (arikanEven n u₂) := by
+        funext k
+        have hk := congr_fun h ⟨k.val, by omega⟩
+        simpa [arikanTransform, k.isLt] using hk
+      have hodd : arikanTransform n (arikanOdd n u₁) = arikanTransform n (arikanOdd n u₂) := by
+        funext k
+        have hk := congr_fun h ⟨k.val + 2 ^ n, by omega⟩
+        have hnot : ¬ (k.val + 2 ^ n < 2 ^ n) := by omega
+        have hsub : (⟨k.val + 2 ^ n - 2 ^ n, by omega⟩ : Fin (2 ^ n)) = k := Fin.ext (by omega)
+        simpa [arikanTransform, hnot, hsub] using hk
+      have h1 := arikanTransform_injective n hev
+      have h2 := arikanTransform_injective n hodd
+      funext i
+      by_cases hp : i.val % 2 = 0
+      · have he1 := congr_fun h1 ⟨i.val / 2, by omega⟩
+        have ho1 := congr_fun h2 ⟨i.val / 2, by omega⟩
+        simp only [arikanEven, arikanOdd] at he1 ho1
+        have hidx : (⟨2 * (i.val / 2), by omega⟩ : Fin (2 ^ (n + 1))) = i := Fin.ext (by omega)
+        rw [hidx, ho1] at he1
+        cases u₁ i <;> cases u₂ i <;> cases u₂ ⟨2 * (i.val / 2) + 1, by omega⟩ <;> simp_all
+      · have ho1 := congr_fun h2 ⟨i.val / 2, by omega⟩
+        simp only [arikanOdd] at ho1
+        have hidx : (⟨2 * (i.val / 2) + 1, by omega⟩ : Fin (2 ^ (n + 1))) = i := Fin.ext (by omega)
+        rwa [hidx] at ho1
+
+lemma arikanTransform_bijective (n : ℕ) : Function.Bijective (arikanTransform n) :=
+  (Finite.injective_iff_bijective).mp (arikanTransform_injective n)
+
 def embedMsg {N : ℕ} (infoSet : Finset (Fin N)) (frozen : Fin N → Bool)
     (m : {i : Fin N // i ∈ infoSet} → Bool) : Fin N → Bool :=
   fun i ↦ if hi : i ∈ infoSet then m ⟨i, hi⟩ else frozen i
@@ -603,6 +657,211 @@ def IsDegradable (𝒩 : CPTPMap d₁ d₂) : Prop :=
   ∃ 𝒟 : CPTPMap d₂ 𝒩.env, ∀ ρ : DensityOp d₁,
     (𝒟.apply (𝒩.apply ρ)).mat = (𝒩.complementary.apply ρ).mat
 
+def id (d : Type) [Fintype d] [DecidableEq d] : CPTPMap d d where
+  env := Unit
+  fintypeEnv := inferInstance
+  decEqEnv := inferInstance
+  isom := Matrix.of fun p a ↦ if p.1 = a then (1 : ℂ) else 0
+  isom_eq := by
+    ext i j
+    simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply, Matrix.one_apply,
+      Fintype.sum_prod_type, Fintype.sum_unique]
+    rw [Finset.sum_eq_single i]
+    · simp
+    · intro k _ hne; simp [hne]
+    · intro h; exact absurd (Finset.mem_univ i) h
+
+def tensor {d₃ d₄ : Type} [Fintype d₃] [DecidableEq d₃] [Fintype d₄] [DecidableEq d₄]
+    (𝒩₁ : CPTPMap d₁ d₂) (𝒩₂ : CPTPMap d₃ d₄) : CPTPMap (d₁ × d₃) (d₂ × d₄) where
+  env := 𝒩₁.env × 𝒩₂.env
+  fintypeEnv := @instFintypeProd _ _ 𝒩₁.fintypeEnv 𝒩₂.fintypeEnv
+  decEqEnv := @instDecidableEqProd _ _ 𝒩₁.decEqEnv 𝒩₂.decEqEnv
+  isom := Matrix.of fun p a ↦ 𝒩₁.isom (p.1.1, p.2.1) a.1 * 𝒩₂.isom (p.1.2, p.2.2) a.2
+  isom_eq := by
+    letI := 𝒩₁.fintypeEnv; letI := 𝒩₁.decEqEnv
+    letI := 𝒩₂.fintypeEnv; letI := 𝒩₂.decEqEnv
+    ext ⟨i₁, i₂⟩ ⟨j₁, j₂⟩
+    simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply, Matrix.one_apply,
+      Fintype.sum_prod_type]
+    have hfac : ∑ b₁ : d₂, ∑ b₂ : d₄, ∑ e₁ : 𝒩₁.env, ∑ e₂ : 𝒩₂.env,
+        star (𝒩₁.isom (b₁, e₁) i₁ * 𝒩₂.isom (b₂, e₂) i₂) *
+          (𝒩₁.isom (b₁, e₁) j₁ * 𝒩₂.isom (b₂, e₂) j₂) =
+        (∑ b₁ : d₂, ∑ e₁ : 𝒩₁.env, star (𝒩₁.isom (b₁, e₁) i₁) * 𝒩₁.isom (b₁, e₁) j₁) *
+        (∑ b₂ : d₄, ∑ e₂ : 𝒩₂.env, star (𝒩₂.isom (b₂, e₂) i₂) * 𝒩₂.isom (b₂, e₂) j₂) := by
+      rw [Finset.sum_mul]
+      apply Finset.sum_congr rfl; intro b₁ _
+      rw [Finset.sum_mul, Finset.sum_comm]
+      apply Finset.sum_congr rfl; intro b₂ _
+      rw [Finset.mul_sum]
+      conv_rhs => arg 2; ext e₁; rw [Finset.mul_sum]
+      apply Finset.sum_congr rfl; intro e₁ _
+      apply Finset.sum_congr rfl; intro e₂ _
+      rw [star_mul']; ring
+    rw [hfac]
+    have h1 := congr_fun (congr_fun 𝒩₁.isom_eq i₁) j₁
+    have h2 := congr_fun (congr_fun 𝒩₂.isom_eq i₂) j₂
+    simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.one_apply,
+      Fintype.sum_prod_type] at h1 h2
+    rw [h1, h2]
+    by_cases h12 : i₁ = j₁ ∧ i₂ = j₂
+    · rcases h12 with ⟨rfl, rfl⟩; simp
+    · rw [if_neg (fun h ↦ h12 (Prod.mk.inj h))]
+      by_cases ha : i₁ = j₁
+      · have hb : i₂ ≠ j₂ := fun h ↦ h12 ⟨ha, h⟩
+        simp [ha, hb]
+      · simp [ha]
+
+noncomputable def tensorPow {d : Type} [Fintype d] [DecidableEq d]
+    (𝒩 : CPTPMap Bool d) (n : ℕ) :
+    CPTPMap (Fin (2 ^ n) → Bool) (Fin (2 ^ n) → d) where
+  env := Fin (2 ^ n) → 𝒩.env
+  fintypeEnv := inferInstance
+  decEqEnv := inferInstance
+  isom := Matrix.of fun p x ↦ ∏ i : Fin (2 ^ n), 𝒩.isom (p.1 i, p.2 i) (x i)
+  isom_eq := by
+    ext x₁ x₂
+    simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply, Matrix.one_apply]
+    let e : ((Fin (2 ^ n) → d) × (Fin (2 ^ n) → 𝒩.env)) ≃ (Fin (2 ^ n) → d × 𝒩.env) :=
+      { toFun := fun p i ↦ (p.1 i, p.2 i)
+        invFun := fun q ↦ (fun i ↦ (q i).1, fun i ↦ (q i).2)
+        left_inv := fun ⟨_, _⟩ ↦ rfl
+        right_inv := fun _ ↦ rfl }
+    have hsum : ∑ p : (Fin (2 ^ n) → d) × (Fin (2 ^ n) → 𝒩.env),
+        star (∏ i : Fin (2 ^ n), 𝒩.isom (p.1 i, p.2 i) (x₁ i)) *
+          ∏ i : Fin (2 ^ n), 𝒩.isom (p.1 i, p.2 i) (x₂ i) =
+        ∑ q : Fin (2 ^ n) → d × 𝒩.env,
+          ∏ i : Fin (2 ^ n), star (𝒩.isom (q i) (x₁ i)) * 𝒩.isom (q i) (x₂ i) := by
+      rw [← Equiv.sum_comp e.symm]
+      apply Finset.sum_congr rfl; intro q _
+      rw [star_prod, ← Finset.prod_mul_distrib]
+      apply Finset.prod_congr rfl; intro i _
+      rfl
+    rw [hsum, ← Fintype.prod_sum (fun i (p : d × 𝒩.env) ↦ star (𝒩.isom p (x₁ i)) * 𝒩.isom p (x₂ i))]
+    have hfac : ∀ i : Fin (2 ^ n),
+        ∑ p : d × 𝒩.env, star (𝒩.isom p (x₁ i)) * 𝒩.isom p (x₂ i) =
+          if x₁ i = x₂ i then (1 : ℂ) else 0 := by
+      intro i
+      have h := congr_fun (congr_fun 𝒩.isom_eq (x₁ i)) (x₂ i)
+      simpa [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.one_apply] using h
+    simp_rw [hfac]
+    by_cases hx : x₁ = x₂
+    · subst hx; simp
+    · rw [if_neg hx]
+      have hne : ∃ i : Fin (2 ^ n), x₁ i ≠ x₂ i := by
+        by_contra hall; push Not at hall; exact hx (funext hall)
+      obtain ⟨i₀, hi₀⟩ := hne
+      exact Finset.prod_eq_zero (Finset.mem_univ i₀) (if_neg hi₀)
+
+noncomputable def tensorIdLeft (α : Type) [Fintype α] [DecidableEq α]
+    {β γ : Type} [Fintype β] [DecidableEq β] [Fintype γ] [DecidableEq γ]
+    (𝒩 : CPTPMap β γ) : CPTPMap (α × β) (α × γ) where
+  env := 𝒩.env
+  fintypeEnv := 𝒩.fintypeEnv
+  decEqEnv := 𝒩.decEqEnv
+  isom := Matrix.of fun p q ↦ if p.1.1 = q.1 then 𝒩.isom (p.1.2, p.2) q.2 else 0
+  isom_eq := by
+    ext ⟨a₁, b₁⟩ ⟨a₂, b₂⟩
+    simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply, Matrix.one_apply,
+      Fintype.sum_prod_type]
+    have h1 : ∀ a : α, (∑ c : γ, ∑ e : 𝒩.env,
+        star (if a = a₁ then 𝒩.isom (c, e) b₁ else 0) *
+          (if a = a₂ then 𝒩.isom (c, e) b₂ else 0)) =
+        if a = a₁ ∧ a = a₂ then (if b₁ = b₂ then (1 : ℂ) else 0) else 0 := by
+      intro a
+      by_cases h12 : a = a₁ ∧ a = a₂
+      · rcases h12 with ⟨rfl, rfl⟩
+        simp only [↓reduceIte, and_self]
+        have h := congr_fun (congr_fun 𝒩.isom_eq b₁) b₂
+        simpa [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
+          Matrix.one_apply] using h
+      · rw [if_neg h12]
+        apply Finset.sum_eq_zero; intro c _
+        apply Finset.sum_eq_zero; intro e _
+        by_cases ha1 : a = a₁
+        · have ha2 : a ≠ a₂ := fun h ↦ h12 ⟨ha1, h⟩
+          rw [if_pos ha1, if_neg ha2, mul_zero]
+        · rw [if_neg ha1, star_zero, zero_mul]
+    simp_rw [h1]
+    by_cases ha : a₁ = a₂
+    · subst ha
+      rw [Finset.sum_eq_single a₁]
+      · simp
+      · intro a _ hne; simp [hne]
+      · intro h; exact absurd (Finset.mem_univ a₁) h
+    · rw [if_neg (fun h ↦ ha (congr_arg Prod.fst h))]
+      apply Finset.sum_eq_zero; intro a _
+      have hne : ¬ (a = a₁ ∧ a = a₂) := fun ⟨h1, h2⟩ ↦ ha (h1.symm.trans h2)
+      simp [hne]
+
+noncomputable def seqComp {α β γ : Type} [Fintype α] [DecidableEq α]
+    [Fintype β] [DecidableEq β] [Fintype γ] [DecidableEq γ]
+    (ℳ : CPTPMap β γ) (𝒩 : CPTPMap α β) : CPTPMap α γ where
+  env := ℳ.env × 𝒩.env
+  fintypeEnv := @instFintypeProd _ _ ℳ.fintypeEnv 𝒩.fintypeEnv
+  decEqEnv := @instDecidableEqProd _ _ ℳ.decEqEnv 𝒩.decEqEnv
+  isom := Matrix.of fun p x ↦ ∑ y : β, ℳ.isom (p.1, p.2.1) y * 𝒩.isom (y, p.2.2) x
+  isom_eq := by
+    letI := ℳ.fintypeEnv; letI := ℳ.decEqEnv
+    letI := 𝒩.fintypeEnv; letI := 𝒩.decEqEnv
+    ext x₁ x₂
+    simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply, Matrix.one_apply,
+      Fintype.sum_prod_type]
+    have hswap : ∑ z : γ, ∑ e₂ : ℳ.env, ∑ e₁ : 𝒩.env,
+        star (∑ y₁ : β, ℳ.isom (z, e₂) y₁ * 𝒩.isom (y₁, e₁) x₁) *
+          (∑ y₂ : β, ℳ.isom (z, e₂) y₂ * 𝒩.isom (y₂, e₁) x₂) =
+        ∑ y₁ : β, ∑ y₂ : β,
+          (∑ z : γ, ∑ e₂ : ℳ.env, star (ℳ.isom (z, e₂) y₁) * ℳ.isom (z, e₂) y₂) *
+          (∑ e₁ : 𝒩.env, star (𝒩.isom (y₁, e₁) x₁) * 𝒩.isom (y₂, e₁) x₂) := by
+      simp_rw [star_sum, star_mul, Finset.sum_mul, Finset.mul_sum]
+      calc ∑ z : γ, ∑ e₂ : ℳ.env, ∑ e₁ : 𝒩.env, ∑ y₁ : β, ∑ y₂ : β,
+            star (𝒩.isom (y₁, e₁) x₁) * star (ℳ.isom (z, e₂) y₁) * (ℳ.isom (z, e₂) y₂ * 𝒩.isom (y₂, e₁) x₂)
+          = ∑ z : γ, ∑ e₂ : ℳ.env, ∑ y₁ : β, ∑ y₂ : β, ∑ e₁ : 𝒩.env,
+              (star (ℳ.isom (z, e₂) y₁) * ℳ.isom (z, e₂) y₂) *
+              (star (𝒩.isom (y₁, e₁) x₁) * 𝒩.isom (y₂, e₁) x₂) := by
+            apply Finset.sum_congr rfl; intro z _
+            apply Finset.sum_congr rfl; intro e₂ _
+            rw [Finset.sum_comm]
+            apply Finset.sum_congr rfl; intro y₁ _
+            rw [Finset.sum_comm]
+            apply Finset.sum_congr rfl; intro y₂ _
+            apply Finset.sum_congr rfl; intro e₁ _; ring
+        _ = ∑ y₁ : β, ∑ y₂ : β, ∑ z : γ, ∑ e₂ : ℳ.env, ∑ e₁ : 𝒩.env,
+              (star (ℳ.isom (z, e₂) y₁) * ℳ.isom (z, e₂) y₂) *
+              (star (𝒩.isom (y₁, e₁) x₁) * 𝒩.isom (y₂, e₁) x₂) := by
+            rw [Finset.sum_comm]
+            conv_lhs =>
+              arg 2; ext e₂
+              rw [Finset.sum_comm]
+            rw [Finset.sum_comm]
+            apply Finset.sum_congr rfl; intro y₁ _
+            rw [Finset.sum_comm]
+            conv_lhs =>
+              arg 2; ext z
+              rw [Finset.sum_comm]
+            rw [Finset.sum_comm]
+    rw [hswap]
+    have hM : ∀ y₁ y₂ : β,
+        ∑ z : γ, ∑ e₂ : ℳ.env, star (ℳ.isom (z, e₂) y₁) * ℳ.isom (z, e₂) y₂ =
+          if y₁ = y₂ then (1 : ℂ) else 0 := by
+      intro y₁ y₂
+      have h := congr_fun (congr_fun ℳ.isom_eq y₁) y₂
+      simpa [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
+        Matrix.one_apply] using h
+    simp_rw [hM]
+    have hdiag : ∑ y₁ : β, ∑ y₂ : β,
+        (if y₁ = y₂ then (1 : ℂ) else 0) *
+          ∑ e₁ : 𝒩.env, star (𝒩.isom (y₁, e₁) x₁) * 𝒩.isom (y₂, e₁) x₂ =
+        ∑ y : β, ∑ e₁ : 𝒩.env, star (𝒩.isom (y, e₁) x₁) * 𝒩.isom (y, e₁) x₂ := by
+      apply Finset.sum_congr rfl; intro y₁ _
+      rw [Finset.sum_eq_single y₁]
+      · simp
+      · intro y₂ _ hne; simp [Ne.symm hne]
+      · intro h; exact absurd (Finset.mem_univ y₁) h
+    rw [hdiag]
+    have hN := congr_fun (congr_fun 𝒩.isom_eq x₁) x₂
+    simpa [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type,
+      Matrix.one_apply] using hN
+
 end CPTPMap
 
 noncomputable def symCoherentInfo {d : Type} [Fintype d] [DecidableEq d]
@@ -733,5 +992,458 @@ noncomputable def CSSPrivatePolarCode.assistanceRate {d : Type} [Fintype d] [Dec
 noncomputable def CSSPrivatePolarCode.ampPhaseErrorSum {d : Type} [Fintype d] [DecidableEq d]
     {𝒩 : CPTPMap Bool d} {n : ℕ} {thresh : ℝ} (C : CSSPrivatePolarCode 𝒩 n thresh) : ℝ :=
   C.ampCode.avgBlockError + C.phaseCode.avgBlockError
+
+noncomputable def uniformBlockDiag {κ α : Type*} [Fintype κ] [DecidableEq κ] [Nonempty κ]
+    [Fintype α] [DecidableEq α] (ρ : κ → DensityOp α) : DensityOp (κ × α) where
+  mat := Matrix.of fun (k₁, i₁) (k₂, i₂) ↦
+    if k₁ = k₂ then ((Fintype.card κ : ℂ)⁻¹) * (ρ k₁).mat i₁ i₂ else 0
+  posSemidef := by
+    rw [Matrix.posSemidef_iff_dotProduct_mulVec]
+    constructor
+    · ext ⟨k₁, i₁⟩ ⟨k₂, i₂⟩
+      simp only [Matrix.conjTranspose_apply, Matrix.of_apply]
+      by_cases hk : k₂ = k₁
+      · subst hk
+        simp only [↓reduceIte, star_mul', Complex.star_def, map_inv₀, Complex.conj_natCast]
+        have hh := congr_fun (congr_fun (ρ k₂).isHermitian.eq i₁) i₂
+        simpa [Matrix.conjTranspose_apply] using congr_arg (((Fintype.card κ : ℂ)⁻¹) * ·) hh
+      · simp [hk, Ne.symm hk]
+    · intro v
+      have hsum : star v ⬝ᵥ ((Matrix.of fun (k₁, i₁) (k₂, i₂) ↦
+          if k₁ = k₂ then ((Fintype.card κ : ℂ)⁻¹) * (ρ k₁).mat i₁ i₂ else 0) *ᵥ v) =
+          ∑ k : κ, ((Fintype.card κ : ℂ)⁻¹) *
+            (star (fun i ↦ v (k, i)) ⬝ᵥ ((ρ k).mat *ᵥ (fun i ↦ v (k, i)))) := by
+        simp only [dotProduct, Matrix.mulVec, Pi.star_apply, Matrix.of_apply, Fintype.sum_prod_type]
+        apply Finset.sum_congr rfl; intro k _
+        rw [Finset.mul_sum]
+        apply Finset.sum_congr rfl; intro i _
+        rw [Finset.sum_eq_single k]
+        · simp only [↓reduceIte]
+          have hpull : ∑ x : α, ((Fintype.card κ : ℂ)⁻¹) * (ρ k).mat i x * v (k, x) =
+              ((Fintype.card κ : ℂ)⁻¹) * ∑ x : α, (ρ k).mat i x * v (k, x) := by
+            rw [Finset.mul_sum]; apply Finset.sum_congr rfl; intro x _; ring
+          rw [hpull]; ring
+        · intro k' _ hne; simp [Ne.symm hne]
+        · intro h; exact absurd (Finset.mem_univ k) h
+      rw [hsum]
+      refine Finset.sum_nonneg fun k _ ↦ ?_
+      have hq := (Matrix.posSemidef_iff_dotProduct_mulVec.mp (ρ k).posSemidef).2 (fun i ↦ v (k, i))
+      have hc : (0 : ℂ) ≤ (((Fintype.card κ : ℝ)⁻¹ : ℝ) : ℂ) :=
+        Complex.zero_le_real.mpr (inv_nonneg.mpr (Nat.cast_nonneg _))
+      have hceq : (((Fintype.card κ : ℝ)⁻¹ : ℝ) : ℂ) = ((Fintype.card κ : ℂ)⁻¹) := by
+        push_cast; rfl
+      rw [← hceq]
+      exact mul_nonneg hc hq
+  trace_one := by
+    simp only [Matrix.trace, Matrix.diag, Matrix.of_apply, ↓reduceIte, Fintype.sum_prod_type]
+    have htr : ∀ k : κ, ∑ i : α, ((Fintype.card κ : ℂ)⁻¹) * (ρ k).mat i i = ((Fintype.card κ : ℂ)⁻¹) := by
+      intro k
+      rw [← Finset.mul_sum]
+      have h1 : ∑ i : α, (ρ k).mat i i = 1 := (ρ k).trace_one
+      rw [h1, mul_one]
+    simp_rw [htr, Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+    have hne : (Fintype.card κ : ℂ) ≠ 0 := Nat.cast_ne_zero.mpr Fintype.card_ne_zero
+    exact mul_inv_cancel₀ hne
+
+def wiretapWord {N : ℕ} (infoSet randSet assistSet : Finset (Fin N))
+    (uF : Fin N → Bool) (m : infoSet → Bool) (r : randSet → Bool) (k : assistSet → Bool) :
+    Fin N → Bool :=
+  fun i ↦
+    if h1 : i ∈ infoSet then m ⟨i, h1⟩
+    else if h2 : i ∈ randSet then r ⟨i, h2⟩
+    else if h3 : i ∈ assistSet then k ⟨i, h3⟩
+    else uF i
+
+def bobEffectiveFrozen {N : ℕ} (assistSet : Finset (Fin N))
+    (uF : Fin N → Bool) (k : assistSet → Bool) : Fin N → Bool :=
+  fun i ↦ if h : i ∈ assistSet then k ⟨i, h⟩ else uF i
+
+lemma productStateMat_posSemidef {α : Type*} [Fintype α] [DecidableEq α]
+    (W : CQChannel α) (n : ℕ) (x : Fin (2 ^ n) → Bool) :
+    (productStateMat W n x).PosSemidef := by
+  let S : Matrix (Fin (2 ^ n) → α) (Fin (2 ^ n) → α) ℂ :=
+    Matrix.of fun r s ↦ ∏ k : Fin (2 ^ n), (W.out (x k)).sqrtMat (r k) (s k)
+  have hS : productStateMat W n x = Sᴴ * S := by
+    ext r s
+    simp only [productStateMat, S, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply]
+    have h1 : ∑ t : Fin (2 ^ n) → α,
+        star (∏ k : Fin (2 ^ n), (W.out (x k)).sqrtMat (t k) (r k)) *
+          ∏ k : Fin (2 ^ n), (W.out (x k)).sqrtMat (t k) (s k) =
+        ∑ t : Fin (2 ^ n) → α,
+          ∏ k : Fin (2 ^ n),
+            star ((W.out (x k)).sqrtMat (t k) (r k)) * (W.out (x k)).sqrtMat (t k) (s k) := by
+      apply Finset.sum_congr rfl; intro t _
+      rw [star_prod, ← Finset.prod_mul_distrib]
+    rw [h1, ← Fintype.prod_sum (fun k (a : α) ↦
+      star ((W.out (x k)).sqrtMat a (r k)) * (W.out (x k)).sqrtMat a (s k))]
+    apply Finset.prod_congr rfl; intro k _
+    have hmul := congr_fun (congr_fun (W.out (x k)).sqrtMat_mul_self (r k)) (s k)
+    rw [← hmul, Matrix.mul_apply]
+    apply Finset.sum_congr rfl; intro a _
+    have hh := congr_fun (congr_fun (W.out (x k)).sqrtMat_isHermitian.eq (r k)) a
+    simp only [Matrix.conjTranspose_apply] at hh
+    rw [hh]
+  rw [hS]
+  exact Matrix.posSemidef_conjTranspose_mul_self S
+
+lemma productStateMat_trace_one {α : Type*} [Fintype α] [DecidableEq α]
+    (W : CQChannel α) (n : ℕ) (x : Fin (2 ^ n) → Bool) :
+    (productStateMat W n x).trace = 1 := by
+  simp only [Matrix.trace, Matrix.diag, productStateMat, Matrix.of_apply]
+  rw [← Fintype.prod_sum (fun k (a : α) ↦ (W.out (x k)).mat a a)]
+  apply Finset.prod_eq_one; intro k _
+  exact (W.out (x k)).trace_one
+
+noncomputable def fixedSubsetAvgState {α : Type*} [Fintype α] [DecidableEq α]
+    (W : CQChannel α) (n : ℕ) (S : Finset (Fin (2 ^ n))) (u : Fin (2 ^ n) → Bool) :
+    DensityOp (Fin (2 ^ n) → α) where
+  mat := ((2 : ℂ) ^ (2 ^ n - S.card))⁻¹ •
+    ∑ v ∈ Finset.univ.filter (fun v : Fin (2 ^ n) → Bool ↦ ∀ j ∈ S, v j = u j),
+      productStateMat W n (arikanTransform n v)
+  posSemidef := by
+    have hc : (0 : ℝ) ≤ ((2 : ℝ) ^ (2 ^ n - S.card))⁻¹ := by positivity
+    have hsum : (∑ v ∈ Finset.univ.filter (fun v : Fin (2 ^ n) → Bool ↦ ∀ j ∈ S, v j = u j),
+        productStateMat W n (arikanTransform n v)).PosSemidef :=
+      Finset.sum_induction _ (fun M : Matrix _ _ ℂ ↦ M.PosSemidef)
+        (fun _ _ ha hb ↦ ha.add hb) Matrix.PosSemidef.zero
+        (fun v _ ↦ productStateMat_posSemidef W n (arikanTransform n v))
+    have hsm : ((2 : ℂ) ^ (2 ^ n - S.card))⁻¹ •
+        ∑ v ∈ Finset.univ.filter (fun v : Fin (2 ^ n) → Bool ↦ ∀ j ∈ S, v j = u j),
+          productStateMat W n (arikanTransform n v) =
+        (((2 : ℝ) ^ (2 ^ n - S.card))⁻¹) •
+        ∑ v ∈ Finset.univ.filter (fun v : Fin (2 ^ n) → Bool ↦ ∀ j ∈ S, v j = u j),
+          productStateMat W n (arikanTransform n v) := by
+      ext i j; simp [Complex.real_smul]
+    rw [hsm]; exact hsum.smul hc
+  trace_one := by
+    rw [Matrix.trace_smul, Matrix.trace_sum]
+    have htr : ∀ v : Fin (2 ^ n) → Bool, (productStateMat W n (arikanTransform n v)).trace = 1 :=
+      fun v ↦ productStateMat_trace_one W n (arikanTransform n v)
+    simp_rw [htr, Finset.sum_const, nsmul_eq_mul, mul_one, smul_eq_mul]
+    have hcard : (Finset.univ.filter (fun v : Fin (2 ^ n) → Bool ↦ ∀ j ∈ S, v j = u j)).card =
+        2 ^ (2 ^ n - S.card) := by
+      let e : {v : Fin (2 ^ n) → Bool // ∀ j ∈ S, v j = u j} ≃ ({j : Fin (2 ^ n) // j ∉ S} → Bool) :=
+        { toFun := fun v j ↦ v.1 j.1
+          invFun := fun w ↦ ⟨fun j ↦ if h : j ∈ S then u j else w ⟨j, h⟩,
+            fun j hj ↦ by simp [hj]⟩
+          left_inv := fun ⟨v, hv⟩ ↦ Subtype.ext (funext fun j ↦ by
+            by_cases hj : j ∈ S
+            · simp [hj, hv j hj]
+            · simp [hj])
+          right_inv := fun w ↦ funext fun ⟨j, hj⟩ ↦ by simp [hj] }
+      rw [← Fintype.card_subtype, Fintype.card_congr e, Fintype.card_fun, Fintype.card_bool]
+      congr 1
+      rw [Fintype.card_subtype_compl, Fintype.card_coe, Fintype.card_fin]
+    rw [hcard]
+    push_cast
+    exact inv_mul_cancel₀ (pow_ne_zero _ (by norm_num))
+
+noncomputable def wiretapEveCondState {d : Type} [Fintype d] [DecidableEq d]
+    (𝒩 : CPTPMap Bool d) (n : ℕ)
+    (infoSet randSet assistSet : Finset (Fin (2 ^ n)))
+    (uF : Fin (2 ^ n) → Bool) (m : infoSet → Bool) :
+    DensityOp (Fin (2 ^ n) → 𝒩.env) :=
+  fixedSubsetAvgState (ampChannel 𝒩.complementary) n (randSet ∪ assistSet)ᶜ
+    (fun i ↦ if h : i ∈ infoSet then m ⟨i, h⟩ else uF i)
+
+noncomputable def wiretapEveJointState {d : Type} [Fintype d] [DecidableEq d]
+    (𝒩 : CPTPMap Bool d) (n : ℕ)
+    (infoSet randSet assistSet : Finset (Fin (2 ^ n)))
+    (uF : Fin (2 ^ n) → Bool) :
+    DensityOp ((infoSet → Bool) × (Fin (2 ^ n) → 𝒩.env)) :=
+  uniformBlockDiag (fun m ↦ wiretapEveCondState 𝒩 n infoSet randSet assistSet uF m)
+
+noncomputable def wiretapIdealEveState {d : Type} [Fintype d] [DecidableEq d]
+    (𝒩 : CPTPMap Bool d) (n : ℕ)
+    (infoSet : Finset (Fin (2 ^ n))) :
+    DensityOp ((infoSet → Bool) × (Fin (2 ^ n) → 𝒩.env)) :=
+  uniformBlockDiag (fun _ : infoSet → Bool ↦
+    fixedSubsetAvgState (ampChannel 𝒩.complementary) n ∅ (fun _ ↦ false))
+
+noncomputable def wiretapSecrecyError {d : Type} [Fintype d] [DecidableEq d]
+    (𝒩 : CPTPMap Bool d) (n : ℕ)
+    (infoSet randSet assistSet : Finset (Fin (2 ^ n)))
+    (uF : Fin (2 ^ n) → Bool) : ℝ :=
+  traceDist (wiretapEveJointState 𝒩 n infoSet randSet assistSet uF)
+    (wiretapIdealEveState 𝒩 n infoSet)
+
+noncomputable def qscAvgBlockError {d : Type*} [Fintype d] [DecidableEq d]
+    (W : CQChannel d) (n : ℕ) (infoSet : Finset (Fin (2 ^ n)))
+    (frozen : Fin (2 ^ n) → Bool) : ℝ :=
+  ((2 : ℝ) ^ infoSet.card)⁻¹ *
+    ∑ m : {i : Fin (2 ^ n) // i ∈ infoSet} → Bool,
+      (1 - (((qscPrefixKraus W n infoSet (2 ^ n) le_rfl (embedMsg infoSet frozen m))ᴴ *
+        qscPrefixKraus W n infoSet (2 ^ n) le_rfl (embedMsg infoSet frozen m) *
+        productStateMat W n (arikanTransform n (embedMsg infoSet frozen m))).trace).re)
+
+noncomputable def wiretapBobError {d : Type} [Fintype d] [DecidableEq d]
+    (𝒩 : CPTPMap Bool d) (n : ℕ)
+    (infoSet randSet assistSet : Finset (Fin (2 ^ n)))
+    (uF : Fin (2 ^ n) → Bool) : ℝ :=
+  ((2 : ℝ) ^ assistSet.card)⁻¹ *
+    ∑ k : assistSet → Bool,
+      qscAvgBlockError (ampChannel 𝒩) n (infoSet ∪ randSet)
+        (bobEffectiveFrozen assistSet uF k)
+
+structure OperationalPrivatePolarCode {d : Type} [Fintype d] [DecidableEq d]
+    (𝒩 : CPTPMap Bool d) (n : ℕ) where
+  infoSet : Finset (Fin (2 ^ n))
+  randSet : Finset (Fin (2 ^ n))
+  assistSet : Finset (Fin (2 ^ n))
+  disjoint_info_rand : Disjoint infoSet randSet
+  disjoint_info_assist : Disjoint infoSet assistSet
+  disjoint_rand_assist : Disjoint randSet assistSet
+  publicFrozen : Fin (2 ^ n) → Bool
+
+noncomputable def OperationalPrivatePolarCode.rate {d : Type} [Fintype d] [DecidableEq d]
+    {𝒩 : CPTPMap Bool d} {n : ℕ} (C : OperationalPrivatePolarCode 𝒩 n) : ℝ :=
+  (C.infoSet.card : ℝ) / (2 : ℝ) ^ n
+
+noncomputable def OperationalPrivatePolarCode.secretKeyRate {d : Type} [Fintype d] [DecidableEq d]
+    {𝒩 : CPTPMap Bool d} {n : ℕ} (C : OperationalPrivatePolarCode 𝒩 n) : ℝ :=
+  (C.assistSet.card : ℝ) / (2 : ℝ) ^ n
+
+noncomputable def OperationalPrivatePolarCode.bobDecodingError {d : Type} [Fintype d] [DecidableEq d]
+    {𝒩 : CPTPMap Bool d} {n : ℕ} (C : OperationalPrivatePolarCode 𝒩 n) : ℝ :=
+  wiretapBobError 𝒩 n C.infoSet C.randSet C.assistSet C.publicFrozen
+
+noncomputable def OperationalPrivatePolarCode.eveSecrecyError {d : Type} [Fintype d] [DecidableEq d]
+    {𝒩 : CPTPMap Bool d} {n : ℕ} (C : OperationalPrivatePolarCode 𝒩 n) : ℝ :=
+  wiretapSecrecyError 𝒩 n C.infoSet C.randSet C.assistSet C.publicFrozen
+
+noncomputable def maxEntangledVec (α : Type) [Fintype α] [DecidableEq α] : α × α → ℂ :=
+  fun p ↦ if p.1 = p.2 then ((Real.sqrt (Fintype.card α) : ℝ) : ℂ)⁻¹ else 0
+
+lemma maxEntangledVec_norm (α : Type) [Fintype α] [DecidableEq α] [Nonempty α] :
+    ∑ p : α × α, ‖maxEntangledVec α p‖ ^ 2 = 1 := by
+  rw [Fintype.sum_prod_type]
+  have hrow : ∀ a : α, ∑ b : α, ‖maxEntangledVec α (a, b)‖ ^ 2 = (Fintype.card α : ℝ)⁻¹ := by
+    intro a
+    rw [Finset.sum_eq_single a]
+    · simp only [maxEntangledVec, ↓reduceIte, norm_inv, Complex.norm_real, Real.norm_eq_abs,
+        abs_of_nonneg (Real.sqrt_nonneg _), inv_pow, Real.sq_sqrt (Nat.cast_nonneg _)]
+    · intro b _ hne; simp [maxEntangledVec, Ne.symm hne]
+    · intro h; exact absurd (Finset.mem_univ a) h
+  simp_rw [hrow, Finset.sum_const, Finset.card_univ, nsmul_eq_mul]
+  exact mul_inv_cancel₀ (Nat.cast_ne_zero.mpr Fintype.card_ne_zero)
+
+noncomputable def maxEntangledState (α : Type) [Fintype α] [DecidableEq α] [Nonempty α] :
+    DensityOp (α × α) :=
+  pureState (maxEntangledVec α) (maxEntangledVec_norm α)
+
+def phaseSign {α : Type*} [Fintype α] (v r : α → Bool) : ℂ :=
+  ∏ i : α, if v i && r i then (-1 : ℂ) else (1 : ℂ)
+
+lemma phaseSign_star {α : Type*} [Fintype α] (v r : α → Bool) :
+    star (phaseSign v r) = phaseSign v r := by
+  simp only [phaseSign, star_prod]
+  apply Finset.prod_congr rfl; intro i _
+  cases v i <;> cases r i <;> simp
+
+lemma phaseSign_mul_self {α : Type*} [Fintype α] (v r : α → Bool) :
+    phaseSign v r * phaseSign v r = 1 := by
+  simp only [phaseSign, ← Finset.prod_mul_distrib]
+  apply Finset.prod_eq_one; intro i _
+  cases v i <;> cases r i <;> simp
+
+noncomputable def cssPolarEncoderIsom (n : ℕ)
+    (infoSet randSet assistSet : Finset (Fin (2 ^ n)))
+    (uF : Fin (2 ^ n) → Bool) (v : randSet → Bool) :
+    Matrix (Fin (2 ^ n) → Bool) ((infoSet → Bool) × (assistSet → Bool)) ℂ :=
+  Matrix.of fun x p ↦
+    ((Real.sqrt ((2 : ℝ) ^ randSet.card) : ℝ) : ℂ)⁻¹ *
+      ∑ r : randSet → Bool,
+        if x = arikanTransform n (wiretapWord infoSet randSet assistSet uF p.1 r p.2) then
+          phaseSign v r
+        else 0
+
+lemma cssPolarEncoderIsom_isometry (n : ℕ)
+    (infoSet randSet assistSet : Finset (Fin (2 ^ n)))
+    (hdisj_ir : Disjoint infoSet randSet)
+    (hdisj_ia : Disjoint infoSet assistSet)
+    (hdisj_ra : Disjoint randSet assistSet)
+    (uF : Fin (2 ^ n) → Bool) (v : randSet → Bool) :
+    (cssPolarEncoderIsom n infoSet randSet assistSet uF v)ᴴ *
+      cssPolarEncoderIsom n infoSet randSet assistSet uF v = 1 := by
+  have hinj : ∀ m₁ m₂ r₁ r₂ a₁ a₂,
+      arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r₁ a₁) =
+      arikanTransform n (wiretapWord infoSet randSet assistSet uF m₂ r₂ a₂) →
+      m₁ = m₂ ∧ r₁ = r₂ ∧ a₁ = a₂ := by
+    intro m₁ m₂ r₁ r₂ a₁ a₂ heq
+    have hw := (arikanTransform_bijective n).injective heq
+    refine ⟨?_, ?_, ?_⟩
+    · funext ⟨i, hi⟩
+      have h := congr_fun hw i
+      simpa [wiretapWord, hi] using h
+    · funext ⟨i, hi⟩
+      have h := congr_fun hw i
+      have hni : i ∉ infoSet := Finset.disjoint_right.mp hdisj_ir hi
+      simpa [wiretapWord, hni, hi] using h
+    · funext ⟨i, hi⟩
+      have h := congr_fun hw i
+      have hni : i ∉ infoSet := Finset.disjoint_right.mp hdisj_ia hi
+      have hnr : i ∉ randSet := Finset.disjoint_right.mp hdisj_ra hi
+      simpa [wiretapWord, hni, hnr, hi] using h
+  ext ⟨m₁, a₁⟩ ⟨m₂, a₂⟩
+  simp only [cssPolarEncoderIsom, Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply,
+    Matrix.one_apply, star_mul, star_sum, star_inv₀, Complex.star_def, Complex.conj_ofReal]
+  have hnorm : (((Real.sqrt ((2 : ℝ) ^ randSet.card) : ℝ) : ℂ)⁻¹) *
+      (((Real.sqrt ((2 : ℝ) ^ randSet.card) : ℝ) : ℂ)⁻¹) =
+      (((2 : ℝ) ^ randSet.card : ℝ) : ℂ)⁻¹ := by
+    rw [← mul_inv, ← Complex.ofReal_mul, Real.mul_self_sqrt (by positivity)]
+  calc ∑ x : Fin (2 ^ n) → Bool,
+        (∑ r₁ : randSet → Bool, star (if x = arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r₁ a₁) then phaseSign v r₁ else 0)) *
+          ((Real.sqrt ((2 : ℝ) ^ randSet.card) : ℝ) : ℂ)⁻¹ *
+        (((Real.sqrt ((2 : ℝ) ^ randSet.card) : ℝ) : ℂ)⁻¹ *
+          ∑ r₂ : randSet → Bool, if x = arikanTransform n (wiretapWord infoSet randSet assistSet uF m₂ r₂ a₂) then phaseSign v r₂ else 0)
+      = (((2 : ℝ) ^ randSet.card : ℝ) : ℂ)⁻¹ *
+          ∑ r₁ : randSet → Bool, ∑ r₂ : randSet → Bool,
+            ∑ x : Fin (2 ^ n) → Bool,
+              (if x = arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r₁ a₁) then phaseSign v r₁ else 0) *
+              (if x = arikanTransform n (wiretapWord infoSet randSet assistSet uF m₂ r₂ a₂) then phaseSign v r₂ else 0) := by
+        rw [Finset.mul_sum]
+        conv_rhs => arg 2; ext r₁; rw [Finset.mul_sum]
+        conv_rhs => arg 2; ext r₁; arg 2; ext r₂; rw [Finset.mul_sum]
+        conv_rhs => arg 2; ext r₁; rw [Finset.sum_comm]
+        conv_rhs => rw [Finset.sum_comm]
+        apply Finset.sum_congr rfl; intro x _
+        have hst : ∀ r₁ : randSet → Bool,
+            star (if x = arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r₁ a₁) then phaseSign v r₁ else 0) =
+            if x = arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r₁ a₁) then phaseSign v r₁ else 0 := by
+          intro r₁; split_ifs <;> simp [phaseSign_star]
+        simp_rw [hst, Finset.sum_mul, Finset.mul_sum]
+        apply Finset.sum_congr rfl; intro r₁ _
+        apply Finset.sum_congr rfl; intro r₂ _
+        rw [← hnorm]; ring
+    _ = (((2 : ℝ) ^ randSet.card : ℝ) : ℂ)⁻¹ *
+          ∑ r₁ : randSet → Bool, ∑ r₂ : randSet → Bool,
+            if arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r₁ a₁) =
+               arikanTransform n (wiretapWord infoSet randSet assistSet uF m₂ r₂ a₂) then
+              phaseSign v r₁ * phaseSign v r₂
+            else 0 := by
+        congr 1; apply Finset.sum_congr rfl; intro r₁ _
+        apply Finset.sum_congr rfl; intro r₂ _
+        rw [Finset.sum_eq_single (arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r₁ a₁))]
+        · simp [mul_ite]
+        · intro x _ hne; simp [hne]
+        · intro h; exact absurd (Finset.mem_univ _) h
+    _ = if (m₁, a₁) = (m₂, a₂) then 1 else 0 := by
+        by_cases hma : (m₁, a₁) = (m₂, a₂)
+        · rw [if_pos hma]
+          obtain ⟨rfl, rfl⟩ := Prod.mk.inj hma
+          have hdiag : ∀ r₁ : randSet → Bool,
+              ∑ r₂ : randSet → Bool,
+                (if arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r₁ a₁) =
+                    arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r₂ a₁) then
+                  phaseSign v r₁ * phaseSign v r₂
+                else 0) = 1 := by
+            intro r₁
+            rw [Finset.sum_eq_single r₁]
+            · simp [phaseSign_mul_self]
+            · intro r₂ _ hne; rw [if_neg]; intro heq; exact hne (hinj m₁ m₁ r₁ r₂ a₁ a₁ heq).2.1.symm
+            · intro h; exact absurd (Finset.mem_univ r₁) h
+          simp_rw [hdiag, Finset.sum_const, Finset.card_univ, Fintype.card_fun, Fintype.card_bool,
+            Fintype.card_coe, nsmul_eq_mul, mul_one, Nat.cast_pow, Nat.cast_ofNat]
+          push_cast
+          exact inv_mul_cancel₀ (by positivity)
+        · rw [if_neg hma]
+          have h0 : ∑ r₁ : randSet → Bool, ∑ r₂ : randSet → Bool,
+              (if arikanTransform n (wiretapWord infoSet randSet assistSet uF m₁ r₁ a₁) =
+                  arikanTransform n (wiretapWord infoSet randSet assistSet uF m₂ r₂ a₂) then
+                phaseSign v r₁ * phaseSign v r₂
+              else 0) = 0 := by
+            apply Finset.sum_eq_zero; intro r₁ _
+            apply Finset.sum_eq_zero; intro r₂ _
+            rw [if_neg]; intro heq
+            obtain ⟨hm, _, ha⟩ := hinj m₁ m₂ r₁ r₂ a₁ a₂ heq
+            exact hma (Prod.ext hm ha)
+          rw [h0, mul_zero]
+
+noncomputable def cssPolarEncoder (n : ℕ)
+    (infoSet randSet assistSet : Finset (Fin (2 ^ n)))
+    (hdisj_ir : Disjoint infoSet randSet)
+    (hdisj_ia : Disjoint infoSet assistSet)
+    (hdisj_ra : Disjoint randSet assistSet)
+    (uF : Fin (2 ^ n) → Bool) (v : randSet → Bool) :
+    CPTPMap ((infoSet → Bool) × (assistSet → Bool)) (Fin (2 ^ n) → Bool) where
+  env := Unit
+  fintypeEnv := inferInstance
+  decEqEnv := inferInstance
+  isom := Matrix.of fun p q ↦ cssPolarEncoderIsom n infoSet randSet assistSet uF v p.1 q
+  isom_eq := by
+    have h := cssPolarEncoderIsom_isometry n infoSet randSet assistSet hdisj_ir hdisj_ia hdisj_ra uF v
+    ext q₁ q₂
+    have hq := congr_fun (congr_fun h q₁) q₂
+    simpa [Matrix.mul_apply, Matrix.conjTranspose_apply, Fintype.sum_prod_type] using hq
+
+noncomputable def entanglementChannelOutput {d : Type} [Fintype d] [DecidableEq d]
+    (𝒩 : CPTPMap Bool d) (n : ℕ)
+    (infoSet assistSet : Finset (Fin (2 ^ n)))
+    (ℰ : CPTPMap ((infoSet → Bool) × (assistSet → Bool)) (Fin (2 ^ n) → Bool))
+    (𝒟 : CPTPMap ((Fin (2 ^ n) → d) × (assistSet → Bool)) (infoSet → Bool)) :
+    DensityOp ((infoSet → Bool) × (infoSet → Bool)) :=
+  let initVec : (infoSet → Bool) × (((infoSet → Bool) × (assistSet → Bool)) × (assistSet → Bool)) → ℂ :=
+    fun p ↦ maxEntangledVec (infoSet → Bool) (p.1, p.2.1.1) *
+            maxEntangledVec (assistSet → Bool) (p.2.1.2, p.2.2)
+  have hinit : ∑ p, ‖initVec p‖ ^ 2 = 1 := by
+    simp only [initVec, norm_mul, mul_pow, Fintype.sum_prod_type]
+    have h1 : ∀ m₁ m₂ : infoSet → Bool,
+        ∑ a₁ : assistSet → Bool, ∑ a₂ : assistSet → Bool,
+          ‖maxEntangledVec (infoSet → Bool) (m₁, m₂)‖ ^ 2 *
+          ‖maxEntangledVec (assistSet → Bool) (a₁, a₂)‖ ^ 2 =
+        ‖maxEntangledVec (infoSet → Bool) (m₁, m₂)‖ ^ 2 := by
+      intro m₁ m₂
+      simp_rw [← Finset.mul_sum]
+      rw [← Fintype.sum_prod_type (f := fun p ↦ ‖maxEntangledVec (assistSet → Bool) p‖ ^ 2),
+        maxEntangledVec_norm (assistSet → Bool), mul_one]
+    simp_rw [h1]
+    rw [← Fintype.sum_prod_type (f := fun p ↦ ‖maxEntangledVec (infoSet → Bool) p‖ ^ 2)]
+    exact maxEntangledVec_norm (infoSet → Bool)
+  let initState := pureState initVec hinit
+  let aliceToBob : CPTPMap (((infoSet → Bool) × (assistSet → Bool)) × (assistSet → Bool))
+      ((Fin (2 ^ n) → d) × (assistSet → Bool)) :=
+    ((𝒩.tensorPow n).seqComp ℰ).tensor (CPTPMap.id (assistSet → Bool))
+  let fullBob : CPTPMap (((infoSet → Bool) × (assistSet → Bool)) × (assistSet → Bool))
+      (infoSet → Bool) :=
+    𝒟.seqComp aliceToBob
+  (CPTPMap.tensorIdLeft (infoSet → Bool) fullBob).apply initState
+
+noncomputable def quantumEntanglementError {d : Type} [Fintype d] [DecidableEq d]
+    (𝒩 : CPTPMap Bool d) (n : ℕ)
+    (infoSet assistSet : Finset (Fin (2 ^ n)))
+    (ℰ : CPTPMap ((infoSet → Bool) × (assistSet → Bool)) (Fin (2 ^ n) → Bool))
+    (𝒟 : CPTPMap ((Fin (2 ^ n) → d) × (assistSet → Bool)) (infoSet → Bool)) : ℝ :=
+  traceDist (entanglementChannelOutput 𝒩 n infoSet assistSet ℰ 𝒟)
+    (maxEntangledState (infoSet → Bool))
+
+structure OperationalQuantumPolarCode {d : Type} [Fintype d] [DecidableEq d]
+    (𝒩 : CPTPMap Bool d) (n : ℕ) where
+  infoSet : Finset (Fin (2 ^ n))
+  randSet : Finset (Fin (2 ^ n))
+  assistSet : Finset (Fin (2 ^ n))
+  disj_ir : Disjoint infoSet randSet
+  disj_ia : Disjoint infoSet assistSet
+  disj_ra : Disjoint randSet assistSet
+  publicFrozen : Fin (2 ^ n) → Bool
+  phaseChoice : randSet → Bool
+  decoder : CPTPMap ((Fin (2 ^ n) → d) × (assistSet → Bool)) (infoSet → Bool)
+
+noncomputable def OperationalQuantumPolarCode.encoder {d : Type} [Fintype d] [DecidableEq d]
+    {𝒩 : CPTPMap Bool d} {n : ℕ} (C : OperationalQuantumPolarCode 𝒩 n) :
+    CPTPMap ((C.infoSet → Bool) × (C.assistSet → Bool)) (Fin (2 ^ n) → Bool) :=
+  cssPolarEncoder n C.infoSet C.randSet C.assistSet C.disj_ir C.disj_ia C.disj_ra
+    C.publicFrozen C.phaseChoice
+
+noncomputable def OperationalQuantumPolarCode.entanglementError {d : Type} [Fintype d] [DecidableEq d]
+    {𝒩 : CPTPMap Bool d} {n : ℕ} (C : OperationalQuantumPolarCode 𝒩 n) : ℝ :=
+  quantumEntanglementError 𝒩 n C.infoSet C.assistSet C.encoder C.decoder
+
+noncomputable def OperationalQuantumPolarCode.rate {d : Type} [Fintype d] [DecidableEq d]
+    {𝒩 : CPTPMap Bool d} {n : ℕ} (C : OperationalQuantumPolarCode 𝒩 n) : ℝ :=
+  (C.infoSet.card : ℝ) / ((2 : ℝ) ^ n)
+
+noncomputable def OperationalQuantumPolarCode.assistanceRate {d : Type} [Fintype d] [DecidableEq d]
+    {𝒩 : CPTPMap Bool d} {n : ℕ} (C : OperationalQuantumPolarCode 𝒩 n) : ℝ :=
+  (C.assistSet.card : ℝ) / ((2 : ℝ) ^ n)
 
 end PolarCodesChallenge
