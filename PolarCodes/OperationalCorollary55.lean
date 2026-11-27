@@ -101,7 +101,7 @@ private lemma operational_exponent_bounds {n : ℕ} (hn : 1 ≤ n) :
     have hfin : 2 * Real.sqrt (2 * (2 * Real.sqrt (N * thresh) + N * thresh)) ≤
         (2 : ℝ) ^ (2 - 10 * N ^ (49 / 100 : ℝ)) := by
       calc 2 * Real.sqrt (2 * (2 * Real.sqrt (N * thresh) + N * thresh))
-          ≤ (2 : ℝ) ^ (1 : ℝ) * (2 : ℝ) ^ (1 - 10 * N ^ (49 / 100 : ℝ)) := by norm_num; linarith
+          ≤ (2 : ℝ) ^ (1 : ℝ) * (2 : ℝ) ^ (1 - 10 * N ^ (49 / 100 : ℝ)) := by rw [Real.rpow_one]; linarith
         _ = (2 : ℝ) ^ (2 - 10 * N ^ (49 / 100 : ℝ)) := by
             rw [← Real.rpow_add (by norm_num : (0 : ℝ) < 2)]; congr 1; ring
     refine le_trans hfin ?_
