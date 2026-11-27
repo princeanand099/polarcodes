@@ -452,6 +452,9 @@ private lemma quantumEntanglementError_eq {d : Type} [Fintype d] [DecidableEq d]
   change ∑ k : L.env, (L.isom * initMat * L.isom.conjTranspose) (i, k) (j, k) =
     ∑ k : R.env, (R.isom * initMat * R.isom.conjTranspose) (i, k) (j, k)
   rw [hisom_eq]
+  apply Finset.sum_congr
+  · ext k; simp
+  · intro _ _; rfl
 
 theorem theorem_1_1_quantum_polar_poly_blocklength :
     ∃ (μ C₀ : ℝ), 0 < μ ∧ 0 < C₀ ∧
