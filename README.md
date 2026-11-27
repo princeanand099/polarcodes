@@ -2,11 +2,16 @@
 
 Prince Anand · November 2026
 
-Classical-quantum polar codes with Arıkan's binary transform and Wilde–Guha's quantum successive-cancellation decoder approach the symmetric Holevo capacity of any binary-input memoryless classical-quantum channel within gap $\varepsilon$ at polynomial blocklength $N = O(\varepsilon^{-\mu})$ ($\mu \le 42$), with block error probability $O(2^{-N^{0.49}})$. The proof establishes a nonlinear strong data processing inequality for quantum dephasing channels via a hockey-stick integral representation of quantum relative entropy, yielding a quantum Mrs. Gerber's Lemma and uniform linear polarization splitting. Applying the bound simultaneously to amplitude and phase channels yields polynomial-blocklength polar codes for private classical communication and entanglement-assisted quantum communication, with vanishing pre-shared assistance for degradable channels.
+Classical-quantum polar codes with Arıkan's binary transform and Wilde–Guha's quantum successive-cancellation decoder approach the symmetric Holevo capacity of any binary-input memoryless classical-quantum channel within gap $\varepsilon$ at polynomial blocklength $N = O(\varepsilon^{-\mu})$ for a universal constant $\mu \in (0, \infty)$ (with $\mu \approx 1.39 \times 10^6$ for the proof parameters in Section 6), with average block-error probability at most $2^{-N^{0.49}}$. The proof establishes a nonlinear strong data processing inequality for quantum dephasing channels via a hockey-stick integral representation of quantum relative entropy, yielding a quantum Mrs. Gerber's Lemma and uniform linear polarization splitting. Applying the bound simultaneously to amplitude and phase channels yields polynomial-blocklength polar codes for private classical communication and entanglement-assisted quantum communication, with vanishing pre-shared assistance for degradable channels.
+
+## Manuscript
+
+- **PDF**: [`Quantumpolarcodespolynomialblocklength.pdf`](Quantumpolarcodespolynomialblocklength.pdf)
+- **LaTeX source**: [`quantumpolarcodespolynomialblocklength.tex`](quantumpolarcodespolynomialblocklength.tex)
 
 ## Lean formalization
 
-The Lean 4 development (pinned to `v4.35.0` in `lean-toolchain`, with Mathlib4 and `leanprover/comparator` pinned in `lakefile.toml` and `lake-manifest.json`) formalizes Theorems 1.1, 1.2(a)–(b), and 1.3, Proposition 2.2, Sections 2–4, and Corollary 5.5, including the operational wiretap secrecy and coherent CSS quantum polar coding constructions.
+The Lean 4 development (pinned to `v4.35.0` in `lean-toolchain`, with Mathlib4 and `leanprover/comparator` pinned in `lakefile.toml`) formalizes Theorems 1.1, 1.2(a)–(b), and 1.3, Proposition 2.2, Sections 2–4, and Corollary 5.5, including the operational wiretap secrecy and coherent CSS quantum polar coding constructions.
 
 | Manuscript Result | Lean Declaration | Module |
 | :--- | :--- | :--- |
@@ -45,10 +50,10 @@ lake comparator
 
 ## Repository Documentation
 
-- `PROOF-PATH.md`: Module dependency structure and proof architecture.
-- `PROGRESS.md`: Module inventory (41 library modules).
-- `EXTERNAL-AXIOMS.md`: Axiom dependency record.
-- `ATTRIBUTION.md` and `CITATION.cff`: References and citation metadata.
+- [`PROOF-PATH.md`](PROOF-PATH.md): Module dependency structure and proof architecture.
+- [`PROGRESS.md`](PROGRESS.md): Module inventory (41 library modules).
+- [`EXTERNAL-AXIOMS.md`](EXTERNAL-AXIOMS.md): Axiom dependency record.
+- [`ATTRIBUTION.md`](ATTRIBUTION.md) and [`CITATION.cff`](CITATION.cff): References and citation metadata.
 
 ## Citation
 

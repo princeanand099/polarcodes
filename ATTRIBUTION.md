@@ -2,7 +2,7 @@
 
 ## Manuscript
 
-Prince Anand, *Polynomial-Blocklength Quantum Polar Codes via Nonlinear Dephasing Contraction* (November 2026).
+Prince Anand, *Polynomial-Blocklength Quantum Polar Codes via Nonlinear Dephasing Contraction* (November 2026): [`Quantumpolarcodespolynomialblocklength.pdf`](Quantumpolarcodespolynomialblocklength.pdf) | [`quantumpolarcodespolynomialblocklength.tex`](quantumpolarcodespolynomialblocklength.tex).
 
 ## Lean 4 Formalization
 

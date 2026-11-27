@@ -34,7 +34,7 @@
 | `PolarCodes.MainTheorem` | `theorem_1_1_quantum_polar_poly_blocklength`, `corollary_5_5_simultaneous_css_polarization` |
 | `PolarCodes.Refinements` | `lemma_3_2_hockeyStick_measure_equalSupport`, `prop_3_3_qjjs_classical_equality`, `theorem_1_3_dephasing_sdpi_relEntropy`, `theorem_1_3_equatorial_equality_relEntropy` |
 | `PolarCodes.ArikanTransform` | `arikanTransform`, `synthChannel`, `productState` |
-| `PolarCodes.PhiAndFuchs` | Lemma 3.1 `phi` regularity/convexity, Fuchs–van de Graaf (Eq. 2.3), `hockeyStick_isGreatest`, `hockeyStick_eq_sSup`, `vonNeumannEntropy_mem_Icc` |
+| `PolarCodes.PhiAndFuchs` | Lemma 3.1 `phi` regularity/convexity, Fuchs–van de Graaf (Section 2.1), `hockeyStick_isGreatest`, `hockeyStick_eq_sSup`, `vonNeumannEntropy_mem_Icc` |
 | `PolarCodes.RankDeficientFrenkel` | `relEntropy_frenkel_integral_of_suppSubset`, `relEntropy_hockeyStick_integral_of_suppSubset` |
 | `PolarCodes.DivergenceCharacterizations` | `relEntropy_eq_zero_iff`, `qjs_mem_Icc`, `qjs_eq_zero_iff`, `qjs_eq_one_iff`, `qjs_eq_avg_relEntropy`, `rootFidelity_block_diagonal`, `lemma_4_1_gram_dephasing_relEntropy` |
 | `PolarCodes.PolarCoding` | `qscPolarCode`, `wilde_guha_qsc_bound`, `wilde_guha_qsc_avg_bound`, `theorem_1_1_coding_poly_blocklength` |
