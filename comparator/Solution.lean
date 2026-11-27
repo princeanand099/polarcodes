@@ -329,7 +329,7 @@ private lemma wiretapBobError_eq {d : Type} [Fintype d] [DecidableEq d]
         (infoSet ∪ randSet) (PolarCodes.bobEffectiveFrozen assistSet uF k)).povm m =
       (PolarCodes.qscPrefixKraus (PolarCodes.ampChannel (toPolarCPTPMap 𝒩)) n (infoSet ∪ randSet)
         (2 ^ n) le_rfl
-        (PolarCodes.embedMsg (infoSet ∪ randSet) (PolarCodes.bobEffectiveFrozen assistSet uF k) m))ᴴ *
+        (PolarCodes.embedMsg (infoSet ∪ randSet) (PolarCodes.bobEffectiveFrozen assistSet uF k) m)).conjTranspose *
       PolarCodes.qscPrefixKraus (PolarCodes.ampChannel (toPolarCPTPMap 𝒩)) n (infoSet ∪ randSet)
         (2 ^ n) le_rfl
         (PolarCodes.embedMsg (infoSet ∪ randSet) (PolarCodes.bobEffectiveFrozen assistSet uF k) m) :=
@@ -368,14 +368,16 @@ private lemma wiretapSecrecyError_eq {d : Type} [Fintype d] [DecidableEq d]
   · ext ⟨m₁, r₁⟩ ⟨m₂, r₂⟩
     simp only [wiretapEveJointState, PolarCodes.wiretapEveJointState,
       wiretapEveCondState, PolarCodes.wiretapEveCondState,
-      uniformBlockDiag, PolarCodes.uniformBlockDiag, Matrix.of_apply]
+      uniformBlockDiag, PolarCodes.uniformBlockDiag]
+    simp only [Matrix.of_apply]
     split_ifs
     · exact congrArg (((Fintype.card (infoSet → Bool) : ℂ)⁻¹) * ·)
         (congr_fun (congr_fun (fixedSubsetAvgState_mat hcomp n _ _) r₁) r₂)
     · rfl
   · ext ⟨m₁, r₁⟩ ⟨m₂, r₂⟩
     simp only [wiretapIdealEveState, PolarCodes.wiretapIdealEveState,
-      uniformBlockDiag, PolarCodes.uniformBlockDiag, Matrix.of_apply]
+      uniformBlockDiag, PolarCodes.uniformBlockDiag]
+    simp only [Matrix.of_apply]
     split_ifs
     · exact congrArg (((Fintype.card (infoSet → Bool) : ℂ)⁻¹) * ·)
         (congr_fun (congr_fun (fixedSubsetAvgState_mat hcomp n _ _) r₁) r₂)
@@ -414,30 +416,43 @@ private lemma quantumEntanglementError_eq {d : Type} [Fintype d] [DecidableEq d]
     ext p q
     simp only [cssPolarEncoder, PolarCodes.cssPolarEncoder, Matrix.of_apply]
     exact congr_fun (congr_fun (cssPolarEncoderIsom_eq n infoSet randSet assistSet uF v) p.1) q
-  have hisom_eq :
-      (CPTPMap.tensorIdLeft (infoSet → Bool)
-        ((fromPolarCPTPMap 𝒟).seqComp
-          (((𝒩.tensorPow n).seqComp
-            (cssPolarEncoder n infoSet randSet assistSet hdisj_ir hdisj_ia hdisj_ra uF v)).tensor
-            (CPTPMap.id (assistSet → Bool))))).isom =
-      (PolarCodes.CPTPMap.tensorIdLeft (infoSet → Bool)
-        (𝒟.seqComp
-          ((((toPolarCPTPMap 𝒩).tensorPow n).seqComp
-            (PolarCodes.cssPolarEncoder n infoSet randSet assistSet hdisj_ir hdisj_ia hdisj_ra uF v)).tensor
-            (PolarCodes.CPTPMap.id (assistSet → Bool))))).isom := by
+  set L := CPTPMap.tensorIdLeft (infoSet → Bool)
+    ((fromPolarCPTPMap 𝒟).seqComp
+      (((𝒩.tensorPow n).seqComp
+        (cssPolarEncoder n infoSet randSet assistSet hdisj_ir hdisj_ia hdisj_ra uF v)).tensor
+        (CPTPMap.id (assistSet → Bool))))
+  set R := PolarCodes.CPTPMap.tensorIdLeft (infoSet → Bool)
+    (𝒟.seqComp
+      ((((toPolarCPTPMap 𝒩).tensorPow n).seqComp
+        (PolarCodes.cssPolarEncoder n infoSet randSet assistSet hdisj_ir hdisj_ia hdisj_ra uF v)).tensor
+        (PolarCodes.CPTPMap.id (assistSet → Bool))))
+  have hisom_eq : L.isom = R.isom := by
     ext p q
-    simp only [CPTPMap.tensorIdLeft, PolarCodes.CPTPMap.tensorIdLeft,
+    simp only [L, R, CPTPMap.tensorIdLeft, PolarCodes.CPTPMap.tensorIdLeft,
       CPTPMap.seqComp, PolarCodes.CPTPMap.seqComp,
       CPTPMap.tensor, PolarCodes.CPTPMap.tensor,
       CPTPMap.tensorPow, PolarCodes.CPTPMap.tensorPow,
       CPTPMap.id, PolarCodes.CPTPMap.id,
       fromPolarCPTPMap, toPolarCPTPMap, Matrix.of_apply, henc_isom]
-  unfold entanglementChannelOutput PolarCodes.entanglementChannelOutput
-  dsimp only
-  unfold CPTPMap.apply PolarCodes.CPTPMap.apply partialTrace₂Mat PolarCodes.partialTrace₂Mat
-  dsimp only
+    rfl
+  ext i j
+  change ∑ k : L.env,
+      (L.isom *
+        (Matrix.of fun p q ↦
+          (maxEntangledVec (infoSet → Bool) (p.1, p.2.1.1) *
+            maxEntangledVec (assistSet → Bool) (p.2.1.2, p.2.2)) *
+          star (maxEntangledVec (infoSet → Bool) (q.1, q.2.1.1) *
+            maxEntangledVec (assistSet → Bool) (q.2.1.2, q.2.2))) *
+        L.isom.conjTranspose) (i, k) (j, k) =
+    ∑ k : R.env,
+      (R.isom *
+        (Matrix.of fun p q ↦
+          (maxEntangledVec (infoSet → Bool) (p.1, p.2.1.1) *
+            maxEntangledVec (assistSet → Bool) (p.2.1.2, p.2.2)) *
+          star (maxEntangledVec (infoSet → Bool) (q.1, q.2.1.1) *
+            maxEntangledVec (assistSet → Bool) (q.2.1.2, q.2.2))) *
+        R.isom.conjTranspose) (i, k) (j, k)
   rw [hisom_eq]
-  rfl
 
 theorem theorem_1_1_quantum_polar_poly_blocklength :
     ∃ (μ C₀ : ℝ), 0 < μ ∧ 0 < C₀ ∧
