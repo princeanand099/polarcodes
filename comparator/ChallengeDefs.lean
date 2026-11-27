@@ -448,7 +448,7 @@ lemma arikanTransform_injective : ∀ (n : ℕ), Function.Injective (arikanTrans
         funext k
         have hk := congr_fun h ⟨k.val + 2 ^ n, by omega⟩
         have hnot : ¬ (k.val + 2 ^ n < 2 ^ n) := by omega
-        have hsub : (⟨k.val + 2 ^ n - 2 ^ n, by omega⟩ : Fin (2 ^ n)) = k := Fin.ext (by omega)
+        have hsub : (⟨k.val + 2 ^ n - 2 ^ n, by omega⟩ : Fin (2 ^ n)) = k := Fin.ext (by dsimp; omega)
         simpa [arikanTransform, hnot, hsub] using hk
       have h1 := arikanTransform_injective n hev
       have h2 := arikanTransform_injective n hodd
@@ -457,12 +457,13 @@ lemma arikanTransform_injective : ∀ (n : ℕ), Function.Injective (arikanTrans
       · have he1 := congr_fun h1 ⟨i.val / 2, by omega⟩
         have ho1 := congr_fun h2 ⟨i.val / 2, by omega⟩
         simp only [arikanEven, arikanOdd] at he1 ho1
-        have hidx : (⟨2 * (i.val / 2), by omega⟩ : Fin (2 ^ (n + 1))) = i := Fin.ext (by omega)
+        have hidx : (⟨2 * (i.val / 2), by omega⟩ : Fin (2 ^ (n + 1))) = i := Fin.ext (by dsimp; omega)
         rw [hidx, ho1] at he1
-        cases u₁ i <;> cases u₂ i <;> cases u₂ ⟨2 * (i.val / 2) + 1, by omega⟩ <;> simp_all
+        have hxor : ∀ a b c : Bool, xor a c = xor b c → a = b := by decide
+        exact hxor _ _ _ he1
       · have ho1 := congr_fun h2 ⟨i.val / 2, by omega⟩
         simp only [arikanOdd] at ho1
-        have hidx : (⟨2 * (i.val / 2) + 1, by omega⟩ : Fin (2 ^ (n + 1))) = i := Fin.ext (by omega)
+        have hidx : (⟨2 * (i.val / 2) + 1, by omega⟩ : Fin (2 ^ (n + 1))) = i := Fin.ext (by dsimp; omega)
         rwa [hidx] at ho1
 
 lemma arikanTransform_bijective (n : ℕ) : Function.Bijective (arikanTransform n) :=
@@ -923,7 +924,7 @@ def bitPathFwd : (n : ℕ) → Fin (2 ^ n) → (Fin n → Bool)
   | n + 1, i => Fin.snoc (α := fun _ ↦ Bool) (bitPathFwd n ⟨i.val / 2, by omega⟩) (decide (i.val % 2 = 1))
 
 private lemma bitPathInv_fwd : ∀ (n : ℕ) (i : Fin (2 ^ n)), bitPathInv n (bitPathFwd n i) = i
-  | 0, i => Fin.ext (by omega)
+  | 0, i => Fin.ext (by dsimp; omega)
   | n + 1, i => by
     apply Fin.ext
     simp only [bitPathInv, bitPathFwd, Fin.init_snoc, Fin.snoc_last]
