@@ -366,18 +366,23 @@ private lemma wiretapSecrecyError_eq {d : Type} [Fintype d] [DecidableEq d]
       ((PolarCodes.ampChannel (toPolarCPTPMap 𝒩).complementary).out b).mat := fun _ ↦ rfl
   apply traceDist_eq
   · ext ⟨m₁, r₁⟩ ⟨m₂, r₂⟩
-    simp only [wiretapEveJointState, PolarCodes.wiretapEveJointState,
-      wiretapEveCondState, PolarCodes.wiretapEveCondState,
-      uniformBlockDiag, PolarCodes.uniformBlockDiag]
-    simp only [Matrix.of_apply]
+    change (if m₁ = m₂ then ((Fintype.card (infoSet → Bool) : ℂ)⁻¹) *
+        (fixedSubsetAvgState (ampChannel 𝒩.complementary) n (randSet ∪ assistSet)ᶜ
+          (fun i ↦ if h : i ∈ infoSet then m₁ ⟨i, h⟩ else uF i)).mat r₁ r₂ else 0) =
+      (if m₁ = m₂ then ((Fintype.card (infoSet → Bool) : ℂ)⁻¹) *
+        (PolarCodes.fixedSubsetAvgState (PolarCodes.ampChannel (toPolarCPTPMap 𝒩).complementary) n
+          (randSet ∪ assistSet)ᶜ
+          (fun i ↦ if h : i ∈ infoSet then m₁ ⟨i, h⟩ else uF i)).mat r₁ r₂ else 0)
     split_ifs
     · exact congrArg (((Fintype.card (infoSet → Bool) : ℂ)⁻¹) * ·)
         (congr_fun (congr_fun (fixedSubsetAvgState_mat hcomp n _ _) r₁) r₂)
     · rfl
   · ext ⟨m₁, r₁⟩ ⟨m₂, r₂⟩
-    simp only [wiretapIdealEveState, PolarCodes.wiretapIdealEveState,
-      uniformBlockDiag, PolarCodes.uniformBlockDiag]
-    simp only [Matrix.of_apply]
+    change (if m₁ = m₂ then ((Fintype.card (infoSet → Bool) : ℂ)⁻¹) *
+        (fixedSubsetAvgState (ampChannel 𝒩.complementary) n ∅ (fun _ ↦ false)).mat r₁ r₂ else 0) =
+      (if m₁ = m₂ then ((Fintype.card (infoSet → Bool) : ℂ)⁻¹) *
+        (PolarCodes.fixedSubsetAvgState (PolarCodes.ampChannel (toPolarCPTPMap 𝒩).complementary) n
+          ∅ (fun _ ↦ false)).mat r₁ r₂ else 0)
     split_ifs
     · exact congrArg (((Fintype.card (infoSet → Bool) : ℂ)⁻¹) * ·)
         (congr_fun (congr_fun (fixedSubsetAvgState_mat hcomp n _ _) r₁) r₂)
@@ -435,23 +440,17 @@ private lemma quantumEntanglementError_eq {d : Type} [Fintype d] [DecidableEq d]
       CPTPMap.id, PolarCodes.CPTPMap.id,
       fromPolarCPTPMap, toPolarCPTPMap, Matrix.of_apply, henc_isom]
     rfl
+  let initMat :
+      Matrix ((infoSet → Bool) × (((infoSet → Bool) × (assistSet → Bool)) × (assistSet → Bool)))
+        ((infoSet → Bool) × (((infoSet → Bool) × (assistSet → Bool)) × (assistSet → Bool))) ℂ :=
+    Matrix.of fun p q ↦
+      (maxEntangledVec (infoSet → Bool) (p.1, p.2.1.1) *
+        maxEntangledVec (assistSet → Bool) (p.2.1.2, p.2.2)) *
+      star (maxEntangledVec (infoSet → Bool) (q.1, q.2.1.1) *
+        maxEntangledVec (assistSet → Bool) (q.2.1.2, q.2.2))
   ext i j
-  change ∑ k : L.env,
-      (L.isom *
-        (Matrix.of fun p q ↦
-          (maxEntangledVec (infoSet → Bool) (p.1, p.2.1.1) *
-            maxEntangledVec (assistSet → Bool) (p.2.1.2, p.2.2)) *
-          star (maxEntangledVec (infoSet → Bool) (q.1, q.2.1.1) *
-            maxEntangledVec (assistSet → Bool) (q.2.1.2, q.2.2))) *
-        L.isom.conjTranspose) (i, k) (j, k) =
-    ∑ k : R.env,
-      (R.isom *
-        (Matrix.of fun p q ↦
-          (maxEntangledVec (infoSet → Bool) (p.1, p.2.1.1) *
-            maxEntangledVec (assistSet → Bool) (p.2.1.2, p.2.2)) *
-          star (maxEntangledVec (infoSet → Bool) (q.1, q.2.1.1) *
-            maxEntangledVec (assistSet → Bool) (q.2.1.2, q.2.2))) *
-        R.isom.conjTranspose) (i, k) (j, k)
+  change ∑ k : L.env, (L.isom * initMat * L.isom.conjTranspose) (i, k) (j, k) =
+    ∑ k : R.env, (R.isom * initMat * R.isom.conjTranspose) (i, k) (j, k)
   rw [hisom_eq]
 
 theorem theorem_1_1_quantum_polar_poly_blocklength :
