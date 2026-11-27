@@ -901,7 +901,7 @@ private lemma productState_comp_eq_tensorPow_partialTrace (𝒩 : CPTPMap.{0} Bo
       apply Finset.sum_congr rfl; intro y _
       simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, Matrix.of_apply]
       cases x i <;> simp [Fintype.sum_bool]
-    simpa [CPTPMap.complementary] using h
+    rw [h]; rfl
   exact hcomp
 
 set_option maxHeartbeats 2400000 in
