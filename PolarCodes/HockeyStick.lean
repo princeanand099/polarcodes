@@ -8,25 +8,18 @@ import Mathlib.MeasureTheory.Measure.Stieltjes
 import PolarCodes.DataProcessing
 
 /-!
-# Hockey-Stick Representation, Lemma 3.2, and QJJS Inequality (Proposition 3.3)
+# Hockey-Stick Integral Representation (Section 3.1)
 
-This module formalizes Section 3.1 and Proposition 3.3 of the manuscript:
-1. **Eq. (3.8)** (`relEntropy_hockeyStick_integral`):
-   `D(ρ ‖ σ) * log 2 = ∫_0^∞ (E_s(ρ ‖ σ) - (1 - s)_+) / s ds`
-   obtained from Frenkel's integral formula (`relEntropy_frenkel_integral`) by change of variables.
-2. **Convexity & Endpoint Behavior** of `s ↦ E_s(ρ ‖ σ)` (`hockeyStick_convexOn`,
-   `hockeyStick_bounds_posDef`).
-3. **Lemma 3.2** (`lemma_3_2_hockeyStick_measure`):
-   For `ρ, σ ≻ 0`, constructs the compactly supported Borel probability measure `μ` on `[a, b] ⊂ (0, ∞)`
-   via the Stieltjes function of the right derivative of `s ↦ E_s(ρ ‖ σ)`, establishing:
-   - `E_s(ρ ‖ σ) = ∫ max (t - s) 0 dμ(t)` for all `s ≥ 0`
-   - `∫ t dμ(t) = 1`
-   - **Eq. (3.4)**: `D(ρ ‖ σ) = ∫ (t log₂ t - (t - 1) / ln 2) dμ(t)`
-   - **Eq. (3.5)**: `D(σ ‖ ρ) = ∫ (-log₂ t + (t - 1) / ln 2) dμ(t)`
-   - **Eq. (3.6)**: `QJS(ρ, σ) = ∫ ((t/2) log₂(2t/(1+t)) + (1/2) log₂(2/(1+t))) dμ(t)`.
-4. **Proposition 3.3** (`prop_3_3_qjjs`):
-   `φ(QJS(ρ, σ)) ≤ ¼ (D(ρ ‖ σ) + D(σ ‖ ρ))` for all density operators `ρ, σ ∈ D(H)`,
-   with equality on symmetric classical binary pairs.
+This module proves Eq. (3.8) (`relEntropy_hockeyStick_integral`), together with convexity,
+endpoint bounds, and Stieltjes right-derivative foundations for `s ↦ E_s(ρ ‖ σ)` on full-rank
+density operators `ρ, σ ≻ 0`.
+
+Downstream Section 3 results are split across:
+- `PolarCodes.HockeyStickMeasure`: Lemma 3.2 (`lemma_3_2_hockeyStick_measure`) for full-rank states.
+- `PolarCodes.QJJS`: Proposition 3.3 (`prop_3_3_qjjs`).
+- `PolarCodes.Refinements`: equal-support Lemma 3.2 (`lemma_3_2_hockeyStick_measure_equalSupport`)
+  and classical equality in Proposition 3.3 (`prop_3_3_qjjs_classical_equality`).
+- `PolarCodes.RankDeficientFrenkel`: Eq. (3.7) and Eq. (3.8) under `suppSubset ρ σ`.
 -/
 
 open Matrix BigOperators Real Set Filter Topology MeasureTheory
