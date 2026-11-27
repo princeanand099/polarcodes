@@ -11,7 +11,7 @@ import PolarCodes.CoherentQuantumPolarCoding
 This module combines `PrivatePolarCoding.lean` and `CoherentQuantumPolarCoding.lean` with the
 polynomial-blocklength polarization theorem (`theorem_1_1_quantum_polar_poly_blocklength`) and the
 degradable assistance-set containment (`degradable_assistance_subset_unpolarized`) to prove
-`corollary_5_5_operational_quantum_private_polar_coding` unconditionally on top of Mathlib.
+`corollary_5_5_operational_quantum_private_polar_coding`.
 -/
 
 open Matrix BigOperators Real Finset

@@ -6,13 +6,14 @@ Authors: Prince Anand
 import PolarCodes.HockeyStick
 
 /-!
-# Simultaneous Hockey-Stick Representation (Lemma 3.2) and QJJS Inequality (Proposition 3.3)
+# Simultaneous Hockey-Stick Representation (Lemma 3.2)
 
-This module proves:
-- **Lemma 3.2** (`lemma_3_2_hockeyStick_measure`): Simultaneous probability measure representation
-  of `D(ρ ‖ σ)`, `D(σ ‖ ρ)`, and `QJS(ρ, σ)` for full-rank density operators `ρ, σ ≻ 0`.
-- **Proposition 3.3** (`prop_3_3_qjjs_posDef`, `prop_3_3_qjjs`): Quantum Jeffreys–Jensen–Shannon
-  inequality `φ(QJS(ρ, σ)) ≤ ¼ (D(ρ ‖ σ) + D(σ ‖ ρ))` for all finite-dimensional density operators.
+This module proves Lemma 3.2 (`lemma_3_2_hockeyStick_measure`): the simultaneous Borel probability
+measure representation of `E_s(ρ ‖ σ)`, `D(ρ ‖ σ)`, `D(σ ‖ ρ)`, and `QJS(ρ, σ)` for full-rank
+density operators `ρ, σ ≻ 0`.
+
+Proposition 3.3 (`prop_3_3_qjjs`) is proved in `PolarCodes.QJJS`, and the equal-support extension
+(`lemma_3_2_hockeyStick_measure_equalSupport`) is proved in `PolarCodes.Refinements`.
 -/
 
 open Matrix BigOperators Real MeasureTheory Set Filter
