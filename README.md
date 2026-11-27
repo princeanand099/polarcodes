@@ -1,10 +1,12 @@
-# PolarCodes
+# Polynomial-Blocklength Quantum Polar Codes via Nonlinear Dephasing Contraction
 
-Lean 4 formalization of *Polynomial-Blocklength Quantum Polar Codes via Nonlinear Dephasing Contraction* (Prince Anand, 2026).
+Prince Anand · November 2026
 
-Lean is pinned to `v4.35.0` (see `lean-toolchain`) with Mathlib4 and `leanprover/comparator` pinned in `lakefile.toml` and `lake-manifest.json`.
+Classical-quantum polar codes with Arıkan's binary transform and Wilde–Guha's quantum successive-cancellation decoder approach the symmetric Holevo capacity of any binary-input memoryless classical-quantum channel within gap $\varepsilon$ at polynomial blocklength $N = O(\varepsilon^{-\mu})$ ($\mu \le 42$), with block error probability $O(2^{-N^{0.49}})$. The proof establishes a nonlinear strong data processing inequality for quantum dephasing channels via a hockey-stick integral representation of quantum relative entropy, yielding a quantum Mrs. Gerber's Lemma and uniform linear polarization splitting. Applying the bound simultaneously to amplitude and phase channels yields polynomial-blocklength polar codes for private classical communication and entanglement-assisted quantum communication, with vanishing pre-shared assistance for degradable channels.
 
-## Main Results
+## Lean formalization
+
+The Lean 4 development (pinned to `v4.35.0` in `lean-toolchain`, with Mathlib4 and `leanprover/comparator` pinned in `lakefile.toml` and `lake-manifest.json`) formalizes Theorems 1.1, 1.2(a)–(b), and 1.3, Proposition 2.2, Sections 2–4, and Corollary 5.5, including the operational wiretap secrecy and coherent CSS quantum polar coding constructions.
 
 | Manuscript Result | Lean Declaration | Module |
 | :--- | :--- | :--- |
@@ -37,10 +39,9 @@ lake build PolarCodes Solution
 ```bash
 lake env lean PolarCodes/AuditAxioms.lean
 lake comparator
-rg -n '\b(sorry|sorryAx|admit|axiom|native_decide|unsafe|unsafeCast|implemented_by|extern|partial|skipKernelTC|local instance)\b' PolarCodes.lean PolarCodes/ comparator/ChallengeDefs.lean comparator/Solution.lean
 ```
 
-`PolarCodes/AuditAxioms.lean` lists only `propext`, `Classical.choice`, and `Quot.sound` across all 48 audited theorems; `lake comparator` checks the standalone challenge statements in `comparator/Challenge.lean` against `comparator/Solution.lean`.
+`PolarCodes/AuditAxioms.lean` checks axiom dependencies across 48 declarations (`propext`, `Classical.choice`, `Quot.sound`); `lake comparator` checks the 14 standalone challenge statements in `comparator/Challenge.lean` against `comparator/Solution.lean`.
 
 ## Repository Documentation
 
@@ -48,3 +49,15 @@ rg -n '\b(sorry|sorryAx|admit|axiom|native_decide|unsafe|unsafeCast|implemented_
 - `PROGRESS.md`: Module inventory (41 library modules).
 - `EXTERNAL-AXIOMS.md`: Axiom dependency record.
 - `ATTRIBUTION.md` and `CITATION.cff`: References and citation metadata.
+
+## Citation
+
+```bibtex
+@misc{Anand2026PolarCodes,
+  author       = {Prince Anand},
+  title        = {{Polynomial-Blocklength Quantum Polar Codes via Nonlinear Dephasing Contraction}},
+  howpublished = {\url{https://github.com/princeanand099/polarcodes}},
+  month        = {November},
+  year         = {2026}
+}
+```
