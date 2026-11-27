@@ -21,6 +21,7 @@ namespace PolarCodes.SanityChecks
 private lemma exists_two_pow_ge (B : ℝ) : ∃ n : ℕ, B ≤ (2 : ℝ) ^ n := by
   obtain ⟨n, hn⟩ := exists_nat_gt B
   refine ⟨n, le_trans (le_of_lt hn) ?_⟩
+  clear hn
   induction n with
   | zero => norm_num
   | succ k ih =>
@@ -36,7 +37,8 @@ lemma bsc_quarter_symCapacity_pos :
   have hlt : h2 (1 / 4 : ℝ) < h2 (1 / 2 : ℝ) :=
     strictMonoOn_h2 ⟨by norm_num, by norm_num⟩ ⟨by norm_num, by norm_num⟩ (by norm_num)
   rw [h2_half] at hlt
-  unfold CQChannel.symCapacity CQChannel.condEntropy at hc ⊢
+  unfold CQChannel.symCapacity
+  unfold CQChannel.condEntropy at hc
   linarith
 
 /-- Non-vacuity check for `theorem_1_1_coding_poly_blocklength` on `BSC(1/4)` at `ε = 1 / 10`. -/
@@ -62,7 +64,7 @@ example {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap.{0} Bool d) :
   rcases corollary_5_5_quantum_private_polar_coding with ⟨μ, C₀, hμ, hC₀, h⟩
   obtain ⟨n, hn⟩ := exists_two_pow_ge (C₀ * (1 / (1 / 2 : ℝ)) ^ μ)
   obtain ⟨C, hr, _, _, hsum, _, _, _⟩ := h 𝒩 (by norm_num : (0 : ℝ) < 1 / 2) (by norm_num) n hn
-  exact ⟨n, C, hr, hsum⟩
+  exact ⟨n, C, by linarith, hsum⟩
 
 /-- Non-vacuity check for `corollary_5_5_operational_quantum_private_polar_coding`. -/
 example {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap.{0} Bool d) :
@@ -76,6 +78,6 @@ example {d : Type} [Fintype d] [DecidableEq d] (𝒩 : CPTPMap.{0} Bool d) :
   obtain ⟨n, hn⟩ := exists_two_pow_ge (C₀ * (1 / (1 / 2 : ℝ)) ^ μ)
   obtain ⟨C_priv, C_quant, _, _, hr, _, hbob, hsec, hent, _⟩ :=
     h 𝒩 (by norm_num : (0 : ℝ) < 1 / 2) (by norm_num) n hn
-  exact ⟨n, C_priv, C_quant, hr, hbob, hsec, hent⟩
+  exact ⟨n, C_priv, C_quant, by linarith, hbob, hsec, hent⟩
 
 end PolarCodes.SanityChecks
