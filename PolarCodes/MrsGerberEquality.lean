@@ -90,7 +90,7 @@ theorem theorem_1_2a_bsc_equality {p₁ p₂ : ℝ}
         W₁, W₂, bscChannel, Matrix.add_apply, Matrix.smul_apply, Matrix.kroneckerMap_apply,
         Matrix.diagonal_apply, Function.comp_apply, Complex.real_smul]
       cases a₁ <;> cases a₂ <;> cases b₁ <;> cases b₂ <;> simp <;> push_cast <;> ring)]
-    rw [Fintype.sum_prod_type, Fintype.sum_bool, Fintype.sum_bool, Fintype.sum_bool]
+    rw [Fintype.sum_prod_type, Fintype.sum_bool, Fintype.sum_bool]
     unfold Real.negMulLog
     have hlog4 : Real.log (1 / 4 : ℝ) = -(2 * Real.log 2) := by
       rw [one_div, Real.log_inv, show (4 : ℝ) = 2 ^ (2 : ℕ) by norm_num, Real.log_pow]
@@ -169,7 +169,7 @@ theorem theorem_1_2a_pure_equality {f₁ f₂ : ℝ}
       rw [vonNeumannEntropy_eq_of_mat_eq hm, vonNeumannEntropy_eq_of_mat_eq h0,
         vonNeumannEntropy_eq_of_mat_eq h1]
     rw [hq, qjs_pureState]
-    congr 3
+    congr 4
     rw [Fintype.sum_prod_type, Finset.sum_mul]
     apply Finset.sum_congr rfl; intro i _
     rw [Finset.mul_sum]
