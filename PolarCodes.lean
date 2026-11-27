@@ -23,6 +23,7 @@ import PolarCodes.HockeyStickMeasure
 import PolarCodes.MainTheorem
 import PolarCodes.MrsGerber
 import PolarCodes.MrsGerberClassical
+import PolarCodes.MrsGerberEquality
 import PolarCodes.MrsGerberHybrid
 import PolarCodes.NoncommutativeUnion
 import PolarCodes.OperationalCorollary55
@@ -47,7 +48,7 @@ import PolarCodes.SplittingBounds
 /-!
 # Polynomial-Blocklength Quantum Polar Codes
 
-Root library module importing the complete Lean 4 formalization of
+Root library module importing the Lean 4 formalization of
 *Polynomial-Blocklength Quantum Polar Codes via Nonlinear Dephasing Contraction*
 (Prince Anand, 2026).
 -/

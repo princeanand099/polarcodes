@@ -13,10 +13,11 @@ import PolarCodes.ScalarSupplements
 This module proves:
 1. Standalone analytic properties of `phi` on `[0, 1)` (`hasDerivAt_phi_cParam`,
    `continuousOn_phi`, `strictMonoOn_phi`, `strictConvexOn_phi`).
-2. **Fuchs–van de Graaf inequalities (Eq. 2.3)** (`one_sub_rootFidelity_le_traceDist`,
+2. Fuchs–van de Graaf inequalities (Eq. 2.3) (`one_sub_rootFidelity_le_traceDist`,
    `traceDist_le_sqrt_one_sub_rootFidelity_sq`).
-3. Orthogonality `posPartMat hA * negPartMat hA = 0` and **Hockey-stick variational equality
-   (Eq. 2.2)** (`posPartTrace_eq_sSup`, `hockeyStick_eq_sSup`).
+3. Orthogonality `posPartMat hA * negPartMat hA = 0`, hockey-stick variational attainment and
+   equality (Eq. 2.2) (`posPartTrace_isGreatest`, `posPartTrace_eq_sSup`,
+   `hockeyStick_isGreatest`, `hockeyStick_eq_sSup`), and `vonNeumannEntropy_mem_Icc`.
 -/
 
 open Matrix BigOperators Real Set Filter Polynomial
@@ -137,8 +138,8 @@ theorem hasDerivAt_phi_cParam {x : ℝ} (hx0 : 0 < x) (hx1 : x < 1) :
     rw [hinv_at]; exact hasDerivAt_phiParam_aux hx0 hx1
   have hcomp_phi : HasDerivAt (fun c : ℝ ↦ phiParam (1 - 2 * h2Inv (1 - c)))
       (((Real.logb 2 ((1 + x) / (1 - x)) + 2 * x / ((1 - x ^ 2) * Real.log 2)) / 2) *
-        (Real.logb 2 ((1 + x) / (1 - x)) / 2)⁻¹) (cParam x) := by
-    simpa [Function.comp_def] using hd_phiP.comp (cParam x) hd_inv
+        (Real.logb 2 ((1 + x) / (1 - x)) / 2)⁻¹) (cParam x) :=
+    by simpa [Function.comp_def] using hd_phiP.comp (cParam x) hd_inv
   rw [phiDerivParam_eq_ratio hx0 hx1, div_eq_mul_inv]
   exact hcomp_phi
 
@@ -670,12 +671,11 @@ lemma posPartMat_mul_negPartMat {A : Matrix d d ℂ} (hA : A.IsHermitian) :
           rw [hU, Matrix.one_mul]
     _ = 0 := by rw [hD, Matrix.mul_zero, Matrix.zero_mul]
 
-/-- Variational equality for the positive spectral trace part:
-`Tr(A_+) = sup { Re Tr(Λ A) : 0 ≼ Λ ≼ I }`. -/
-theorem posPartTrace_eq_sSup {A : Matrix d d ℂ} (hA : A.IsHermitian) :
-    posPartTrace hA =
-      sSup { x : ℝ | ∃ Λ : Matrix d d ℂ, Λ.PosSemidef ∧ (1 - Λ).PosSemidef ∧
-        x = ((Λ * A).trace).re } := by
+/-- Attainment of the variational supremum for the positive spectral trace part:
+`Tr(A_+)` is the greatest element of `{ Re Tr(Λ A) : 0 ≼ Λ ≼ I }`. -/
+theorem posPartTrace_isGreatest {A : Matrix d d ℂ} (hA : A.IsHermitian) :
+    IsGreatest { x : ℝ | ∃ Λ : Matrix d d ℂ, Λ.PosSemidef ∧ (1 - Λ).PosSemidef ∧
+      x = ((Λ * A).trace).re } (posPartTrace hA) := by
   set S : Set ℝ := { x : ℝ | ∃ Λ : Matrix d d ℂ, Λ.PosSemidef ∧ (1 - Λ).PosSemidef ∧
     x = ((Λ * A).trace).re }
   set U : Matrix d d ℂ := (hA.eigenvectorUnitary : Matrix d d ℂ)
@@ -734,21 +734,77 @@ theorem posPartTrace_eq_sSup {A : Matrix d d ℂ} (hA : A.IsHermitian) :
         trace_posPartMat hA, Complex.ofReal_re] at hdiff_nn
       linarith
     linarith
-  exact le_antisymm (le_csSup ⟨posPartTrace hA, hbdd⟩ hmem) (csSup_le ⟨posPartTrace hA, hmem⟩ hbdd)
+  exact ⟨hmem, hbdd⟩
+
+/-- Variational equality for the positive spectral trace part:
+`Tr(A_+) = sup { Re Tr(Λ A) : 0 ≼ Λ ≼ I }`. -/
+theorem posPartTrace_eq_sSup {A : Matrix d d ℂ} (hA : A.IsHermitian) :
+    posPartTrace hA =
+      sSup { x : ℝ | ∃ Λ : Matrix d d ℂ, Λ.PosSemidef ∧ (1 - Λ).PosSemidef ∧
+        x = ((Λ * A).trace).re } :=
+  (posPartTrace_isGreatest hA).csSup_eq.symm
+
+/-- Attainment of the variational form of the hockey-stick divergence (Eq. 2.2):
+`E_γ(ρ ‖ σ)` is the greatest element of `{ Re Tr(Λ (ρ - γ σ)) : 0 ≼ Λ ≼ I }`. -/
+theorem hockeyStick_isGreatest (γ : ℝ) (ρ σ : DensityOp d) :
+    IsGreatest { x : ℝ | ∃ Λ : Matrix d d ℂ, Λ.PosSemidef ∧ (1 - Λ).PosSemidef ∧
+      x = ((Λ * (ρ.mat - (γ : ℂ) • σ.mat)).trace).re } (hockeyStick γ ρ σ) := by
+  have hA : (ρ.mat - (γ : ℂ) • σ.mat).IsHermitian :=
+    ρ.isHermitian.sub (by
+      simpa [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def,
+        Complex.conj_ofReal] using congr_arg ((γ : ℂ) • ·) σ.isHermitian.eq)
+  exact posPartTrace_isGreatest hA
 
 /-- **Eq. (2.2) (Variational Form of Hockey-Stick Divergence)**:
 `E_γ(ρ ‖ σ) = sup { Re Tr(Λ (ρ - γ σ)) : 0 ≼ Λ ≼ I }`. -/
 theorem hockeyStick_eq_sSup (γ : ℝ) (ρ σ : DensityOp d) :
     hockeyStick γ ρ σ =
       sSup { x : ℝ | ∃ Λ : Matrix d d ℂ, Λ.PosSemidef ∧ (1 - Λ).PosSemidef ∧
-        x = ((Λ * (ρ.mat - (γ : ℂ) • σ.mat)).trace).re } := by
-  have hA : (ρ.mat - (γ : ℂ) • σ.mat).IsHermitian :=
-    ρ.isHermitian.sub (by
-      simpa [Matrix.IsHermitian, Matrix.conjTranspose_smul, Complex.star_def,
-        Complex.conj_ofReal] using congr_arg ((γ : ℂ) • ·) σ.isHermitian.eq)
-  have hhs : hockeyStick γ ρ σ = posPartTrace hA := rfl
-  rw [hhs]
-  exact posPartTrace_eq_sSup hA
+        x = ((Λ * (ρ.mat - (γ : ℂ) • σ.mat)).trace).re } :=
+  (hockeyStick_isGreatest γ ρ σ).csSup_eq.symm
+
+/-- Von Neumann entropy bounds: `0 ≤ S(ρ) ≤ log₂ |d|` for every density operator on a nonempty
+finite-dimensional Hilbert space. -/
+theorem vonNeumannEntropy_mem_Icc [Nonempty d] (ρ : DensityOp d) :
+    0 ≤ vonNeumannEntropy ρ ∧ vonNeumannEntropy ρ ≤ Real.logb 2 (Fintype.card d) := by
+  have hlog2 : 0 < Real.log 2 := Real.log_pos (by norm_num)
+  constructor
+  · unfold vonNeumannEntropy
+    apply div_nonneg _ (le_of_lt hlog2)
+    apply Finset.sum_nonneg; intro i _
+    have hle1 : ρ.eigvals i ≤ 1 := by
+      calc ρ.eigvals i ≤ ∑ j : d, ρ.eigvals j :=
+            Finset.single_le_sum (fun j _ ↦ ρ.eigvals_nonneg j) (Finset.mem_univ i)
+        _ = 1 := ρ.sum_eigvals
+    exact Real.negMulLog_nonneg (ρ.eigvals_nonneg i) hle1
+  · unfold vonNeumannEntropy Real.logb
+    apply div_le_div_of_nonneg_right _ (le_of_lt hlog2)
+    have hcard_pos : (0 : ℝ) < (Fintype.card d : ℝ) := Nat.cast_pos.mpr Fintype.card_pos
+    set c : ℝ := (Fintype.card d : ℝ)⁻¹
+    have hc_pos : 0 < c := inv_pos.mpr hcard_pos
+    have hpt : ∀ i : d, Real.negMulLog (ρ.eigvals i) ≤
+        c - ρ.eigvals i - ρ.eigvals i * Real.log c := by
+      intro i
+      rcases eq_or_lt_of_le (ρ.eigvals_nonneg i) with h0 | hpos
+      · rw [← h0]; simp [Real.negMulLog]; linarith
+      · have hlog := Real.log_le_sub_one_of_pos (div_pos hc_pos hpos)
+        rw [Real.log_div (ne_of_gt hc_pos) (ne_of_gt hpos)] at hlog
+        have hmul := mul_le_mul_of_nonneg_left hlog (le_of_lt hpos)
+        have hdiv : ρ.eigvals i * (c / ρ.eigvals i - 1) = c - ρ.eigvals i := by
+          field_simp [ne_of_gt hpos]
+        rw [hdiv] at hmul
+        unfold Real.negMulLog
+        linarith
+    calc ∑ i : d, Real.negMulLog (ρ.eigvals i)
+        ≤ ∑ i : d, (c - ρ.eigvals i - ρ.eigvals i * Real.log c) :=
+          Finset.sum_le_sum fun i _ ↦ hpt i
+      _ = (∑ _ : d, c) - (∑ i : d, ρ.eigvals i) - (∑ i : d, ρ.eigvals i) * Real.log c := by
+          simp only [Finset.sum_sub_distrib, ← Finset.sum_mul]
+      _ = (Fintype.card d : ℝ) * c - 1 - 1 * Real.log c := by
+          rw [Finset.sum_const, Finset.card_univ, nsmul_eq_mul, ρ.sum_eigvals]
+      _ = Real.log (Fintype.card d) := by
+          have hmc : (Fintype.card d : ℝ) * c = 1 := mul_inv_cancel₀ (ne_of_gt hcard_pos)
+          rw [hmc, one_mul, Real.log_inv]; ring
 
 end VariationalHockeyStick
 

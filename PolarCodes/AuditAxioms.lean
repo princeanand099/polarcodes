@@ -10,13 +10,12 @@ import PolarCodes.ChannelDualityEquiv
 import PolarCodes.Refinements
 import PolarCodes.MainTheorem
 import PolarCodes.PhiAndFuchs
+import PolarCodes.MrsGerberEquality
 
 /-!
-# Kernel Axiom Audit
+# Axiom Audit
 
-Verifies that every headline theorem in `PolarCodes` depends strictly on the three standard
-Lean 4 / Mathlib axioms (`propext`, `Classical.choice`, `Quot.sound`) with zero `sorryAx` or
-custom axioms.
+Prints the axiom dependencies of the main theorems in `PolarCodes`.
 -/
 
 #print axioms PolarCodes.theorem_1_1_quantum_polar_poly_blocklength
@@ -26,8 +25,11 @@ custom axioms.
 #print axioms PolarCodes.theorem_1_2a_pure
 #print axioms PolarCodes.theorem_1_2a_bsc
 #print axioms PolarCodes.theorem_1_2a_classical
+#print axioms PolarCodes.theorem_1_2a_bsc_equality
+#print axioms PolarCodes.theorem_1_2a_pure_equality
 #print axioms PolarCodes.theorem_1_2b_linear_splitting
 #print axioms PolarCodes.theorem_1_2b_potential_contraction
+#print axioms PolarCodes.prop_4_3_asymptotic
 #print axioms PolarCodes.theorem_1_3_dephasing_sdpi
 #print axioms PolarCodes.theorem_1_3_equatorial_equality
 #print axioms PolarCodes.theorem_1_3_dephasing_sdpi_relEntropy
@@ -39,11 +41,15 @@ custom axioms.
 #print axioms PolarCodes.exists_coherent_css_decoder
 #print axioms PolarCodes.lemma_3_2_hockeyStick_measure
 #print axioms PolarCodes.lemma_3_2_hockeyStick_measure_equalSupport
+#print axioms PolarCodes.prop_3_3_qjjs
+#print axioms PolarCodes.prop_3_3_qjjs_classical_equality
 #print axioms PolarCodes.lemma_4_1_gram_dephasing
 #print axioms PolarCodes.lemma_4_1_gram_dephasing_relEntropy
 #print axioms PolarCodes.one_sub_rootFidelity_le_traceDist
 #print axioms PolarCodes.traceDist_le_sqrt_one_sub_rootFidelity_sq
+#print axioms PolarCodes.hockeyStick_isGreatest
 #print axioms PolarCodes.hockeyStick_eq_sSup
+#print axioms PolarCodes.vonNeumannEntropy_mem_Icc
 #print axioms PolarCodes.posPartMat_mul_negPartMat
 #print axioms PolarCodes.relEntropy_frenkel_integral_of_suppSubset
 #print axioms PolarCodes.relEntropy_hockeyStick_integral_of_suppSubset
